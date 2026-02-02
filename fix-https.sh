@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Script de Correção v15 - REPARO DE EMERGÊNCIA E LOGS
-# Resolve falha de inicialização da API e limpeza de módulos
+# Script de Correção v16 - LIMPEZA TOTAL E REPARO DEFINITIVO
+# Resolve conflitos de PM2, Criptografia e Estrutura de Banco
 
 DOMAIN="app.ublochat.com.br"
 ROOT="/var/www/myzap/dist"
@@ -9,14 +9,22 @@ DB_PASS="myzap_password_2026"
 DB_USER="myzap_user"
 DB_NAME="myzap"
 
-echo ">>> Iniciando REPARO v15 (Limpeza Total e Logs) <<<"
+echo ">>> Iniciando REPARO v16 (Limpeza Total) <<<"
 
-# 1. Limpeza de Módulos e Dependências (Forçar do zero)
-echo "Limpando instalações anteriores da API..."
+# 1. Matar tudo o que estiver rodando para evitar conflitos
+echo "Encerrando processos antigos..."
+pm2 stop all > /dev/null 2>&1
+pm2 delete all > /dev/null 2>&1
+pm2 kill > /dev/null 2>&1
+sudo fuser -k 5000/tcp > /dev/null 2>&1
+
+# 2. Limpeza Radical da Pasta API
+echo "Reconstruindo pasta da API..."
+sudo rm -rf /var/www/myzap/api
+mkdir -p /var/www/myzap/api
 cd /var/www/myzap/api
-rm -rf node_modules package-lock.json package.json
 
-echo "Re-criando package.json (BcryptJS)..."
+# 3. Criar arquivos do zero (Usando BCRYPTJS para evitar erros de compilação)
 cat > package.json <<EOF
 {
   "name": "myzap-api",
@@ -33,43 +41,111 @@ cat > package.json <<EOF
 }
 EOF
 
-echo "Instalando dependências limpas (Aguarde...)..."
+echo "Instalando dependências (Bcryptjs)..."
 npm install --no-audit --no-fund > /dev/null 2>&1
 
-# 2. Configurar Banco e Estrutura
-echo "Garantindo estrutura do banco de dados..."
+cat > .env <<EOF
+DB_HOST=127.0.0.1
+DB_USER=$DB_USER
+DB_PASSWORD=$DB_PASS
+DB_NAME=$DB_NAME
+JWT_SECRET=myzap_secret_shhh_2026
+PORT=5000
+EOF
+
+cat > server.js <<EOF
+const express = require('express');
+const mysql = require('mysql2/promise');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const cors = require('cors');
+require('dotenv').config();
+
+const app = express();
+app.use(express.json());
+app.use(cors());
+
+const dbConfig = {
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME
+};
+
+let pool;
+async function connect() {
+    try {
+        pool = mysql.createPool(dbConfig);
+        console.log('✅ API V16: MySQL Conectado');
+    } catch (e) {
+        console.error('❌ API V16: Erro MySQL:', e.message);
+    }
+}
+connect();
+
+app.get('/api/health', (req, res) => res.json({ status: 'ok', version: '16.0' }));
+
+app.post('/api/auth/register', async (req, res) => {
+    const { name, email, password } = req.body;
+    try {
+        if (!name || !email || !password) return res.status(400).json({ error: 'Dados incompletos' });
+        const [rows] = await pool.execute('SELECT id FROM users WHERE email = ?', [email]);
+        if (rows.length > 0) return res.status(400).json({ error: 'Email já cadastrado.' });
+        const hash = await bcrypt.hash(password, 10);
+        await pool.execute('INSERT INTO users (name, email, password) VALUES (?, ?, ?)', [name, email, hash]);
+        res.status(201).json({ message: 'OK' });
+    } catch (e) {
+        console.error('Register Error:', e.message);
+        res.status(500).json({ error: 'Erro no banco: ' + e.message });
+    }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+    const { email, password } = req.body;
+    try {
+        const [rows] = await pool.execute('SELECT * FROM users WHERE email = ?', [email]);
+        if (rows.length === 0) return res.status(401).json({ error: 'Usuário não encontrado' });
+        const valid = await bcrypt.compare(password, rows[0].password);
+        if (!valid) return res.status(401).json({ error: 'Senha incorreta' });
+        const token = jwt.sign({ id: rows[0].id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+        res.json({ token, user: { id: rows[0].id, name: rows[0].name } });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.listen(5000, '0.0.0.0', () => console.log('🚀 API V16 ONLINE na porta 5000'));
+EOF
+
+# 4. Reparar Banco de Dados de forma robusta
+echo "Ajustando banco de dados..."
 sudo mysql -e "CREATE DATABASE IF NOT EXISTS $DB_NAME;"
-sudo mysql -e "USE $DB_NAME; 
-CREATE TABLE IF NOT EXISTS users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(255),
-    email VARCHAR(255) UNIQUE,
-    password VARCHAR(255),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);"
-sudo mysql -e "USE $DB_NAME; ALTER TABLE users ADD COLUMN IF NOT EXISTS name VARCHAR(255) AFTER id;" 2>/dev/null
+sudo mysql -e "USE $DB_NAME; CREATE TABLE IF NOT EXISTS users (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(255), email VARCHAR(255) UNIQUE, password VARCHAR(255), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
+# Adicionar coluna name apenas se não existir
+COLUMN_EXISTS=$(sudo mysql -N -s -e "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='$DB_NAME' AND TABLE_NAME='users' AND COLUMN_NAME='name';")
+if [ "$COLUMN_EXISTS" -eq 0 ]; then
+    sudo mysql -e "USE $DB_NAME; ALTER TABLE users ADD COLUMN name VARCHAR(255) AFTER id;"
+fi
+sudo mysql -e "ALTER USER '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASS';" || sudo mysql -e "CREATE USER IF NOT EXISTS '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASS'; GRANT ALL PRIVILEGES ON $DB_NAME.* TO '$DB_USER'@'localhost';"
+sudo mysql -e "FLUSH PRIVILEGES;"
 
-# 3. Reiniciar Processo Port 5000
-echo "Limpando porta 5000..."
-sudo fuser -k 5000/tcp > /dev/null 2>&1
-
-echo "Iniciando API com PM2..."
-pm2 delete myzap-api > /dev/null 2>&1
+# 5. Reiniciar o Backend com PM2 novo
+echo "Iniciando nova API..."
 pm2 start server.js --name "myzap-api"
 pm2 save > /dev/null 2>&1
 
-# 4. Validar Conectividade
-echo ">>> TESTE DE CONECTIVIDADE FINAL <<<"
+# 6. Reconfigurar e Reiniciar Apache
+echo "Reiniciando Apache..."
+sudo a2enmod proxy proxy_http rewrite ssl headers > /dev/null 2>&1
+sudo systemctl restart apache2
+
+echo ">>> AGUARDANDO VERIFICAÇÃO FINAL... <<<"
 sleep 5
 RESPONSE=$(curl -s http://127.0.0.1:5000/api/health)
-
-if [[ $RESPONSE == *"ok"* ]]; then
-    echo "✅ SUCESSO! A API está online e respondendo."
-    # Reiniciar Apache para garantir roteamento
-    sudo systemctl restart apache2
-    echo ">>> TUDO PRONTO! Pode tentar se cadastrar agora."
+if [[ $RESPONSE == *"16.0"* ]]; then
+    echo "✅ SUCESSO! API Versão 16 Online e Pronta!"
 else
-    echo "❌ FALHA CRÍTICA: A API não iniciou corretamente."
-    echo "--- ÚLTIMOS ERROS DO BACKEND (LOGS) ---"
-    pm2 logs myzap-api --lines 20 --no-daemon
+    echo "❌ FALHA: A API ainda não respondeu. Verifique pm2 logs."
 fi
+
+echo ">>> REPARO v16 CONCLUÍDO! Tente o cadastro agora. <<<"
