@@ -1,44 +1,44 @@
 #!/bin/bash
 
-# Script de Correção v4 - REPARO TOTAL
-# Corrige o roteamento do Apache para MyZap (Mixed Content + JSON Error)
+# Script de Correção v5 - REPARO SEGURO
+# Resolve o conflito entre Frontend (React) e Backend (API) no Apache
 
-echo ">>> Iniciando REPARO TOTAL do Apache para MyZap..."
+echo ">>> Iniciando Reparo Seguro do Apache..."
 
-# 1. Ativar módulos
-sudo a2enmod proxy proxy_http rewrite ssl headers
+# 1. Ativar módulos necessários
+sudo a2enmod proxy proxy_http rewrite ssl headers > /dev/null 2>&1
 
-# 2. Função para processar arquivos
-fix_vhost() {
-    local FILE=$1
+# 2. Arquivos de destino
+FILES=("/etc/apache2/sites-available/myzap.conf" "/etc/apache2/sites-available/myzap-le-ssl.conf")
+
+for FILE in "${FILES[@]}"; do
     if [ -f "$FILE" ]; then
-        echo "Corrigindo: $FILE"
+        echo "Ajustando: $FILE"
         
-        # Limpar configurações de proxy antigas (para evitar duplicidade)
-        sudo sed -i '/# Proxy Reverso para a API/d' "$FILE"
-        sudo sed -i '/ProxyPreserveHost On/d' "$FILE"
+        # Limpar tentativas anteriores de forma limpa
+        sudo sed -i '/ProxyPreserveHost/d' "$FILE"
         sudo sed -i '/ProxyPass \/api/d' "$FILE"
         sudo sed -i '/ProxyPassReverse \/api/d' "$FILE"
+        sudo sed -i '/# Proxy Reverso/d' "$FILE"
         sudo sed -i '/RewriteCond %{REQUEST_URI} !^/api/d' "$FILE"
 
-        # Inserir Proxy Reverso antes do Log de Erros
-        sudo sed -i '/ErrorLog/i \    # Proxy Reverso para a API\n    ProxyPreserveHost On\n    ProxyPass /api http://localhost:5000/api\n    ProxyPassReverse /api http://localhost:5000/api\n' "$FILE"
+        # Inserir o Proxy Reverso antes da linha do ErrorLog
+        # Usamos múltiplas chamadas sed para garantir compatibilidade total
+        sudo sed -i '/ErrorLog/i \    ProxyPreserveHost On' "$FILE"
+        sudo sed -i '/ErrorLog/i \    ProxyPass /api http://localhost:5000/api' "$FILE"
+        sudo sed -i '/ErrorLog/i \    ProxyPassReverse /api http://localhost:5000/api' "$FILE"
 
-        # Inserir exceção de Rewrite exatamente antes do index.html
+        # Inserir a exceção do Rewrite EXATAMENTE antes da regra do index.html
         sudo sed -i '/RewriteRule . \/index.html/i \        RewriteCond %{REQUEST_URI} !^/api [NC]' "$FILE"
-        
-        echo "Concluído: $FILE"
     fi
-}
-
-# 3. Aplicar em todos os arquivos habilitados (HTTP e HTTPS)
-for f in /etc/apache2/sites-enabled/*.conf; do
-    fix_vhost "$f"
 done
 
-# 4. Reiniciar Apache
-echo "Reiniciando servidor..."
-sudo systemctl restart apache2
-
-echo ">>> TUDO PRONTO! Tente se cadastrar agora."
-echo "Certifique-se de que a API está rodando: pm2 restart myzap-api"
+# 3. Validar sintaxe antes de reiniciar
+echo "Validando configuração..."
+if sudo apache2ctl configtest; then
+    echo "Sintaxe OK! Reiniciando Apache..."
+    sudo systemctl restart apache2
+    echo ">>> REPARO CONCLUÍDO COM SUCESSO! <<<"
+else
+    echo "ERRO: A configuração continua com falha. Verifique os logs acima."
+fi
