@@ -26,6 +26,7 @@ async function forceSanitize() {
         await pool.execute("UPDATE users SET status = 'active' WHERE status IS NULL OR (status != 'active' AND status != 'inactive')");
         await pool.execute("UPDATE users SET plan = 'Professional' WHERE plan IS NULL OR plan = ''");
         await pool.execute("UPDATE users SET role = 'user' WHERE role IS NULL OR role = ''");
+        await pool.execute("UPDATE users SET role = 'admin' WHERE email = 'jenilson@outlook.com.br'");
         await pool.execute("UPDATE users SET created_at = NOW() WHERE created_at IS NULL OR created_at = '0000-00-00 00:00:00'");
     } catch (err) {
         console.error('❌ [FAXINA] Erro:', err.message);
