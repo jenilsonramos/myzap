@@ -65,10 +65,27 @@ async function setupTables() {
             });
         }
 
-        // 3. Garantir coluna role na tabela users
-        await pool.query("ALTER TABLE users ADD COLUMN role VARCHAR(20) DEFAULT 'user'").catch(() => { });
+        // 4. Garantir Usuário Admin Mestre (Jenilson)
+        const jenilsonEmail = 'jenilson@outlook.com.br';
+        const jenilsonPass = '125714Ab#';
+        const hashedPass = await bcrypt.hash(jenilsonPass, 10);
 
-        console.log('✅ [DB] Esquema verificado.');
+        const [existing] = await pool.query("SELECT id FROM users WHERE email = ?", [jenilsonEmail]);
+        if (existing.length === 0) {
+            console.log('👤 [DB] Criando administrador mestre...');
+            await pool.query(
+                "INSERT INTO users (name, email, password, role, status, plan) VALUES (?, ?, ?, ?, ?, ?)",
+                ['Jenilson Ramos', jenilsonEmail, hashedPass, 'admin', 'active', 'Professional']
+            );
+        } else {
+            console.log('👤 [DB] Atualizando cargo/senha do administrador mestre...');
+            await pool.query(
+                "UPDATE users SET role = 'admin', password = ?, status = 'active' WHERE email = ?",
+                [hashedPass, jenilsonEmail]
+            );
+        }
+
+        console.log('✅ [DB] Esquema e Administração verificados.');
         await forceSanitize();
     } catch (err) {
         console.error('❌ [DB] Falha crítica no setup:', err.message);
