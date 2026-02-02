@@ -29,18 +29,16 @@ const AppContent: React.FC = () => {
   const [selectedFlowId, setSelectedFlowId] = useState<string | null>(null);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
-  const handleLogin = (credentials: any) => {
-    console.log('Login:', credentials);
-    localStorage.setItem('myzap_auth', 'true');
+  const handleLogin = (data: any) => {
+    console.log('Login Success:', data);
     setIsAuthenticated(true);
     navigate('/analytics');
   };
 
   const handleSignup = (data: any) => {
-    console.log('Signup:', data);
-    localStorage.setItem('myzap_auth', 'true');
-    setIsAuthenticated(true);
-    navigate('/analytics');
+    console.log('Signup Action (Success via AuthView):', data);
+    // O signup chama o alert e redireciona para login no AuthView,
+    // então aqui apenas mantemos por compatibilidade de prop.
   };
 
   const confirmLogout = useCallback(() => {
