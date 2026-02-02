@@ -1,24 +1,29 @@
 #!/bin/bash
 
-# Script de Correção v7 - REPARO DEFINITIVO
-# Sobrescreve as configurações corrompidas por um modelo limpo e funcional.
+# Script de Correção v8 - SUPER LIMPEZA
+# Remove arquivos fantasmas e restaura o roteamento MyZap
 
 DOMAIN="app.ublochat.com.br"
 ROOT="/var/www/myzap/dist"
 
-echo ">>> Iniciando REPARO DEFINITIVO do Apache para $DOMAIN..."
+echo ">>> Iniciando SUPER LIMPEZA do Apache para $DOMAIN..."
 
 # 1. Ativar módulos essenciais
 sudo a2enmod proxy proxy_http rewrite ssl headers > /dev/null 2>&1
 
-# 2. Caminhos dos arquivos
-HTTP_CONF="/etc/apache2/sites-available/myzap.conf"
-HTTPS_CONF="/etc/apache2/sites-available/myzap-le-ssl.conf"
+# 2. REMOÇÃO AGRESSIVA de arquivos antigos (Limpa qualquer erro 'pi/d')
+echo "Limpando arquivos de configuração antigos..."
+sudo rm -f /etc/apache2/sites-available/myzap.conf
+sudo rm -f /etc/apache2/sites-available/myzap-le-ssl.conf
+sudo rm -f /etc/apache2/sites-enabled/myzap.conf
+sudo rm -f /etc/apache2/sites-enabled/myzap-le-ssl.conf
 
-# --- FUNÇÃO PARA GERAR O CONTEÚDO LIMPO ---
-generate_conf() {
-    local PORT=$1
-    cat <<EOF
+# 3. Função para gerar o conteúdo direto no arquivo
+create_vhost() {
+    local FILE=$1
+    local PORT=$2
+    
+    sudo bash -c "cat > $FILE <<EOF
 <VirtualHost *:$PORT>
     ServerName $DOMAIN
     DocumentRoot $ROOT
@@ -47,28 +52,30 @@ generate_conf() {
     ErrorLog \${APACHE_LOG_DIR}/myzap_error.log
     CustomLog \${APACHE_LOG_DIR}/myzap_access.log combined
 
-$( [ "$PORT" == "443" ] && echo "    # Configurações SSL (geradas pelo Let's Encrypt anteriormente)
-    SSLEngine on
+$( [ "$PORT" == "443" ] && echo "    SSLEngine on
     SSLCertificateFile /etc/letsencrypt/live/$DOMAIN/fullchain.pem
     SSLCertificateKeyFile /etc/letsencrypt/live/$DOMAIN/privkey.pem" )
 </VirtualHost>
-EOF
+EOF"
 }
 
-# 3. Reescrever arquivos
-echo "Reescrevendo configurações do Apache..."
-generate_conf 80 | sudo tee "$HTTP_CONF" > /dev/null
+# 4. Re-criar os arquivos
+echo "Re-criando configurações limpas..."
+create_vhost "/etc/apache2/sites-available/myzap.conf" 80
+create_vhost "/etc/apache2/sites-available/myzap-le-ssl.conf" 443
 
-if [ -f "$HTTPS_CONF" ]; then
-    generate_conf 443 | sudo tee "$HTTPS_CONF" > /dev/null
-fi
+# 5. Re-habilitar
+echo "Habilitando sites..."
+sudo a2ensite myzap.conf > /dev/null 2>&1
+sudo a2ensite myzap-le-ssl.conf > /dev/null 2>&1
 
-# 4. Validar e Reiniciar
+# 6. Validar e Reiniciar
 echo "Validando sintaxe..."
 if sudo apache2ctl configtest; then
     echo "Sintaxe 100% OK! Reiniciando Apache..."
     sudo systemctl restart apache2
-    echo ">>> REPARO CONCLUÍDO! O erro de JSON e o erro 'pi/d' sumiram. <<<"
+    echo ">>> REPARO CONCLUÍDO COM SUCESSO! <<<"
+    echo "O erro de sintaxe 'pi/d' foi eliminado e o Proxy Reverso está ativo."
 else
-    echo "ERRO: Algo ainda está errado. Por favor, envie o erro acima para mim."
+    echo "ERRO CRÍTICO: O Apache ainda detectou erros. Verifique a saída acima."
 fi
