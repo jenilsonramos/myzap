@@ -58,7 +58,10 @@ const AuthView: React.FC<AuthViewProps> = ({
                 });
 
                 const data = await response.json();
-                if (!response.ok) throw new Error(data.error || 'Erro no cadastro.');
+                if (!response.ok) {
+                    const errorMsg = data.details ? `${data.error} (${data.details})` : (data.error || 'Erro no cadastro.');
+                    throw new Error(errorMsg);
+                }
 
                 console.log('Signup success! Showing toast...');
                 showToast('Cadastro realizado com sucesso!', 'success');
