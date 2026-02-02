@@ -9,14 +9,16 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ currentView }) => {
   const [userData, setUserData] = React.useState(() => {
     const user = JSON.parse(localStorage.getItem('myzap_user') || '{}');
-    const avatar = localStorage.getItem('myzap_avatar') || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150&q=80';
+    const avatarKey = `myzap_avatar_${user.email || 'guest'}`;
+    const avatar = localStorage.getItem(avatarKey) || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150&q=80';
     return { name: user.name || 'Admin Evolution', role: 'Project Owner', avatar };
   });
 
   React.useEffect(() => {
     const updateProfile = () => {
       const user = JSON.parse(localStorage.getItem('myzap_user') || '{}');
-      const avatar = localStorage.getItem('myzap_avatar') || userData.avatar;
+      const avatarKey = `myzap_avatar_${user.email || 'guest'}`;
+      const avatar = localStorage.getItem(avatarKey) || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150&q=80';
       setUserData({ name: user.name || 'Admin Evolution', role: 'Project Owner', avatar });
     };
 

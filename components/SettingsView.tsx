@@ -7,17 +7,21 @@ const SettingsView: React.FC = () => {
 
     // Dados Reais do Usuário
     const user = JSON.parse(localStorage.getItem('myzap_user') || '{}');
+    const avatarKey = `myzap_avatar_${user.email || 'guest'}`;
+
     const [profileData, setProfileData] = useState({
         name: user.name || 'Admin',
         email: user.email || '',
         role: 'Project Owner',
-        phone: localStorage.getItem('myzap_phone') || '+55 11 99999-9999',
-        avatar: localStorage.getItem('myzap_avatar') || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150&q=80'
+        phone: localStorage.getItem(`myzap_phone_${user.email}`) || '+55 11 99999-9999',
+        avatar: localStorage.getItem(avatarKey) || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150&q=80'
     });
 
     const handleSave = () => {
-        localStorage.setItem('myzap_user', JSON.stringify({ ...user, name: profileData.name, email: profileData.email }));
-        localStorage.setItem('myzap_avatar', profileData.avatar);
+        const updatedUser = { ...user, name: profileData.name, email: profileData.email };
+        localStorage.setItem('myzap_user', JSON.stringify(updatedUser));
+        localStorage.setItem(avatarKey, profileData.avatar);
+        localStorage.setItem(`myzap_phone_${user.email}`, profileData.phone);
         window.dispatchEvent(new Event('profileUpdate')); // Notifica o Header
         showToast('Configurações salvas com sucesso!');
     };

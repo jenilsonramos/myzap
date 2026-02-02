@@ -43,7 +43,7 @@ const AppContent: React.FC = () => {
 
   const confirmLogout = useCallback(() => {
     setIsLogoutModalOpen(false);
-    localStorage.removeItem('myzap_auth');
+    localStorage.clear(); // Limpa TUDO para garantir privacidade total
     setIsAuthenticated(false);
     navigate('/login');
   }, [navigate]);
