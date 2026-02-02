@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from './ToastContext';
 
 interface AuthViewProps {
     onLogin: (data: any) => void;
@@ -20,6 +21,7 @@ const AuthView: React.FC<AuthViewProps> = ({
     isDarkMode
 }) => {
     const navigate = useNavigate();
+    const { showToast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
     const [errorStatus, setErrorStatus] = useState<string | null>(null);
 
@@ -56,8 +58,27 @@ const AuthView: React.FC<AuthViewProps> = ({
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error || 'Erro no cadastro.');
 
-                alert('Cadastro realizado com sucesso! Você já pode entrar.');
-                navigate('/login');
+                showToast('Cadastro realizado com sucesso!', 'success');
+
+                // --- AUTO LOGIN ---
+                const loginResponse = await fetch(`${API_URL}/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: formData.email,
+                        password: formData.password
+                    })
+                });
+
+                const loginData = await loginResponse.json();
+                if (!loginResponse.ok) throw new Error(loginData.error || 'Erro ao realizar login automático.');
+
+                localStorage.setItem('myzap_token', loginData.token);
+                localStorage.setItem('myzap_user', JSON.stringify(loginData.user));
+                localStorage.setItem('myzap_auth', 'true');
+                onLogin(loginData);
+                // ------------------
+
             } else if (initialView === 'login') {
                 const response = await fetch(`${API_URL}/login`, {
                     method: 'POST',
@@ -74,11 +95,13 @@ const AuthView: React.FC<AuthViewProps> = ({
                 localStorage.setItem('myzap_token', data.token);
                 localStorage.setItem('myzap_user', JSON.stringify(data.user));
                 localStorage.setItem('myzap_auth', 'true');
+                showToast(`Bem-vindo de volta, ${data.user.name}!`, 'success');
                 onLogin(data);
             }
         } catch (err: any) {
             console.error('Auth Error:', err);
             setErrorStatus(err.message);
+            showToast(err.message, 'error');
         } finally {
             setIsLoading(false);
         }
