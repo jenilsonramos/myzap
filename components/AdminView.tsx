@@ -200,10 +200,10 @@ const AdminView: React.FC = () => {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                             {[
-                                { label: 'MRR Atual', val: 'R$ 42.850', sub: '+12% vs mês anterior', color: 'text-indigo-600' },
-                                { label: 'Novas Assinaturas', val: '142', sub: 'Média de 4.7/dia', color: 'text-emerald-500' },
-                                { label: 'LTV Estimado', val: 'R$ 1.840', sub: 'Baseado em 12 meses', color: 'text-primary' },
-                                { label: 'Taxa de Churn', val: '2.4%', sub: '-0.5% este mês', color: 'text-rose-500' },
+                                { label: 'MRR Atual', val: 'R$ 0', sub: 'Média de R$ 0/mês', color: 'text-indigo-600' },
+                                { label: 'Novas Assinaturas', val: '0', sub: 'Nenhum novo registro', color: 'text-emerald-500' },
+                                { label: 'LTV Estimado', val: 'R$ 0', sub: 'Baseado em dados reais', color: 'text-primary' },
+                                { label: 'Taxa de Churn', val: '0%', sub: 'Sem cancelamentos', color: 'text-rose-500' },
                             ].map((stat, i) => (
                                 <div key={i} className="p-6 bg-slate-50 dark:bg-white/5 rounded-3xl border border-slate-100 dark:border-white/5">
                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{stat.label}</p>
@@ -223,10 +223,10 @@ const AdminView: React.FC = () => {
                                 </div>
                             </div>
                             <div className="h-64 flex items-end gap-3 px-4">
-                                {[40, 55, 45, 70, 85, 65, 95, 120, 110, 135, 150, 140].map((h, i) => (
+                                {[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0].map((h, i) => (
                                     <div key={i} className="flex-1 group relative">
-                                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-indigo-600 text-white text-[9px] font-black px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">R${h}k</div>
-                                        <div className="bg-indigo-600/20 w-full rounded-t-lg transition-all group-hover:bg-indigo-600" style={{ height: `${h}px` }}></div>
+                                        <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-indigo-600 text-white text-[9px] font-black px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">R$ 0</div>
+                                        <div className="bg-slate-200 dark:bg-slate-800 w-full rounded-t-lg transition-all" style={{ height: `10px` }}></div>
                                         <div className="mt-4 text-[9px] font-black text-slate-400 text-center uppercase">{['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'][i]}</div>
                                     </div>
                                 ))}
@@ -238,9 +238,7 @@ const AdminView: React.FC = () => {
                                 <h4 className="text-sm font-black dark:text-white uppercase tracking-widest mb-6">Top Planos por Receita</h4>
                                 <div className="space-y-6">
                                     {[
-                                        { n: 'Master IA', p: '65%', c: 'bg-indigo-600' },
-                                        { n: 'Enterprise', p: '25%', c: 'bg-primary' },
-                                        { n: 'Professional', p: '10%', c: 'bg-emerald-500' },
+                                        { n: 'Nenhum dado', p: '0%', c: 'bg-slate-200' },
                                     ].map((p, i) => (
                                         <div key={i} className="space-y-2">
                                             <div className="flex justify-between text-[11px] font-black uppercase">
