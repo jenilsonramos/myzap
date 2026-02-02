@@ -97,7 +97,7 @@ const AnalyticsView: React.FC = () => {
               </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                 <span className="text-slate-400 text-[10px] md:text-xs font-medium uppercase tracking-wider">Total Mensagens</span>
-                <span className="text-xl md:text-2xl font-black dark:text-white tabular-nums">2,500k</span>
+                <span className="text-xl md:text-2xl font-black dark:text-white tabular-nums">0</span>
               </div>
             </div>
           </div>
@@ -199,15 +199,15 @@ const AnalyticsView: React.FC = () => {
             </button>
           </div>
           <div className="flex items-center justify-center h-48 space-x-[-15px] md:space-x-[-25px]">
-            <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-purple-500/80 flex items-center justify-center text-white text-[10px] font-black shadow-lg z-0 transition-transform hover:scale-110 cursor-pointer">10%</div>
-            <div className="w-28 h-28 md:w-36 md:h-36 rounded-full bg-indigo-600 flex items-center justify-center text-white text-lg md:text-2xl font-black shadow-2xl z-20 border-4 border-white dark:border-card-dark transition-transform hover:scale-110 cursor-pointer">70%</div>
-            <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-secondary flex items-center justify-center text-white text-xs md:text-base font-black shadow-lg z-10 transition-transform hover:scale-110 cursor-pointer">20%</div>
+            <div className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-purple-500/80 flex items-center justify-center text-white text-[10px] font-black shadow-lg z-0 transition-transform hover:scale-110 cursor-pointer">0%</div>
+            <div className="w-28 h-28 md:w-36 md:h-36 rounded-full bg-indigo-600 flex items-center justify-center text-white text-lg md:text-2xl font-black shadow-2xl z-20 border-4 border-white dark:border-card-dark transition-transform hover:scale-110 cursor-pointer">0%</div>
+            <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-secondary flex items-center justify-center text-white text-xs md:text-base font-black shadow-lg z-10 transition-transform hover:scale-110 cursor-pointer">0%</div>
           </div>
           <div className="mt-8 space-y-3">
             {[
-              { label: 'Respondidas', val: '70%', color: 'bg-indigo-600' },
-              { label: 'Transmissão', val: '20%', color: 'bg-secondary' },
-              { label: 'Instantâneas', val: '10%', color: 'bg-purple-500' },
+              { label: 'Respondidas', val: '0%', color: 'bg-indigo-600' },
+              { label: 'Transmissão', val: '0%', color: 'bg-secondary' },
+              { label: 'Instantâneas', val: '0%', color: 'bg-purple-500' },
             ].map(item => (
               <div key={item.label} className="flex items-center justify-between text-xs">
                 <div className="flex items-center space-x-2">

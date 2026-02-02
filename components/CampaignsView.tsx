@@ -23,7 +23,7 @@ const CampaignsView: React.FC = () => {
                 <div className="bg-indigo-500 rounded-3xl p-6 text-white shadow-xl shadow-indigo-500/20 relative overflow-hidden group">
                     <span className="material-icons-round absolute -right-4 -bottom-4 text-8xl opacity-20 group-hover:scale-110 transition-transform">campaign</span>
                     <p className="text-indigo-100 font-bold text-xs uppercase tracking-widest mb-1">Total Enviado</p>
-                    <h3 className="text-3xl font-black">42.850</h3>
+                    <h3 className="text-3xl font-black">0</h3>
                     <div className="mt-4 flex items-center gap-1.5 text-xs font-bold text-indigo-100 bg-white/10 w-fit px-2 py-1 rounded-lg">
                         <span className="material-icons-round text-sm">trending_up</span>
                         <span>+12% este mês</span>
@@ -32,7 +32,7 @@ const CampaignsView: React.FC = () => {
                 <div className="bg-emerald-500 rounded-3xl p-6 text-white shadow-xl shadow-emerald-500/20 relative overflow-hidden group">
                     <span className="material-icons-round absolute -right-4 -bottom-4 text-8xl opacity-20 group-hover:scale-110 transition-transform">verified</span>
                     <p className="text-emerald-100 font-bold text-xs uppercase tracking-widest mb-1">Taxa de Sucesso</p>
-                    <h3 className="text-3xl font-black">94.2%</h3>
+                    <h3 className="text-3xl font-black">0%</h3>
                     <div className="mt-4 flex items-center gap-1.5 text-xs font-bold text-emerald-100 bg-white/10 w-fit px-2 py-1 rounded-lg">
                         <span className="material-icons-round text-sm">check_circle</span>
                         <span>Alta eficácia</span>
@@ -41,7 +41,7 @@ const CampaignsView: React.FC = () => {
                 <div className="bg-amber-500 rounded-3xl p-6 text-white shadow-xl shadow-amber-500/20 relative overflow-hidden group">
                     <span className="material-icons-round absolute -right-4 -bottom-4 text-8xl opacity-20 group-hover:scale-110 transition-transform">schedule</span>
                     <p className="text-amber-100 font-bold text-xs uppercase tracking-widest mb-1">Agendadas</p>
-                    <h3 className="text-3xl font-black">3</h3>
+                    <h3 className="text-3xl font-black">0</h3>
                     <div className="mt-4 flex items-center gap-1.5 text-xs font-bold text-amber-100 bg-white/10 w-fit px-2 py-1 rounded-lg">
                         <span className="material-icons-round text-sm">event</span>
                         <span>Próximo disparo: Amanhã</span>
@@ -50,7 +50,7 @@ const CampaignsView: React.FC = () => {
                 <div className="bg-rose-500 rounded-3xl p-6 text-white shadow-xl shadow-rose-500/20 relative overflow-hidden group">
                     <span className="material-icons-round absolute -right-4 -bottom-4 text-8xl opacity-20 group-hover:scale-110 transition-transform">error_outline</span>
                     <p className="text-rose-100 font-bold text-xs uppercase tracking-widest mb-1">Erros</p>
-                    <h3 className="text-3xl font-black">1.2%</h3>
+                    <h3 className="text-3xl font-black">0%</h3>
                     <div className="mt-4 flex items-center gap-1.5 text-xs font-bold text-rose-100 bg-white/10 w-fit px-2 py-1 rounded-lg">
                         <span className="material-icons-round text-sm">trending_down</span>
                         <span>-2% que ontem</span>

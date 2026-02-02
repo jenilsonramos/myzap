@@ -28,13 +28,7 @@ const FlowsListView: React.FC<FlowsListViewProps> = ({ onEditFlow }) => {
         if (savedFlows) {
             setFlows(JSON.parse(savedFlows));
         } else {
-            const mockFlows: Flow[] = [
-                { id: '1', name: 'Boas-vindas Premium', status: 'active', executions: 1240, performance: '98%', instances: ['Instância 01', 'Instância 02'], updatedAt: new Date().toLocaleDateString('pt-BR') },
-                { id: '2', name: 'Recuperação de Carrinho', status: 'paused', executions: 450, performance: '85%', instances: ['Instância 03'], updatedAt: new Date().toLocaleDateString('pt-BR') },
-                { id: '3', name: 'Suporte IA Nível 1', status: 'active', executions: 3200, performance: '92%', instances: ['Instância 01'], updatedAt: new Date().toLocaleDateString('pt-BR') },
-            ];
-            setFlows(mockFlows);
-            localStorage.setItem('myzap_flows', JSON.stringify(mockFlows));
+            setFlows([]);
         }
     }, []);
 
