@@ -23,19 +23,18 @@ let pool;
 async function forceSanitize() {
     try {
         if (!pool) return;
-        console.log('🧹 [FAXINA] Iniciando limpeza forçada...');
+        console.log('🧹 [FAXINA] Iniciando limpeza profunda e persistente...');
 
-        // 1. Forçar status 'active' para quem não é explicitamente 'inactive'
-        await pool.execute("UPDATE users SET status = 'active' WHERE status IS NULL OR (status != 'active' AND status != 'inactive')");
+        // 1. Forçar status 'active' no banco
+        const [res1] = await pool.execute("UPDATE users SET status = 'active' WHERE status IS NULL OR (status != 'active' AND status != 'inactive')");
 
-        // 2. Garantir Plano Professional
-        await pool.execute("UPDATE users SET plan = 'Professional' WHERE plan IS NULL OR plan = ''");
+        // 2. Garantir Plano Professional no banco
+        const [res2] = await pool.execute("UPDATE users SET plan = 'Professional' WHERE plan IS NULL OR plan = ''");
 
-        // 3. Consertar Datas Nulas ou Zeradas
-        await pool.execute("UPDATE users SET created_at = NOW() WHERE created_at IS NULL OR created_at = '0000-00-00 00:00:00' OR created_at = '0000-00-00' OR created_at = ''");
-        await pool.execute("UPDATE users SET updated_at = NOW() WHERE updated_at IS NULL OR updated_at = '0000-00-00 00:00:00' OR updated_at = '0000-00-00' OR updated_at = ''");
+        // 3. Consertar Datas Nulas ou Zeradas no banco
+        const [res3] = await pool.execute("UPDATE users SET created_at = NOW() WHERE created_at IS NULL OR created_at = '0000-00-00 00:00:00' OR created_at = '0000-00-00' OR created_at = ''");
 
-        console.log('✨ [FAXINA] Banco de dados limpo e organizado!');
+        console.log(`✨ [FAXINA] Concluída. Registros afetados: Status(${res1.affectedRows}), Plano(${res2.affectedRows}), Data(${res3.affectedRows})`);
     } catch (err) {
         console.error('❌ [FAXINA] Falha ao limpar banco:', err.message);
     }
@@ -46,11 +45,11 @@ async function connectToDB() {
         pool = mysql.createPool({
             ...dbConfig,
             waitForConnections: true,
-            connectionLimit: 5,
+            connectionLimit: 10,
             queueLimit: 0
         });
-        console.log('✅ Pool MySQL Conectado.');
-        // Roda a primeira faxina na hora!
+        console.log('✅ MyZap MySQL Pool Criado.');
+        // Faxina imediata
         await forceSanitize();
     } catch (err) {
         console.error('❌ Erro Crítico MySQL:', err.message);
@@ -69,21 +68,22 @@ app.post('/api/auth/register', async (req, res) => {
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // INSERT BLINDADO: Tenta o máximo, se falhar, tenta o básico
         let result;
         try {
+            // INSERT COMPLETO
             [result] = await pool.execute(
                 "INSERT INTO users (name, email, password, status, plan, created_at, updated_at) VALUES (?, ?, ?, 'active', 'Professional', NOW(), NOW())",
                 [name, email, hashedPassword]
             );
         } catch (e) {
-            console.warn('⚠️ Fallback de registro para:', email);
+            console.warn('⚠️ Fallback de registro ativado:', e.message);
+            // INSERT MINIMALISTA
             [result] = await pool.execute(
                 "INSERT INTO users (name, email, password) VALUES (?, ?, ?)",
                 [name, email, hashedPassword]
             );
-            // Se usou fallback, força a faxina imediata para esse usuário
-            await forceSanitize();
+            // Faxina imediata para garantir o novo usuário
+            forceSanitize().catch(err => console.error(err));
         }
 
         res.status(201).json({ message: 'Sucesso!' });
@@ -111,7 +111,6 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
-// Middleware de Autenticação
 const authenticateToken = (req, res, next) => {
     const token = req.headers['authorization']?.split(' ')[1];
     if (!token) return res.sendStatus(401);
@@ -122,22 +121,29 @@ const authenticateToken = (req, res, next) => {
     });
 };
 
-// --- GESTÃO ADMIN ---
+// --- GESTÃO ADMIN COM SANEAMENTO NO RETORNO ---
 app.get('/api/admin/users', authenticateToken, async (req, res) => {
     try {
-        // Roda a faxina toda vez que o admin entra, só por segurança!
-        await forceSanitize();
+        // Dispara faxina no banco (background)
+        forceSanitize().catch(console.error);
 
         const [rows] = await pool.execute('SELECT id, name, email, plan, status, created_at FROM users ORDER BY created_at DESC');
 
-        // Log diagnóstico (para eu ver no console do PM2)
-        console.log('📋 Enviando lista de usuários para o Admin...');
-        console.table(rows.map(u => ({ Nome: u.name, Status: u.status, Data: u.created_at })));
+        // Saneamento de Emergência (Garante visual mesmo se o banco falhar em salvar)
+        const sanitizedRows = rows.map(u => ({
+            ...u,
+            status: (u.status === 'active' || u.status === 'inactive') ? u.status : 'active',
+            plan: u.plan || 'Professional',
+            created_at: (u.created_at && u.created_at !== '0000-00-00 00:00:00') ? u.created_at : new Date()
+        }));
 
-        res.json(rows);
+        console.log('📋 [DIAGNÓSTICO] Enviando lista sanitizada para o Admin...');
+        console.table(sanitizedRows.map(u => ({ Nome: u.name, Status: u.status, Data: u.created_at })));
+
+        res.json(sanitizedRows);
     } catch (err) {
         console.error('Erro ao listar:', err);
-        res.status(500).json({ error: 'Erro ao listar.' });
+        res.status(500).json({ error: 'Erro ao listar usuários.' });
     }
 });
 
@@ -174,4 +180,4 @@ app.post('/api/admin/settings', authenticateToken, async (req, res) => {
 });
 
 const PORT = 5000;
-app.listen(PORT, '0.0.0.0', () => console.log(`🚀 MyZap API ON: ${PORT}`));
+app.listen(PORT, '0.0.0.0', () => console.log(`🚀 MyZap Pro API ON: ${PORT}`));
