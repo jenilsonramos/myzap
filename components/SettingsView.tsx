@@ -8,10 +8,10 @@ const SettingsView: React.FC = () => {
     // Dados Reais do Usuário
     const user = JSON.parse(localStorage.getItem('myzap_user') || '{}');
     const [profileData, setProfileData] = useState({
-        name: user.name || 'Admin Evolution',
-        email: user.email || 'admin@myzap.com.br',
+        name: user.name || 'Admin',
+        email: user.email || '',
         role: 'Project Owner',
-        phone: '+55 11 99999-9999',
+        phone: localStorage.getItem('myzap_phone') || '+55 11 99999-9999',
         avatar: localStorage.getItem('myzap_avatar') || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150&q=80'
     });
 

@@ -26,7 +26,10 @@ const Header: React.FC<HeaderProps> = ({ currentView }) => {
 
   const titles: Record<string, { title: string; subtitle: string }> = {
     [AppView.INSTANCES]: { title: 'Instâncias', subtitle: 'Gerencie suas conexões Evolution API' },
-    [AppView.ANALYTICS]: { title: 'Análise Geral', subtitle: 'Métricas de tráfego e atendimento' },
+    [AppView.ANALYTICS]: {
+      title: `Olá, ${userData.name.split(' ')[0]}! 👋`,
+      subtitle: new Intl.DateTimeFormat('pt-BR', { dateStyle: 'full', timeZone: 'America/Sao_Paulo' }).format(new Date())
+    },
     [AppView.CHAT]: { title: 'Live Chat', subtitle: 'Atendimento omnicanal em tempo real' },
     [AppView.CONTACTS]: { title: 'Contatos', subtitle: 'Sua lista de clientes e leads' },
     [AppView.CAMPAIGNS]: { title: 'Campanhas', subtitle: 'Gestão de disparos e automações' },

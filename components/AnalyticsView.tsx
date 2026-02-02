@@ -22,24 +22,6 @@ const AnalyticsView: React.FC = () => {
 
   return (
     <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom duration-500">
-      {/* Header Greeting */}
-      <section className="bg-white dark:bg-card-dark p-6 md:p-8 rounded-huge shadow-sm border border-slate-50 dark:border-slate-800">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h2 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-              Olá, <span className="text-primary">{userName}</span>! 👋
-            </h2>
-            <p className="text-slate-500 dark:text-slate-400 text-sm font-medium mt-1 capitalize">
-              {brDate}
-            </p>
-          </div>
-          <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 dark:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/5">
-            <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Sistema Online</span>
-          </div>
-        </div>
-      </section>
-
       {/* Stats Row */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         <StatCard
