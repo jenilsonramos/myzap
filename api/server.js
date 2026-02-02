@@ -53,8 +53,8 @@ app.post('/api/auth/register', async (req, res) => {
         );
         res.status(201).json({ message: 'Usuário cadastrado com sucesso!', id: result.insertId });
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Erro interno no servidor.' });
+        console.error('ERRO NO REGISTRO:', err.message);
+        res.status(500).json({ error: 'Erro interno no servidor.', details: err.message });
     }
 });
 
