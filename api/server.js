@@ -20,36 +20,24 @@ const dbConfig = {
 
 let pool;
 
-async function setupUsersTable() {
+async function forceSanitize() {
     try {
         if (!pool) return;
-        const [columns] = await pool.execute('SHOW COLUMNS FROM users');
-        const colNames = columns.map(c => c.Field);
+        console.log('🧹 [FAXINA] Iniciando limpeza forçada...');
 
-        // Garante colunas com DEFAULTS corretos
-        if (!colNames.includes('status')) {
-            await pool.execute("ALTER TABLE users ADD COLUMN status VARCHAR(20) DEFAULT 'active'");
-        }
-        if (!colNames.includes('plan')) {
-            await pool.execute("ALTER TABLE users ADD COLUMN plan VARCHAR(50) DEFAULT 'Professional'");
-        }
-        if (!colNames.includes('created_at')) {
-            await pool.execute("ALTER TABLE users ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
-        }
-        if (!colNames.includes('updated_at')) {
-            await pool.execute("ALTER TABLE users ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
-        }
+        // 1. Forçar status 'active' para quem não é explicitamente 'inactive'
+        await pool.execute("UPDATE users SET status = 'active' WHERE status IS NULL OR (status != 'active' AND status != 'inactive')");
 
-        // --- SANEAMENTO DE DADOS FORÇADO ---
-        // Resolve o problema de usuários que nasceram com NULL
-        await pool.execute("UPDATE users SET status = 'active' WHERE status IS NULL OR status = ''");
+        // 2. Garantir Plano Professional
         await pool.execute("UPDATE users SET plan = 'Professional' WHERE plan IS NULL OR plan = ''");
-        await pool.execute("UPDATE users SET created_at = NOW() WHERE created_at IS NULL OR created_at = '0000-00-00 00:00:00'");
-        await pool.execute("UPDATE users SET updated_at = NOW() WHERE updated_at IS NULL OR updated_at = '0000-00-00 00:00:00'");
 
-        console.log('✅ Banco de dados saneado e sincronizado.');
+        // 3. Consertar Datas Nulas ou Zeradas
+        await pool.execute("UPDATE users SET created_at = NOW() WHERE created_at IS NULL OR created_at = '0000-00-00 00:00:00' OR created_at = '0000-00-00' OR created_at = ''");
+        await pool.execute("UPDATE users SET updated_at = NOW() WHERE updated_at IS NULL OR updated_at = '0000-00-00 00:00:00' OR updated_at = '0000-00-00' OR updated_at = ''");
+
+        console.log('✨ [FAXINA] Banco de dados limpo e organizado!');
     } catch (err) {
-        console.error('⚠️ Erro no setup do banco:', err.message);
+        console.error('❌ [FAXINA] Falha ao limpar banco:', err.message);
     }
 }
 
@@ -58,13 +46,14 @@ async function connectToDB() {
         pool = mysql.createPool({
             ...dbConfig,
             waitForConnections: true,
-            connectionLimit: 10,
+            connectionLimit: 5,
             queueLimit: 0
         });
-        console.log('✅ Conectado ao MySQL.');
-        setTimeout(() => setupUsersTable(), 2000); // Roda após 2 segundos
+        console.log('✅ Pool MySQL Conectado.');
+        // Roda a primeira faxina na hora!
+        await forceSanitize();
     } catch (err) {
-        console.error('❌ Erro MySQL:', err.message);
+        console.error('❌ Erro Crítico MySQL:', err.message);
     }
 }
 
@@ -74,32 +63,32 @@ connectToDB();
 
 app.post('/api/auth/register', async (req, res) => {
     const { name, email, password } = req.body;
-    if (!name || !email || !password) return res.status(400).json({ error: 'Campos obrigatórios.' });
-
     try {
         const [rows] = await pool.execute('SELECT id FROM users WHERE email = ?', [email]);
-        if (rows.length > 0) return res.status(400).json({ error: 'Email já existe.' });
+        if (rows.length > 0) return res.status(400).json({ error: 'Email já cadastrado.' });
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Tenta inserir com o máximo de campos possível
+        // INSERT BLINDADO: Tenta o máximo, se falhar, tenta o básico
         let result;
         try {
             [result] = await pool.execute(
-                "INSERT INTO users (name, email, password, status, plan, created_at) VALUES (?, ?, ?, 'active', 'Professional', NOW())",
+                "INSERT INTO users (name, email, password, status, plan, created_at, updated_at) VALUES (?, ?, ?, 'active', 'Professional', NOW(), NOW())",
                 [name, email, hashedPassword]
             );
         } catch (e) {
-            console.warn('Fallback no registro para:', email);
+            console.warn('⚠️ Fallback de registro para:', email);
             [result] = await pool.execute(
                 "INSERT INTO users (name, email, password) VALUES (?, ?, ?)",
                 [name, email, hashedPassword]
             );
+            // Se usou fallback, força a faxina imediata para esse usuário
+            await forceSanitize();
         }
 
-        res.status(201).json({ message: 'Sucesso!', id: result.insertId });
+        res.status(201).json({ message: 'Sucesso!' });
     } catch (err) {
-        res.status(500).json({ error: 'Erro no banco.', details: err.message });
+        res.status(500).json({ error: 'Erro no servidor.', details: err.message });
     }
 });
 
@@ -122,9 +111,9 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
+// Middleware de Autenticação
 const authenticateToken = (req, res, next) => {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
+    const token = req.headers['authorization']?.split(' ')[1];
     if (!token) return res.sendStatus(401);
     jwt.verify(token, process.env.JWT_SECRET || 'myzap_secret_key', (err, user) => {
         if (err) return res.sendStatus(403);
@@ -133,11 +122,21 @@ const authenticateToken = (req, res, next) => {
     });
 };
 
+// --- GESTÃO ADMIN ---
 app.get('/api/admin/users', authenticateToken, async (req, res) => {
     try {
+        // Roda a faxina toda vez que o admin entra, só por segurança!
+        await forceSanitize();
+
         const [rows] = await pool.execute('SELECT id, name, email, plan, status, created_at FROM users ORDER BY created_at DESC');
+
+        // Log diagnóstico (para eu ver no console do PM2)
+        console.log('📋 Enviando lista de usuários para o Admin...');
+        console.table(rows.map(u => ({ Nome: u.name, Status: u.status, Data: u.created_at })));
+
         res.json(rows);
     } catch (err) {
+        console.error('Erro ao listar:', err);
         res.status(500).json({ error: 'Erro ao listar.' });
     }
 });
@@ -174,20 +173,5 @@ app.post('/api/admin/settings', authenticateToken, async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'Erro' }); }
 });
 
-// --- EVOLUTION PROXY ---
-app.get('/api/evolution/instance/fetchInstances', authenticateToken, async (req, res) => {
-    try {
-        const [rows] = await pool.execute('SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ("evolution_url", "evolution_apikey")');
-        const config = rows.reduce((acc, row) => ({ ...acc, [row.setting_key]: row.setting_value }), {});
-        const url = config.evolution_url?.replace(/\/$/, '');
-        if (!url || !config.evolution_apikey) return res.status(400).json({ error: 'Não configurado.' });
-
-        const response = await fetch(`${url}/instance/fetchInstances`, { headers: { 'apikey': config.evolution_apikey } });
-        res.json(await response.json());
-    } catch (err) { res.status(500).json({ error: 'Erro Evolution.' }); }
-});
-
-app.get('/api/health', (req, res) => res.json({ status: 'OK' }));
-
 const PORT = 5000;
-app.listen(PORT, '0.0.0.0', () => console.log('🚀 Port 5000'));
+app.listen(PORT, '0.0.0.0', () => console.log(`🚀 MyZap API ON: ${PORT}`));
