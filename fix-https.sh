@@ -1,43 +1,44 @@
 #!/bin/bash
 
-# Script de Correção Automática v3 - MyZap HTTPS/Proxy/Rewrite
-# Este script deve ser executado no VPS com sudo.
+# Script de Correção v4 - REPARO TOTAL
+# Corrige o roteamento do Apache para MyZap (Mixed Content + JSON Error)
 
-echo ">>> Iniciando correção definitiva de Proxy e Rewrite para HTTPS..."
+echo ">>> Iniciando REPARO TOTAL do Apache para MyZap..."
 
-# 1. Ativar módulos do Apache
-echo "Ativando módulos proxy e proxy_http..."
-sudo a2enmod proxy proxy_http rewrite
+# 1. Ativar módulos
+sudo a2enmod proxy proxy_http rewrite ssl headers
 
-# 2. Localizar arquivos de configuração
-CONFIG_FILES=("/etc/apache2/sites-available/myzap.conf" "/etc/apache2/sites-available/myzap-le-ssl.conf")
-
-for VHOST_FILE in "${CONFIG_FILES[@]}"; do
-    if [ -f "$VHOST_FILE" ]; then
-        echo "Processando arquivo: $VHOST_FILE"
+# 2. Função para processar arquivos
+fix_vhost() {
+    local FILE=$1
+    if [ -f "$FILE" ]; then
+        echo "Corrigindo: $FILE"
         
-        # A. Adicionar Exceção no Rewrite (SPA) - Evita retornar HTML em vez de JSON
-        if ! grep -q "RewriteCond %{REQUEST_URI} !^/api" "$VHOST_FILE"; then
-            echo "Adicionando exceção /api no Rewrite..."
-            sudo sed -i '/RewriteCond %{REQUEST_URI} !^/phpmyadmin/i \        RewriteCond %{REQUEST_URI} !^/api [NC]' "$VHOST_FILE"
-        fi
+        # Limpar configurações de proxy antigas (para evitar duplicidade)
+        sudo sed -i '/# Proxy Reverso para a API/d' "$FILE"
+        sudo sed -i '/ProxyPreserveHost On/d' "$FILE"
+        sudo sed -i '/ProxyPass \/api/d' "$FILE"
+        sudo sed -i '/ProxyPassReverse \/api/d' "$FILE"
+        sudo sed -i '/RewriteCond %{REQUEST_URI} !^/api/d' "$FILE"
 
-        # B. Adicionar Proxy Reverso
-        if grep -q "ProxyPass /api" "$VHOST_FILE"; then
-            echo "A configuração de Proxy já existe."
-        else
-            echo "Injetando configuração de Proxy Reverso..."
-            sudo sed -i '/ErrorLog/i \
-    # Proxy Reverso para a API\n    ProxyPreserveHost On\n    ProxyPass /api http://localhost:5000/api\n    ProxyPassReverse /api http://localhost:5000/api\n' "$VHOST_FILE"
-        fi
-    else
-        echo "Aviso: Arquivo $VHOST_FILE não encontrado. Pulando..."
+        # Inserir Proxy Reverso antes do Log de Erros
+        sudo sed -i '/ErrorLog/i \    # Proxy Reverso para a API\n    ProxyPreserveHost On\n    ProxyPass /api http://localhost:5000/api\n    ProxyPassReverse /api http://localhost:5000/api\n' "$FILE"
+
+        # Inserir exceção de Rewrite exatamente antes do index.html
+        sudo sed -i '/RewriteRule . \/index.html/i \        RewriteCond %{REQUEST_URI} !^/api [NC]' "$FILE"
+        
+        echo "Concluído: $FILE"
     fi
+}
+
+# 3. Aplicar em todos os arquivos habilitados (HTTP e HTTPS)
+for f in /etc/apache2/sites-enabled/*.conf; do
+    fix_vhost "$f"
 done
 
-# 3. Reiniciar o Apache
-echo "Reiniciando Apache..."
+# 4. Reiniciar Apache
+echo "Reiniciando servidor..."
 sudo systemctl restart apache2
 
-echo ">>> CORREÇÃO APLICADA COM SUCESSO! <<<"
-echo "Agora o sistema deve retornar JSON corretamente para as chamadas de API."
+echo ">>> TUDO PRONTO! Tente se cadastrar agora."
+echo "Certifique-se de que a API está rodando: pm2 restart myzap-api"
