@@ -231,7 +231,6 @@ const FlowbuilderView: React.FC<FlowbuilderViewProps> = ({ flowId, onClose, isDa
             case 'ab_split': return { variantA: 50, variantB: 50 };
             case 'input': return { question: 'Digite sua resposta:', variable: 'user_input' };
             case 'validator': return { validationType: 'email', errorMessage: 'Formato inválido!' };
-            case 'validator': return { validationType: 'email', errorMessage: 'Formato inválido!' };
             case 'action': return { actionType: 'add_tag', tag: '' };
             case 'set_variable': return { variableName: '', value: '' };
             case 'switch': return { variable: '', cases: ['Opção 1', 'Opção 2', 'Default'] };
