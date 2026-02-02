@@ -135,16 +135,18 @@ async function setupUsersTable() {
             await pool.execute("ALTER TABLE users ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
         }
 
-        // --- SANEAMENTO DE DADOS ---
-        // 1. Corrige Status e Plano
-        await pool.execute("UPDATE users SET status = 'active' WHERE status IS NULL OR status = ''");
+        // --- SANEAMENTO DE DADOS AGRESSIVO ---
+        // 1. Corrige Status: TUDO que não for explicitamente 'inactive' vira 'active'
+        await pool.execute("UPDATE users SET status = 'active' WHERE status IS NULL OR (status != 'active' AND status != 'inactive')");
+
+        // 2. Corrige Plano: TUDO que for nulo ou vazio vira 'Professional'
         await pool.execute("UPDATE users SET plan = 'Professional' WHERE plan IS NULL OR plan = ''");
 
-        // 2. Corrige Datas "falsas" ou zeradas
-        await pool.execute("UPDATE users SET created_at = NOW() WHERE created_at IS NULL OR created_at = '0000-00-00 00:00:00'");
-        await pool.execute("UPDATE users SET updated_at = NOW() WHERE updated_at IS NULL OR updated_at = '0000-00-00 00:00:00'");
+        // 3. Corrige Datas "falsas" ou zeradas
+        await pool.execute("UPDATE users SET created_at = NOW() WHERE created_at IS NULL OR created_at = '0000-00-00 00:00:00' OR created_at = '0000-00-00'");
+        await pool.execute("UPDATE users SET updated_at = NOW() WHERE updated_at IS NULL OR updated_at = '0000-00-00 00:00:00' OR updated_at = '0000-00-00'");
 
-        console.log('✅ Saneamento da tabela de usuários concluído.');
+        console.log('✅ Saneamento agressivo da tabela de usuários concluído.');
     } catch (err) {
         console.error('Erro ao configurar/sanear tabela de usuários:', err.message);
     }
