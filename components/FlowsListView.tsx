@@ -63,8 +63,19 @@ const FlowsListView: React.FC<FlowsListViewProps> = ({ onOpenFlow }) => {
                 fetchFlows();
                 onOpenFlow(id);
             } else {
-                const errorData = await response.json();
-                showToast(`Erro: ${errorData.details || 'Falha no banco'}`, 'error');
+                let errorMsg = 'Falha no banco';
+                try {
+                    const contentType = response.headers.get('content-type');
+                    if (contentType && contentType.includes('application/json')) {
+                        const errorData = await response.json();
+                        errorMsg = errorData.details || errorData.error || errorMsg;
+                    } else {
+                        errorMsg = `Erro ${response.status} no servidor`;
+                    }
+                } catch (e) {
+                    errorMsg = 'Erro inesperado no servidor';
+                }
+                showToast(`Erro ao criar: ${errorMsg}`, 'error');
             }
         } catch (err) {
             showToast('Erro de conexão.', 'error');

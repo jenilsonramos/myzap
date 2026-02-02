@@ -23,33 +23,22 @@ let pool;
 async function forceSanitize() {
     try {
         if (!pool) return;
-        console.log('🧹 [FAXINA] Iniciando limpeza profunda e persistente...');
+        console.log('🧹 [FAXINA] Iniciando limpeza...');
 
-        // 1. Forçar status 'active' no banco
-        const [res1] = await pool.execute("UPDATE users SET status = 'active' WHERE status IS NULL OR (status != 'active' AND status != 'inactive')");
+        await pool.execute("UPDATE users SET status = 'active' WHERE status IS NULL OR (status != 'active' AND status != 'inactive')");
+        await pool.execute("UPDATE users SET plan = 'Professional' WHERE plan IS NULL OR plan = ''");
+        await pool.execute("UPDATE users SET created_at = NOW() WHERE created_at IS NULL OR created_at = '0000-00-00 00:00:00' OR created_at = '0000-00-00' OR created_at = ''");
 
-        // 2. Garantir Plano Professional no banco
-        const [res2] = await pool.execute("UPDATE users SET plan = 'Professional' WHERE plan IS NULL OR plan = ''");
-
-        // 3. Consertar Datas Nulas ou Zeradas no banco
-        const [res3] = await pool.execute("UPDATE users SET created_at = NOW() WHERE created_at IS NULL OR created_at = '0000-00-00 00:00:00' OR created_at = '0000-00-00' OR created_at = ''");
-
-        console.log(`✨ [FAXINA] Concluída. Registros afetados: Status(${res1.affectedRows}), Plano(${res2.affectedRows}), Data(${res3.affectedRows})`);
+        console.log(`✨ [FAXINA] Concluída.`);
     } catch (err) {
-        console.error('❌ [FAXINA] Falha ao limpar banco:', err.message);
+        console.error('❌ [FAXINA] Erro:', err.message);
     }
 }
 
-async function connectToDB() {
+async function setupTables() {
     try {
-        pool = mysql.createPool({
-            ...dbConfig,
-            waitForConnections: true,
-            connectionLimit: 10,
-            queueLimit: 0
-        });
-        // Criar tabelas necessárias se não existirem
-        await pool.execute(`
+        console.log('🏗️ [DB] Verificando tabelas...');
+        await pool.query(`
             CREATE TABLE IF NOT EXISTS flows (
                 id VARCHAR(50) PRIMARY KEY,
                 user_id INT,
@@ -59,14 +48,31 @@ async function connectToDB() {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
             )
-        `).catch(err => console.error('❌ Erro ao criar tabela flows:', err.message));
+        `);
 
-        // Forçar conversão de content para LONGTEXT caso tenha sido criada como JSON antes
-        await pool.execute(`ALTER TABLE flows MODIFY COLUMN content LONGTEXT`).catch(err => { });
+        // Tenta converter content para LONGTEXT silenciando erros se já estiver correto
+        await pool.query('ALTER TABLE flows MODIFY COLUMN content LONGTEXT').catch(() => { });
 
-        console.log('✅ MyZap MySQL Pool Criado e Tabelas Verificadas.');
-        // Faxina imediata
+        console.log('✅ [DB] Tabelas prontas.');
         await forceSanitize();
+    } catch (err) {
+        console.error('❌ [DB] Erro no setup:', err.message);
+    }
+}
+
+async function connectToDB() {
+    try {
+        pool = mysql.createPool({
+            ...dbConfig,
+            waitForConnections: true,
+            connectionLimit: 10,
+            enableKeepAlive: true,
+            keepAliveInitialDelay: 0
+        });
+        console.log('✅ MyZap MySQL Pool Criado.');
+
+        // Setup de tabelas pós-inicialização para não travar o server
+        setTimeout(setupTables, 1000);
     } catch (err) {
         console.error('❌ Erro Crítico MySQL:', err.message);
     }
@@ -83,28 +89,16 @@ app.post('/api/auth/register', async (req, res) => {
         if (rows.length > 0) return res.status(400).json({ error: 'Email já cadastrado.' });
 
         const hashedPassword = await bcrypt.hash(password, 10);
-
-        let result;
-        try {
-            // INSERT COMPLETO
-            [result] = await pool.execute(
-                "INSERT INTO users (name, email, password, status, plan, created_at, updated_at) VALUES (?, ?, ?, 'active', 'Professional', NOW(), NOW())",
-                [name, email, hashedPassword]
-            );
-        } catch (e) {
-            console.warn('⚠️ Fallback de registro ativado:', e.message);
-            // INSERT MINIMALISTA
-            [result] = await pool.execute(
-                "INSERT INTO users (name, email, password) VALUES (?, ?, ?)",
-                [name, email, hashedPassword]
-            );
-            // Faxina imediata para garantir o novo usuário
-            forceSanitize().catch(err => console.error(err));
-        }
+        await pool.execute(
+            "INSERT INTO users (name, email, password, status, plan, created_at, updated_at) VALUES (?, ?, ?, 'active', 'Professional', NOW(), NOW())",
+            [name, email, hashedPassword]
+        ).catch(async () => {
+            await pool.execute("INSERT INTO users (name, email, password) VALUES (?, ?, ?)", [name, email, hashedPassword]);
+        });
 
         res.status(201).json({ message: 'Sucesso!' });
     } catch (err) {
-        res.status(500).json({ error: 'Erro no servidor.', details: err.message });
+        res.status(500).json({ error: 'Erro no servidor.' });
     }
 });
 
@@ -137,29 +131,18 @@ const authenticateToken = (req, res, next) => {
     });
 };
 
-// --- GESTÃO ADMIN COM SANEAMENTO NO RETORNO ---
+// --- ADMIN ---
 app.get('/api/admin/users', authenticateToken, async (req, res) => {
     try {
-        // Dispara faxina no banco (background)
-        forceSanitize().catch(console.error);
-
         const [rows] = await pool.execute('SELECT id, name, email, plan, status, created_at FROM users ORDER BY created_at DESC');
-
-        // Saneamento de Emergência (Garante visual mesmo se o banco falhar em salvar)
-        const sanitizedRows = rows.map(u => ({
+        res.json(rows.map(u => ({
             ...u,
             status: (u.status === 'active' || u.status === 'inactive') ? u.status : 'active',
             plan: u.plan || 'Professional',
             created_at: (u.created_at && u.created_at !== '0000-00-00 00:00:00') ? u.created_at : new Date()
-        }));
-
-        console.log('📋 [DIAGNÓSTICO] Enviando lista sanitizada para o Admin...');
-        console.table(sanitizedRows.map(u => ({ Nome: u.name, Status: u.status, Data: u.created_at })));
-
-        res.json(sanitizedRows);
+        })));
     } catch (err) {
-        console.error('Erro ao listar:', err);
-        res.status(500).json({ error: 'Erro ao listar usuários.' });
+        res.status(500).json({ error: 'Erro' });
     }
 });
 
@@ -195,15 +178,15 @@ app.post('/api/admin/settings', authenticateToken, async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'Erro' }); }
 });
 
-// --- GESTÃO DE FLUXOS (FLOWBUILDER) ---
+// --- FLUXOS ---
 
 app.get('/api/flows', authenticateToken, async (req, res) => {
     try {
         const [rows] = await pool.execute('SELECT id, name, status, updated_at FROM flows WHERE user_id = ? ORDER BY updated_at DESC', [req.user.id]);
         res.json(rows);
     } catch (err) {
-        console.error('❌ Erro ao listar fluxos:', err);
-        res.status(500).json({ error: 'Erro ao listar fluxos.' });
+        console.error('❌ Erro GET /api/flows:', err.message);
+        res.status(500).json({ error: 'Erro' });
     }
 });
 
@@ -211,23 +194,23 @@ app.post('/api/flows', authenticateToken, async (req, res) => {
     const { id, name } = req.body;
     try {
         const emptyContent = JSON.stringify({ nodes: [], edges: [] });
-        await pool.execute('INSERT INTO flows (id, user_id, name, content) VALUES (?, ?, ?, ?)', [id, req.user.id, name, emptyContent]);
-        res.status(201).json({ message: 'Fluxo criado!' });
+        await pool.execute(
+            'INSERT INTO flows (id, user_id, name, content, status) VALUES (?, ?, ?, ?, ?)',
+            [id, req.user.id, name, emptyContent, 'paused']
+        );
+        res.status(201).json({ message: 'OK' });
     } catch (err) {
-        console.error('❌ Erro ao criar fluxo:', err);
-        res.status(500).json({ error: 'Erro ao criar fluxo.', details: err.message });
+        console.error('❌ Erro POST /api/flows:', err.message);
+        res.status(500).json({ error: 'Erro ao criar fluxo', details: err.message });
     }
 });
 
 app.get('/api/flows/:id', authenticateToken, async (req, res) => {
     try {
         const [rows] = await pool.execute('SELECT * FROM flows WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
-        if (rows.length === 0) return res.status(404).json({ error: 'Fluxo não encontrado.' });
+        if (rows.length === 0) return res.status(404).json({ error: 'Nao encontrado' });
         res.json(rows[0]);
-    } catch (err) {
-        console.error('❌ Erro ao buscar fluxo:', err);
-        res.status(500).json({ error: 'Erro ao buscar fluxo.' });
-    }
+    } catch (err) { res.status(500).json({ error: 'Erro' }); }
 });
 
 app.put('/api/flows/:id', authenticateToken, async (req, res) => {
@@ -237,22 +220,16 @@ app.put('/api/flows/:id', authenticateToken, async (req, res) => {
             'UPDATE flows SET name = ?, content = ?, status = ?, updated_at = NOW() WHERE id = ? AND user_id = ?',
             [name, JSON.stringify(content), status, req.params.id, req.user.id]
         );
-        res.json({ message: 'Fluxo atualizado!' });
-    } catch (err) {
-        console.error('❌ Erro ao salvar fluxo:', err);
-        res.status(500).json({ error: 'Erro ao salvar fluxo.' });
-    }
+        res.json({ message: 'OK' });
+    } catch (err) { res.status(500).json({ error: 'Erro' }); }
 });
 
 app.delete('/api/flows/:id', authenticateToken, async (req, res) => {
     try {
         await pool.execute('DELETE FROM flows WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
-        res.json({ message: 'Fluxo excluído!' });
-    } catch (err) {
-        console.error('❌ Erro ao excluir fluxo:', err);
-        res.status(500).json({ error: 'Erro ao excluir fluxo.' });
-    }
+        res.json({ message: 'OK' });
+    } catch (err) { res.status(500).json({ error: 'Erro' }); }
 });
 
 const PORT = 5000;
-app.listen(PORT, '0.0.0.0', () => console.log(`🚀 MyZap Pro API ON: ${PORT}`));
+app.listen(PORT, '0.0.0.0', () => console.log(`🚀 API ON: ${PORT}`));
