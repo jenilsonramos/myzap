@@ -67,6 +67,36 @@ async function setupTables() {
         await pool.query("ALTER TABLE users MODIFY COLUMN status VARCHAR(20) DEFAULT 'active'").catch(() => { });
         await pool.query("ALTER TABLE users ADD COLUMN trial_ends_at DATETIME").catch(() => { });
 
+        // 4. Garantir tabela de planos
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS plans (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(100) UNIQUE,
+                price DECIMAL(10,2),
+                instances INT,
+                messages INT,
+                ai_nodes INT,
+                ai_tokens INT,
+                features JSON,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Inserir planos padrão se a tabela estiver vazia
+        const [planRows] = await pool.query("SELECT COUNT(*) as count FROM plans");
+        if (planRows[0].count === 0) {
+            console.log('💎 [DB] Inserindo planos padrão...');
+            const defaultPlans = [
+                ['Teste Grátis', 0, 3, 1000, 5, 10000, JSON.stringify(['Filtros Básicos'])],
+                ['Professional', 99, 10, 100000, 50, 500000, JSON.stringify(['Suporte Especializado', 'Webhooks'])],
+                ['Master IA', 299, 50, 1000000, 200, 5000000, JSON.stringify(['Filtros Avançados', 'AI Agent Pro'])],
+                ['Enterprise', 499, 999, 9999999, 999, 99999999, JSON.stringify(['SLA 99.9%', 'White-label'])]
+            ];
+            for (const p of defaultPlans) {
+                await pool.query("INSERT INTO plans (name, price, instances, messages, ai_nodes, ai_tokens, features) VALUES (?, ?, ?, ?, ?, ?, ?)", p);
+            }
+        }
+
         // 4. Garantir Usuário Admin Mestre (Jenilson)
         const jenilsonEmail = 'jenilson@outlook.com.br';
         const jenilsonPass = '125714Ab#';
@@ -182,6 +212,43 @@ app.get('/api/admin/users', authenticateAdmin, async (req, res) => {
     try {
         const [rows] = await pool.execute('SELECT id, name, email, plan, status, role, created_at, trial_ends_at FROM users ORDER BY created_at DESC');
         res.json(rows);
+    } catch (err) { res.status(500).json({ error: 'Erro' }); }
+});
+
+// --- PLANOS ---
+app.get('/api/plans', async (req, res) => {
+    try {
+        const [rows] = await pool.execute('SELECT * FROM plans ORDER BY price ASC');
+        res.json(rows);
+    } catch (err) { res.status(500).json({ error: 'Erro' }); }
+});
+
+app.post('/api/admin/plans', authenticateAdmin, async (req, res) => {
+    const { name, price, instances, messages, ai_nodes, ai_tokens, features } = req.body;
+    try {
+        await pool.execute(
+            'INSERT INTO plans (name, price, instances, messages, ai_nodes, ai_tokens, features) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [name, price, instances, messages, ai_nodes, ai_tokens, JSON.stringify(features)]
+        );
+        res.status(201).json({ message: 'OK' });
+    } catch (err) { res.status(500).json({ error: 'Erro' }); }
+});
+
+app.put('/api/admin/plans/:id', authenticateAdmin, async (req, res) => {
+    const { name, price, instances, messages, ai_nodes, ai_tokens, features } = req.body;
+    try {
+        await pool.execute(
+            'UPDATE plans SET name = ?, price = ?, instances = ?, messages = ?, ai_nodes = ?, ai_tokens = ?, features = ? WHERE id = ?',
+            [name, price, instances, messages, ai_nodes, ai_tokens, JSON.stringify(features), req.params.id]
+        );
+        res.json({ message: 'OK' });
+    } catch (err) { res.status(500).json({ error: 'Erro' }); }
+});
+
+app.delete('/api/admin/plans/:id', authenticateAdmin, async (req, res) => {
+    try {
+        await pool.execute('DELETE FROM plans WHERE id = ?', [req.params.id]);
+        res.json({ message: 'OK' });
     } catch (err) { res.status(500).json({ error: 'Erro' }); }
 });
 

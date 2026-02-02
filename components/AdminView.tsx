@@ -127,12 +127,29 @@ const AdminView: React.FC = () => {
     };
 
     // Dynamic Plans State
-    const [plans, setPlans] = useState([
-        { id: '0', name: 'Teste Grátis', price: '0', instances: 3, messages: 1000, aiNodes: 5, aiTokens: 10000, features: ['Filtros Básicos'] },
-        { id: '1', name: 'Professional', price: '99', instances: 10, messages: 100000, aiNodes: 50, aiTokens: 500000, features: ['Suporte Especializado', 'Webhooks'] },
-        { id: '2', name: 'Master IA', price: '299', instances: 50, messages: 1000000, aiNodes: 200, aiTokens: 5000000, features: ['Filtros Avançados', 'AI Agent Pro'] },
-        { id: '3', name: 'Enterprise', price: '499', instances: 999, messages: 9999999, aiNodes: 999, aiTokens: 99999999, features: ['SLA 99.9%', 'White-label'] },
-    ]);
+    const [plans, setPlans] = useState<any[]>([]);
+    const [isLoadingPlans, setIsLoadingPlans] = useState(false);
+
+    const fetchPlans = async () => {
+        setIsLoadingPlans(true);
+        try {
+            const response = await fetch('/api/plans');
+            if (response.ok) {
+                const data = await response.json();
+                setPlans(data);
+            }
+        } catch (err) {
+            showToast('Erro ao carregar planos', 'error');
+        } finally {
+            setIsLoadingPlans(false);
+        }
+    };
+
+    useEffect(() => {
+        if (activeTab === 'plans') {
+            fetchPlans();
+        }
+    }, [activeTab]);
 
     const [planForm, setPlanForm] = useState({
         name: '',
@@ -163,25 +180,57 @@ const AdminView: React.FC = () => {
         setIsPlanModalOpen(true);
     };
 
-    const savePlan = () => {
+    const savePlan = async () => {
         if (!planForm.name || !planForm.price) {
             showToast('Preencha nome e preço do plano', 'error');
             return;
         }
 
-        if (editingPlan) {
-            setPlans(plans.map(p => p.id === editingPlan.id ? { ...planForm, id: p.id } : p));
-            showToast('Plano atualizado!', 'success');
-        } else {
-            setPlans([...plans, { ...planForm, id: Date.now().toString() }]);
-            showToast('Novo plano criado!', 'success');
+        const method = editingPlan ? 'PUT' : 'POST';
+        const url = editingPlan ? `/api/admin/plans/${editingPlan.id}` : '/api/admin/plans';
+
+        try {
+            const response = await fetch(url, {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('myzap_token')}`
+                },
+                body: JSON.stringify({
+                    ...planForm,
+                    ai_nodes: planForm.aiNodes,
+                    ai_tokens: planForm.aiTokens
+                })
+            });
+
+            if (response.ok) {
+                showToast(editingPlan ? 'Plano atualizado!' : 'Novo plano criado!', 'success');
+                setIsPlanModalOpen(false);
+                fetchPlans();
+            } else {
+                showToast('Erro ao salvar plano', 'error');
+            }
+        } catch (err) {
+            showToast('Erro de conexão ao salvar plano', 'error');
         }
-        setIsPlanModalOpen(false);
     };
 
-    const deletePlan = (id: string) => {
-        setPlans(plans.filter(p => p.id !== id));
-        showToast('Plano excluído', 'success');
+    const deletePlan = async (id: string) => {
+        if (!confirm('Tem certeza que deseja excluir este plano?')) return;
+        try {
+            const response = await fetch(`/api/admin/plans/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('myzap_token')}`
+                }
+            });
+            if (response.ok) {
+                showToast('Plano excluído', 'success');
+                fetchPlans();
+            }
+        } catch (err) {
+            showToast('Erro ao excluir plano', 'error');
+        }
     };
 
     const handleAction = (msg: string) => {

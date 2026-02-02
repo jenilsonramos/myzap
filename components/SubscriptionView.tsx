@@ -238,60 +238,30 @@ const SubscriptionView: React.FC = () => {
                 </h3>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="bg-white dark:bg-card-dark rounded-huge p-6 border border-slate-100 dark:border-white/5 shadow-lg group hover:scale-[1.02] transition-all cursor-pointer">
-                        <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-slate-500 mb-6 group-hover:bg-primary group-hover:text-white transition-all">
-                            <span className="material-icons-round">rocket_launch</span>
+                    {plans.filter(p => p.name !== user.plan).map((p: any) => (
+                        <div key={p.id} className={`bg-white dark:bg-card-dark rounded-huge p-6 border border-slate-100 dark:border-white/5 shadow-lg group hover:scale-[1.02] transition-all cursor-pointer ${p.name === 'Master IA' ? 'bg-slate-900 dark:bg-indigo-950 border-white/10' : ''}`}>
+                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-6 transition-all ${p.name === 'Master IA' ? 'bg-white/10 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 group-hover:bg-primary group-hover:text-white'}`}>
+                                <span className="material-icons-round">{p.name === 'Master IA' ? 'auto_fix_high' : p.name === 'Enterprise' ? 'business' : 'rocket_launch'}</span>
+                            </div>
+                            <h4 className={`text-lg font-black mb-2 uppercase ${p.name === 'Master IA' ? 'text-white' : 'dark:text-white'}`}>Plano {p.name}</h4>
+                            <p className={`text-sm font-medium mb-6 ${p.name === 'Master IA' ? 'text-slate-300' : 'text-slate-500'}`}>
+                                {p.name === 'Professional' && 'Ideal para pequenas operações e automações essenciais.'}
+                                {p.name === 'Master IA' && 'Tudo ilimitado + Integração direta com GPT-4.'}
+                                {p.name === 'Enterprise' && 'Solução robusta para grandes empresas com suporte 24h.'}
+                                {p.name === 'Teste Grátis' && 'Experimente nossos recursos por tempo limitado.'}
+                            </p>
+                            <div className="flex items-baseline gap-1 mb-8">
+                                <span className={`text-3xl font-black ${p.name === 'Master IA' ? 'text-white' : 'dark:text-white'}`}>R$ {Math.floor(p.price)}</span>
+                                <span className="text-sm text-slate-400 font-bold uppercase tracking-widest">/mês</span>
+                            </div>
+                            <button
+                                onClick={() => handleUpgrade(p.name)}
+                                className={`w-full py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${p.name === 'Master IA' ? 'bg-white text-slate-900 hover:bg-slate-100 shadow-xl' : 'border-2 border-slate-100 dark:border-white/5 group-hover:bg-primary group-hover:border-primary group-hover:text-white'}`}
+                            >
+                                {isTrial ? 'Começar agora' : 'Mudar para este'}
+                            </button>
                         </div>
-                        <h4 className="text-lg font-black dark:text-white mb-2 uppercase">Plano Professional</h4>
-                        <p className="text-sm text-slate-500 font-medium mb-6">Ideal para pequenas operações e automações essenciais.</p>
-                        <div className="flex items-baseline gap-1 mb-8">
-                            <span className="text-3xl font-black dark:text-white">R$ 99</span>
-                            <span className="text-sm text-slate-400 font-bold uppercase tracking-widest">/mês</span>
-                        </div>
-                        <button
-                            onClick={() => handleUpgrade('Professional')}
-                            className="w-full py-3.5 rounded-2xl border-2 border-slate-100 dark:border-white/5 font-black text-xs uppercase tracking-widest group-hover:bg-primary group-hover:border-primary group-hover:text-white transition-all"
-                        >
-                            Quero este plano
-                        </button>
-                    </div>
-
-                    <div className="bg-slate-900 dark:bg-indigo-950 rounded-huge p-6 border border-white/10 shadow-2xl relative overflow-hidden group hover:scale-[1.02] transition-all cursor-pointer">
-                        <div className="absolute top-4 right-4 bg-emerald-500 text-[8px] font-black text-white px-3 py-1 rounded-full uppercase tracking-widest shadow-lg shadow-emerald-500/20">Recomendado</div>
-                        <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center text-white mb-6">
-                            <span className="material-icons-round">auto_fix_high</span>
-                        </div>
-                        <h4 className="text-lg font-black text-white mb-2 uppercase">Plano Master IA</h4>
-                        <p className="text-sm text-slate-300 font-medium mb-6">Tudo ilimitado + Integração direta com GPT-4 e processamento local.</p>
-                        <div className="flex items-baseline gap-1 mb-8">
-                            <span className="text-3xl font-black text-white">R$ 299</span>
-                            <span className="text-sm text-slate-400 font-bold uppercase tracking-widest">/mês</span>
-                        </div>
-                        <button
-                            onClick={() => handleUpgrade('Master IA')}
-                            className="w-full py-3.5 rounded-2xl bg-white text-slate-900 font-black text-xs uppercase tracking-widest hover:bg-slate-100 transition-all shadow-xl"
-                        >
-                            Assinar Agora
-                        </button>
-                    </div>
-
-                    <div className="bg-white dark:bg-card-dark rounded-huge p-6 border border-slate-100 dark:border-white/5 shadow-lg group hover:scale-[1.02] transition-all cursor-pointer">
-                        <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-slate-500 mb-6 group-hover:bg-primary group-hover:text-white transition-all">
-                            <span className="material-icons-round">business</span>
-                        </div>
-                        <h4 className="text-lg font-black dark:text-white mb-2 uppercase">Plano Enterprise</h4>
-                        <p className="text-sm text-slate-500 font-medium mb-6">Solução robusta para grandes empresas com suporte 24h.</p>
-                        <div className="flex items-baseline gap-1 mb-8">
-                            <span className="text-3xl font-black dark:text-white">R$ 499</span>
-                            <span className="text-sm text-slate-400 font-bold uppercase tracking-widest">/mês</span>
-                        </div>
-                        <button
-                            onClick={() => handleUpgrade('Enterprise')}
-                            className="w-full py-3.5 rounded-2xl border-2 border-slate-100 dark:border-white/5 font-black text-xs uppercase tracking-widest group-hover:bg-primary group-hover:border-primary group-hover:text-white transition-all"
-                        >
-                            Quero este plano
-                        </button>
-                    </div>
+                    ))}
                 </div>
             </div>
         </div>
