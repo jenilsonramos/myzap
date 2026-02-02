@@ -26,6 +26,7 @@ async function setupUsersTable() {
         const [columns] = await pool.execute('SHOW COLUMNS FROM users');
         const colNames = columns.map(c => c.Field);
 
+        // Garante colunas com DEFAULTS corretos
         if (!colNames.includes('status')) {
             await pool.execute("ALTER TABLE users ADD COLUMN status VARCHAR(20) DEFAULT 'active'");
         }
@@ -33,19 +34,22 @@ async function setupUsersTable() {
             await pool.execute("ALTER TABLE users ADD COLUMN plan VARCHAR(50) DEFAULT 'Professional'");
         }
         if (!colNames.includes('created_at')) {
-            await pool.execute("ALTER TABLE users ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP");
+            await pool.execute("ALTER TABLE users ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP");
         }
         if (!colNames.includes('updated_at')) {
-            await pool.execute("ALTER TABLE users ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
+            await pool.execute("ALTER TABLE users ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
         }
 
-        // Saneamento leve (evita loops pesados)
-        await pool.execute("UPDATE users SET status = 'active' WHERE status IS NULL OR (status != 'active' AND status != 'inactive')");
+        // --- SANEAMENTO DE DADOS FORÇADO ---
+        // Resolve o problema de usuários que nasceram com NULL
+        await pool.execute("UPDATE users SET status = 'active' WHERE status IS NULL OR status = ''");
         await pool.execute("UPDATE users SET plan = 'Professional' WHERE plan IS NULL OR plan = ''");
+        await pool.execute("UPDATE users SET created_at = NOW() WHERE created_at IS NULL OR created_at = '0000-00-00 00:00:00'");
+        await pool.execute("UPDATE users SET updated_at = NOW() WHERE updated_at IS NULL OR updated_at = '0000-00-00 00:00:00'");
 
-        console.log('✅ Estrutura da tabela de usuários verificada.');
+        console.log('✅ Banco de dados saneado e sincronizado.');
     } catch (err) {
-        console.warn('⚠️ Aviso no setupUsersTable (não crítico):', err.message);
+        console.error('⚠️ Erro no setup do banco:', err.message);
     }
 }
 
@@ -57,62 +61,45 @@ async function connectToDB() {
             connectionLimit: 10,
             queueLimit: 0
         });
-        console.log('✅ Pool de conexões MySQL criado.');
-        // Rodar setup em background para não travar o início
-        setupUsersTable().catch(err => console.error('Erro no setup inicial:', err));
+        console.log('✅ Conectado ao MySQL.');
+        setTimeout(() => setupUsersTable(), 2000); // Roda após 2 segundos
     } catch (err) {
-        console.error('❌ Erro crítico ao conectar ao MySQL:', err.message);
+        console.error('❌ Erro MySQL:', err.message);
     }
 }
 
 connectToDB();
 
-// --- HEALTH CHECK ---
-app.get('/api/health', (req, res) => {
-    res.json({ status: 'OK', mysql: pool ? 'Connected' : 'Disconnected' });
-});
-
-// --- ENDPOINTS DE AUTENTICAÇÃO ---
+// --- ENDPOINTS ---
 
 app.post('/api/auth/register', async (req, res) => {
     const { name, email, password } = req.body;
-    if (!name || !email || !password) return res.status(400).json({ error: 'Preencha todos os campos.' });
+    if (!name || !email || !password) return res.status(400).json({ error: 'Campos obrigatórios.' });
 
     try {
         const [rows] = await pool.execute('SELECT id FROM users WHERE email = ?', [email]);
-        if (rows.length > 0) return res.status(400).json({ error: 'Este email já está cadastrado.' });
+        if (rows.length > 0) return res.status(400).json({ error: 'Email já existe.' });
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
+        // Tenta inserir com o máximo de campos possível
         let result;
         try {
-            // Tentativa 1: INSERT Completo (Ideal)
-            console.log('Tentando registro completo para:', email);
             [result] = await pool.execute(
-                "INSERT INTO users (name, email, password, status, plan, created_at, updated_at) VALUES (?, ?, ?, 'active', 'Professional', NOW(), NOW())",
+                "INSERT INTO users (name, email, password, status, plan, created_at) VALUES (?, ?, ?, 'active', 'Professional', NOW())",
                 [name, email, hashedPassword]
             );
-        } catch (sqlErr) {
-            console.warn('⚠️ SQL Completo Falhou, tentando minimalista:', sqlErr.message);
-            // Tentativa 2: INSERT Minimalista (Fallback de Segurança)
-            try {
-                [result] = await pool.execute(
-                    "INSERT INTO users (name, email, password) VALUES (?, ?, ?)",
-                    [name, email, hashedPassword]
-                );
-            } catch (minErr) {
-                console.error('❌ Erro fatal no registro:', minErr.message);
-                throw minErr; // Repassa para o catch principal
-            }
+        } catch (e) {
+            console.warn('Fallback no registro para:', email);
+            [result] = await pool.execute(
+                "INSERT INTO users (name, email, password) VALUES (?, ?, ?)",
+                [name, email, hashedPassword]
+            );
         }
 
-        res.status(201).json({ message: 'Usuário cadastrado com sucesso!', id: result.insertId });
+        res.status(201).json({ message: 'Sucesso!', id: result.insertId });
     } catch (err) {
-        console.error('ERRO NO REGISTRO:', err.message);
-        res.status(500).json({
-            error: 'Erro ao criar conta.',
-            details: err.message
-        });
+        res.status(500).json({ error: 'Erro no banco.', details: err.message });
     }
 });
 
@@ -122,26 +109,25 @@ app.post('/api/auth/login', async (req, res) => {
         const [rows] = await pool.execute('SELECT * FROM users WHERE email = ?', [email]);
         if (rows.length === 0) return res.status(401).json({ error: 'Usuário não encontrado.' });
         const user = rows[0];
-        const isPasswordValid = await bcrypt.compare(password, user.password);
-        if (!isPasswordValid) return res.status(401).json({ error: 'Senha incorreta.' });
+        if (!await bcrypt.compare(password, user.password)) return res.status(401).json({ error: 'Senha incorreta.' });
+
         const token = jwt.sign(
             { id: user.id, email: user.email, name: user.name },
             process.env.JWT_SECRET || 'myzap_secret_key',
             { expiresIn: '7d' }
         );
-        res.json({ message: 'Login realizado!', token, user: { id: user.id, name: user.name, email: user.email } });
+        res.json({ token, user: { id: user.id, name: user.name, email: user.email } });
     } catch (err) {
-        res.status(500).json({ error: 'Erro interno no login.' });
+        res.status(500).json({ error: 'Erro no login.' });
     }
 });
 
-// Middleware de autenticação
 const authenticateToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
-    if (!token) return res.status(401).json({ error: 'No token' });
+    if (!token) return res.sendStatus(401);
     jwt.verify(token, process.env.JWT_SECRET || 'myzap_secret_key', (err, user) => {
-        if (err) return res.status(403).json({ error: 'Invalid token' });
+        if (err) return res.sendStatus(403);
         req.user = user;
         next();
     });
@@ -152,37 +138,31 @@ app.get('/api/admin/users', authenticateToken, async (req, res) => {
         const [rows] = await pool.execute('SELECT id, name, email, plan, status, created_at FROM users ORDER BY created_at DESC');
         res.json(rows);
     } catch (err) {
-        res.status(500).json({ error: 'Erro ao listar usuários.' });
+        res.status(500).json({ error: 'Erro ao listar.' });
     }
 });
 
 app.put('/api/admin/users/:id', authenticateToken, async (req, res) => {
-    const { id } = req.params;
     const { status, plan } = req.body;
     try {
-        await pool.execute('UPDATE users SET status = ?, plan = ? WHERE id = ?', [status, plan, id]);
+        await pool.execute('UPDATE users SET status = ?, plan = ?, updated_at = NOW() WHERE id = ?', [status, plan, req.params.id]);
         res.json({ message: 'OK' });
-    } catch (err) {
-        res.status(500).json({ error: 'Erro ao atualizar.' });
-    }
+    } catch (err) { res.status(500).json({ error: 'Erro' }); }
 });
 
 app.delete('/api/admin/users/:id', authenticateToken, async (req, res) => {
     try {
         await pool.execute('DELETE FROM users WHERE id = ?', [req.params.id]);
         res.json({ message: 'OK' });
-    } catch (err) {
-        res.status(500).json({ error: 'Erro ao excluir.' });
-    }
+    } catch (err) { res.status(500).json({ error: 'Erro' }); }
 });
 
 // --- SETTINGS ---
 app.get('/api/admin/settings', authenticateToken, async (req, res) => {
     try {
         const [rows] = await pool.execute('SELECT setting_key, setting_value FROM system_settings');
-        const settings = rows.reduce((acc, row) => ({ ...acc, [row.setting_key]: row.setting_value }), {});
-        res.json(settings);
-    } catch (err) { res.status(500).json({ error: 'Error' }); }
+        res.json(rows.reduce((acc, row) => ({ ...acc, [row.setting_key]: row.setting_value }), {}));
+    } catch (err) { res.status(500).json({ error: 'Erro' }); }
 });
 
 app.post('/api/admin/settings', authenticateToken, async (req, res) => {
@@ -191,10 +171,23 @@ app.post('/api/admin/settings', authenticateToken, async (req, res) => {
             await pool.execute('INSERT INTO system_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?', [key, value, value]);
         }
         res.json({ message: 'OK' });
-    } catch (err) { res.status(500).json({ error: 'Error' }); }
+    } catch (err) { res.status(500).json({ error: 'Erro' }); }
 });
 
-const PORT = 5000;
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 API rodando na porta ${PORT}`);
+// --- EVOLUTION PROXY ---
+app.get('/api/evolution/instance/fetchInstances', authenticateToken, async (req, res) => {
+    try {
+        const [rows] = await pool.execute('SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ("evolution_url", "evolution_apikey")');
+        const config = rows.reduce((acc, row) => ({ ...acc, [row.setting_key]: row.setting_value }), {});
+        const url = config.evolution_url?.replace(/\/$/, '');
+        if (!url || !config.evolution_apikey) return res.status(400).json({ error: 'Não configurado.' });
+
+        const response = await fetch(`${url}/instance/fetchInstances`, { headers: { 'apikey': config.evolution_apikey } });
+        res.json(await response.json());
+    } catch (err) { res.status(500).json({ error: 'Erro Evolution.' }); }
 });
+
+app.get('/api/health', (req, res) => res.json({ status: 'OK' }));
+
+const PORT = 5000;
+app.listen(PORT, '0.0.0.0', () => console.log('🚀 Port 5000'));
