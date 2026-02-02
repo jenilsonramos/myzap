@@ -72,6 +72,42 @@ app.post('/api/auth/login', async (req, res) => {
     }
 });
 
+// Middleware de autenticação
+const authenticateToken = (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Token não fornecido.' });
+
+    jwt.verify(token, process.env.JWT_SECRET || 'myzap_secret_key', (err, user) => {
+        if (err) return res.status(403).json({ error: 'Token inválido ou expirado.' });
+        req.user = user;
+        next();
+    });
+};
+
+app.put('/api/auth/update', authenticateToken, async (req, res) => {
+    const { name, email } = req.body;
+    const userId = req.user.id;
+
+    if (!name || !email) return res.status(400).json({ error: 'Nome e email são obrigatórios.' });
+
+    try {
+        // Verifica se o email já existe para outro usuário
+        const [rows] = await pool.execute('SELECT id FROM users WHERE email = ? AND id != ?', [email, userId]);
+        if (rows.length > 0) return res.status(400).json({ error: 'Este email já está em uso por outro usuário.' });
+
+        await pool.execute(
+            'UPDATE users SET name = ?, email = ?, updated_at = NOW() WHERE id = ?',
+            [name, email, userId]
+        );
+
+        res.json({ message: 'Perfil atualizado com sucesso!', user: { id: userId, name, email } });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Erro ao atualizar perfil no banco de dados.' });
+    }
+});
+
 const PORT = 5000;
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 API do MyZap rodando em http://0.0.0.0:${PORT}`);

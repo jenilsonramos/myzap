@@ -101,9 +101,12 @@ const AuthView: React.FC<AuthViewProps> = ({
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error || 'Falha no login.');
 
-                localStorage.setItem('myzap_token', data.token);
-                localStorage.setItem('myzap_user', JSON.stringify(data.user));
+
+                console.log('Login success! Storing token and user data...');
                 localStorage.setItem('myzap_auth', 'true');
+                localStorage.setItem('myzap_token', data.token); // Essencial para requisições autenticadas
+                localStorage.setItem('myzap_user', JSON.stringify(data.user));
+
                 showToast(`Bem-vindo de volta, ${data.user.name}!`, 'success');
                 onLogin(data);
             }

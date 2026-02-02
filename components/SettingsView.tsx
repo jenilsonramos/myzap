@@ -17,13 +17,41 @@ const SettingsView: React.FC = () => {
         avatar: localStorage.getItem(avatarKey) || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150&q=80'
     });
 
-    const handleSave = () => {
-        const updatedUser = { ...user, name: profileData.name, email: profileData.email };
-        localStorage.setItem('myzap_user', JSON.stringify(updatedUser));
-        localStorage.setItem(avatarKey, profileData.avatar);
-        localStorage.setItem(`myzap_phone_${user.email}`, profileData.phone);
-        window.dispatchEvent(new Event('profileUpdate')); // Notifica o Header
-        showToast('Configurações salvas com sucesso!');
+    const handleSave = async () => {
+        try {
+            const token = localStorage.getItem('myzap_token');
+            if (!token) throw new Error('Sessão expirada. Faça login novamente.');
+
+            const response = await fetch('/api/auth/update', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    name: profileData.name,
+                    email: profileData.email
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Erro ao atualizar perfil.');
+            }
+
+            // Atualiza localStorage após sucesso no banco
+            const updatedUser = { ...user, name: profileData.name, email: profileData.email };
+            localStorage.setItem('myzap_user', JSON.stringify(updatedUser));
+            localStorage.setItem(avatarKey, profileData.avatar);
+            localStorage.setItem(`myzap_phone_${user.email}`, profileData.phone);
+
+            window.dispatchEvent(new Event('profileUpdate')); // Notifica o Header
+            showToast('Perfil sincronizado com o banco de dados!', 'success');
+        } catch (error: any) {
+            console.error('Update Error:', error);
+            showToast(error.message || 'Erro de conexão com o servidor.', 'error');
+        }
     };
 
     const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
