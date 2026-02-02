@@ -113,6 +113,58 @@ app.put('/api/auth/update', authenticateToken, async (req, res) => {
     }
 });
 
+// --- GESTÃO DE USUÁRIOS (ADMIN) ---
+async function setupUsersTable() {
+    try {
+        // Garante que as colunas status e plan existam
+        const [columns] = await pool.execute('SHOW COLUMNS FROM users');
+        const colNames = columns.map(c => c.Field);
+
+        if (!colNames.includes('status')) {
+            await pool.execute("ALTER TABLE users ADD COLUMN status VARCHAR(20) DEFAULT 'active'");
+        }
+        if (!colNames.includes('plan')) {
+            await pool.execute("ALTER TABLE users ADD COLUMN plan VARCHAR(50) DEFAULT 'Professional'");
+        }
+    } catch (err) {
+        console.error('Erro ao configurar colunas de usuários:', err);
+    }
+}
+setupUsersTable();
+
+app.get('/api/admin/users', authenticateToken, async (req, res) => {
+    try {
+        const [rows] = await pool.execute('SELECT id, name, email, plan, status, created_at FROM users ORDER BY created_at DESC');
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao listar usuários.' });
+    }
+});
+
+app.put('/api/admin/users/:id', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+    const { status, plan } = req.body;
+    try {
+        await pool.execute(
+            'UPDATE users SET status = ?, plan = ?, updated_at = NOW() WHERE id = ?',
+            [status, plan, id]
+        );
+        res.json({ message: 'Usuário atualizado com sucesso!' });
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao atualizar usuário.' });
+    }
+});
+
+app.delete('/api/admin/users/:id', authenticateToken, async (req, res) => {
+    const { id } = req.params;
+    try {
+        await pool.execute('DELETE FROM users WHERE id = ?', [id]);
+        res.json({ message: 'Usuário removido com sucesso!' });
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao excluir usuário.' });
+    }
+});
+
 // --- CONFIGURAÇÕES DE SISTEMA ---
 async function setupSystemSettings() {
     try {
