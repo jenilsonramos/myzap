@@ -21,12 +21,82 @@ const AdminView: React.FC = () => {
     ];
 
 
-    // Mock Users
-    const [users] = useState([
-        { id: '1', name: 'João Silva', email: 'joao@email.com', plan: 'Professional', status: 'active', joined: '01/02/2026' },
-        { id: '2', name: 'Maria Souza', email: 'maria@email.com', plan: 'Enterprise', status: 'inactive', joined: '15/01/2026' },
-        { id: '3', name: 'Pedro Santos', email: 'pedro@email.com', plan: 'Master IA', status: 'active', joined: '20/01/2026' },
-    ]);
+    // Real Users State
+    const [users, setUsers] = useState<any[]>([]);
+    const [loadingUsers, setLoadingUsers] = useState(true);
+
+    const fetchUsers = async () => {
+        try {
+            const response = await fetch('/api/admin/users', {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('myzap_token')}` }
+            });
+            const data = await response.json();
+            if (response.ok) setUsers(data);
+        } catch (err) {
+            console.error('Error fetching users:', err);
+        } finally {
+            setLoadingUsers(false);
+        }
+    };
+
+    React.useEffect(() => {
+        if (activeTab === 'users') fetchUsers();
+    }, [activeTab]);
+
+    const toggleUserStatus = async (user: any) => {
+        const newStatus = user.status === 'active' ? 'inactive' : 'active';
+        try {
+            const response = await fetch(`/api/admin/users/${user.id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('myzap_token')}`
+                },
+                body: JSON.stringify({ ...user, status: newStatus })
+            });
+            if (response.ok) {
+                showToast(`Usuário ${newStatus === 'active' ? 'ativado' : 'suspenso'}!`, 'success');
+                fetchUsers();
+            }
+        } catch (err) {
+            showToast('Erro ao atualizar status.', 'error');
+        }
+    };
+
+    const handleDeleteUser = async (id: string | number) => {
+        if (!confirm('Tem certeza que deseja excluir este usuário definitivamente?')) return;
+        try {
+            const response = await fetch(`/api/admin/users/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('myzap_token')}` }
+            });
+            if (response.ok) {
+                showToast('Usuário removido!', 'success');
+                fetchUsers();
+            }
+        } catch (err) {
+            showToast('Erro ao excluir usuário.', 'error');
+        }
+    };
+
+    const changeUserPlan = async (user: any, newPlan: string) => {
+        try {
+            const response = await fetch(`/api/admin/users/${user.id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('myzap_token')}`
+                },
+                body: JSON.stringify({ ...user, plan: newPlan })
+            });
+            if (response.ok) {
+                showToast(`Plano alterado para ${newPlan}`, 'success');
+                fetchUsers();
+            }
+        } catch (err) {
+            showToast('Erro ao mudar plano.', 'error');
+        }
+    };
 
     // Dynamic Plans State
     const [plans, setPlans] = useState([
@@ -220,58 +290,71 @@ const AdminView: React.FC = () => {
                             <button className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg">Exportar CSV</button>
                         </div>
 
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead>
-                                    <tr className="border-b border-slate-100 dark:border-white/5">
-                                        <th className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-left py-4 px-4">Usuário</th>
-                                        <th className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-left py-4 px-4">Plano</th>
-                                        <th className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-left py-4 px-4">Status</th>
-                                        <th className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-left py-4 px-4">Data de Início</th>
-                                        <th className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right py-4 px-4">Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {users.map((user) => (
-                                        <tr key={user.id} className="border-b border-slate-50 dark:border-white/5 hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors">
-                                            <td className="py-4 px-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center font-black">
-                                                        {user.name.charAt(0)}
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-sm font-black dark:text-white">{user.name}</p>
-                                                        <p className="text-xs text-slate-400 font-medium">{user.email}</p>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="py-4 px-4">
-                                                <span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-full text-[10px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest">{user.plan}</span>
-                                            </td>
-                                            <td className="py-4 px-4">
-                                                <div className="flex items-center gap-2">
-                                                    <span className={`w-2 h-2 rounded-full ${user.status === 'active' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]'}`}></span>
-                                                    <span className="text-xs font-black dark:text-white uppercase tracking-tighter">{user.status === 'active' ? 'Ativo' : 'Inativo'}</span>
-                                                </div>
-                                            </td>
-                                            <td className="py-4 px-4">
-                                                <span className="text-sm text-slate-500 font-medium">{user.joined}</span>
-                                            </td>
-                                            <td className="py-4 px-4 text-right">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    <button className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-indigo-600 transition-all flex items-center justify-center">
-                                                        <span className="material-icons-round text-lg">edit</span>
-                                                    </button>
-                                                    <button className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-rose-500 transition-all flex items-center justify-center">
-                                                        <span className="material-icons-round text-lg">delete</span>
-                                                    </button>
-                                                </div>
-                                            </td>
+                        {loadingUsers ? (
+                            <div className="py-20 text-center text-slate-400 font-bold uppercase tracking-widest animate-pulse">Carregando usuários reais...</div>
+                        ) : (
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="border-b border-slate-100 dark:border-white/5">
+                                            <th className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-left py-4 px-4">Usuário</th>
+                                            <th className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-left py-4 px-4">Plano</th>
+                                            <th className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-left py-4 px-4">Status</th>
+                                            <th className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-left py-4 px-4">Cadastro</th>
+                                            <th className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right py-4 px-4">Ações</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                                    </thead>
+                                    <tbody>
+                                        {users.map((user) => (
+                                            <tr key={user.id} className="border-b border-slate-50 dark:border-white/5 hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors">
+                                                <td className="py-4 px-4">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center font-black">
+                                                            {user.name.charAt(0)}
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm font-black dark:text-white">{user.name}</p>
+                                                            <p className="text-xs text-slate-400 font-medium">{user.email}</p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="py-4 px-4">
+                                                    <select
+                                                        value={user.plan}
+                                                        onChange={(e) => changeUserPlan(user, e.target.value)}
+                                                        className="bg-slate-100 dark:bg-slate-800 rounded-full px-3 py-1 text-[10px] font-black text-slate-600 dark:text-slate-400 uppercase border-none focus:ring-1 focus:ring-indigo-500 outline-none cursor-pointer"
+                                                    >
+                                                        {plans.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+                                                    </select>
+                                                </td>
+                                                <td className="py-4 px-4">
+                                                    <button
+                                                        onClick={() => toggleUserStatus(user)}
+                                                        className="flex items-center gap-2 group"
+                                                    >
+                                                        <span className={`w-2 h-2 rounded-full ${user.status === 'active' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]'}`}></span>
+                                                        <span className="text-xs font-black dark:text-white uppercase tracking-tighter group-hover:underline">{user.status === 'active' ? 'Ativo' : 'Suspenso'}</span>
+                                                    </button>
+                                                </td>
+                                                <td className="py-4 px-4">
+                                                    <span className="text-sm text-slate-500 font-medium">{new Date(user.created_at).toLocaleDateString()}</span>
+                                                </td>
+                                                <td className="py-4 px-4 text-right">
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        <button
+                                                            onClick={() => handleDeleteUser(user.id)}
+                                                            className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-rose-500 transition-all flex items-center justify-center" title="Excluir Definitivamente"
+                                                        >
+                                                            <span className="material-icons-round text-lg">delete_forever</span>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
                     </div>
                 )}
 
