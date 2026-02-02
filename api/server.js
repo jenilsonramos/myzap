@@ -116,10 +116,10 @@ app.put('/api/auth/update', authenticateToken, async (req, res) => {
 // --- GESTÃO DE USUÁRIOS (ADMIN) ---
 async function setupUsersTable() {
     try {
-        // Garante que as colunas status e plan existam
         const [columns] = await pool.execute('SHOW COLUMNS FROM users');
         const colNames = columns.map(c => c.Field);
 
+        // Garante colunas de status e plano
         if (!colNames.includes('status')) {
             await pool.execute("ALTER TABLE users ADD COLUMN status VARCHAR(20) DEFAULT 'active'");
         }
@@ -127,12 +127,26 @@ async function setupUsersTable() {
             await pool.execute("ALTER TABLE users ADD COLUMN plan VARCHAR(50) DEFAULT 'Professional'");
         }
 
-        // Força valores padrão para usuários legados que ficaram com NULL
-        await pool.execute("UPDATE users SET status = 'active' WHERE status IS NULL");
-        await pool.execute("UPDATE users SET plan = 'Professional' WHERE plan IS NULL");
+        // Garante colunas de data
+        if (!colNames.includes('created_at')) {
+            await pool.execute("ALTER TABLE users ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP");
+        }
+        if (!colNames.includes('updated_at')) {
+            await pool.execute("ALTER TABLE users ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
+        }
 
+        // --- SANEAMENTO DE DADOS ---
+        // 1. Corrige Status e Plano
+        await pool.execute("UPDATE users SET status = 'active' WHERE status IS NULL OR status = ''");
+        await pool.execute("UPDATE users SET plan = 'Professional' WHERE plan IS NULL OR plan = ''");
+
+        // 2. Corrige Datas "falsas" ou zeradas
+        await pool.execute("UPDATE users SET created_at = NOW() WHERE created_at IS NULL OR created_at = '0000-00-00 00:00:00'");
+        await pool.execute("UPDATE users SET updated_at = NOW() WHERE updated_at IS NULL OR updated_at = '0000-00-00 00:00:00'");
+
+        console.log('✅ Saneamento da tabela de usuários concluído.');
     } catch (err) {
-        console.error('Erro ao configurar colunas de usuários:', err);
+        console.error('Erro ao configurar/sanear tabela de usuários:', err.message);
     }
 }
 setupUsersTable();
