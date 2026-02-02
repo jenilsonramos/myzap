@@ -98,7 +98,8 @@ const AdminView: React.FC = () => {
                     { id: 'users', label: 'Usuários', icon: 'people' },
                     { id: 'plans', label: 'Planos', icon: 'subscriptions' },
                     { id: 'payments', label: 'Pagamentos', icon: 'payments' },
-                    { id: 'emails', label: 'Automação & SMTP', icon: 'mail' }
+                    { id: 'emails', label: 'Automação & SMTP', icon: 'mail' },
+                    { id: 'system', label: 'Sistema & API', icon: 'settings_suggest' }
                 ].map((tab) => (
                     <button
                         key={tab.id}
@@ -391,8 +392,8 @@ const AdminView: React.FC = () => {
                                                                 setPlanForm({ ...planForm, features: newFeatures });
                                                             }}
                                                             className={`flex items-center gap-3 p-3 rounded-2xl border-2 transition-all text-left ${isSelected
-                                                                    ? 'bg-indigo-50 dark:bg-indigo-500/10 border-indigo-500 text-indigo-600 dark:text-indigo-400 shadow-md shadow-indigo-500/10'
-                                                                    : 'bg-slate-50 dark:bg-slate-900 border-transparent text-slate-500 hover:border-slate-200 dark:hover:border-white/10'
+                                                                ? 'bg-indigo-50 dark:bg-indigo-500/10 border-indigo-500 text-indigo-600 dark:text-indigo-400 shadow-md shadow-indigo-500/10'
+                                                                : 'bg-slate-50 dark:bg-slate-900 border-transparent text-slate-500 hover:border-slate-200 dark:hover:border-white/10'
                                                                 }`}
                                                         >
                                                             <div className={`w-8 h-8 rounded-xl flex items-center justify-center transition-colors ${isSelected ? 'bg-indigo-500 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-400'}`}>
@@ -451,90 +452,133 @@ const AdminView: React.FC = () => {
                     </div>
                 )}
 
-                {activeTab === 'emails' && (
-                    <div className="p-8 space-y-10 animate-in fade-in duration-500">
-                        <div>
-                            <h3 className="text-2xl font-black dark:text-white uppercase tracking-tighter">Central de Automação</h3>
-                            <p className="text-slate-500 text-sm font-medium">Templates de e-mail e servidor SMTP ZeptoMail</p>
-                        </div>
-
-                        {/* ZeptoMail Config */}
-                        <div className="bg-white dark:bg-indigo-950/10 border border-indigo-500/10 rounded-huge p-8 space-y-6">
-                            <div className="flex items-center gap-3 mb-2">
-                                <span className="material-icons-round text-indigo-500">dns</span>
-                                <h4 className="text-sm font-black dark:text-white uppercase tracking-widest">Servidor SMTP ZeptoMail</h4>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">SMTP Host</label>
-                                    <input readOnly value="smtp.zeptomail.com" className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white outline-none" />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">SMTP Port</label>
-                                    <input readOnly value="587" className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white outline-none" />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ZeproMail Key</label>
-                                    <input type="password" placeholder="api_key_..." className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none" />
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Email Templates List */}
-                        <div className="space-y-6">
-                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] ml-1">Modelos de E-mail Ativos</h4>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {[
-                                    { id: 'WELCOME', name: 'Bem-vindo ao MyZap', trigger: 'Criação de Conta', color: 'bg-indigo-500' },
-                                    { id: 'PAYMENT_APPROVED', name: 'Pagamento Aprovado', trigger: 'Stripe Callback', color: 'bg-emerald-500' },
-                                    { id: 'EXPIRING_SOON', name: 'Assinatura Vencendo', trigger: '7 dias antes', color: 'bg-amber-500' },
-                                    { id: 'EXPIRED', name: 'Acesso Expirado', trigger: 'Inadimplência', color: 'bg-rose-500' },
-                                    { id: 'PASSWORD_RECOVERY', name: 'Recuperação de Senha', trigger: 'Clique Esqueci Senha', color: 'bg-indigo-400' },
-                                ].map((email, idx) => (
-                                    <div key={idx} className="p-5 bg-white dark:bg-card-dark border border-slate-100 dark:border-white/5 rounded-3xl flex items-center gap-4 hover:border-indigo-500 transition-all cursor-pointer shadow-sm relative group">
-                                        <div className={`w-3 h-12 rounded-full ${email.color}`}></div>
-                                        <div className="flex-1">
-                                            <p className="text-xs font-black dark:text-white uppercase tracking-tight">{email.name}</p>
-                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">{email.trigger}</p>
-                                        </div>
-                                        <button
-                                            onClick={() => setPreviewEmail(email.id as any)}
-                                            className="w-8 h-8 rounded-full bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-indigo-500 transition-all flex items-center justify-center"
-                                        >
-                                            <span className="material-icons-round text-sm">visibility</span>
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Email Preview Modal */}
-                        {previewEmail && (
-                            <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-                                <div className="bg-white dark:bg-card-dark w-full max-w-2xl rounded-huge shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
-                                    <div className="p-6 border-b border-slate-100 dark:border-white/5 flex items-center justify-between">
-                                        <h4 className="text-sm font-black uppercase tracking-widest dark:text-white">Preview: {emailTemplates[previewEmail].subject}</h4>
-                                        <button onClick={() => setPreviewEmail(null)} className="text-slate-400 hover:text-rose-500 transition-colors">
-                                            <span className="material-icons-round">close</span>
-                                        </button>
-                                    </div>
-                                    <div className="p-8 bg-slate-50 dark:bg-slate-900 overflow-y-auto max-h-[60vh]">
-                                        <div
-                                            className="bg-white rounded-2xl shadow-sm p-8"
-                                            dangerouslySetInnerHTML={{ __html: emailTemplates[previewEmail].html }}
-                                        />
-                                    </div>
-                                    <div className="p-6 bg-white dark:bg-card-dark border-t border-slate-100 dark:border-white/5 flex justify-end">
-                                        <button onClick={() => setPreviewEmail(null)} className="px-8 py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 font-black text-xs uppercase tracking-widest rounded-xl hover:bg-slate-200 transition-all">Fechar</button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        <button onClick={() => handleAction('Automação de e-mails atualizada!')} className="bg-slate-900 dark:bg-indigo-600 text-white px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:opacity-90 transition-all">Salvar Automações</button>
-                    </div>
+                {activeTab === 'system' && (
+                    <SystemSettingsTab handleAction={handleAction} />
                 )}
             </div>
+        </div>
+    );
+};
+
+const SystemSettingsTab: React.FC<{ handleAction: (msg: string) => void }> = ({ handleAction }) => {
+    const { showToast } = useToast();
+    const [loading, setLoading] = React.useState(true);
+    const [settings, setSettings] = React.useState({
+        evolution_url: '',
+        evolution_apikey: ''
+    });
+
+    React.useEffect(() => {
+        const fetchSettings = async () => {
+            try {
+                const response = await fetch('/api/admin/settings', {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('myzap_token')}` }
+                });
+                const data = await response.json();
+                if (response.ok) setSettings({ evolution_url: data.evolution_url || '', evolution_apikey: data.evolution_apikey || '' });
+            } catch (err) {
+                console.error('Error fetching settings:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchSettings();
+    }, []);
+
+    const saveSettings = async () => {
+        try {
+            const response = await fetch('/api/admin/settings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('myzap_token')}`
+                },
+                body: JSON.stringify(settings)
+            });
+            if (response.ok) {
+                showToast('Configurações do Sistema salvas com sucesso!', 'success');
+            } else {
+                throw new Error('Falha ao salvar');
+            }
+        } catch (err) {
+            showToast('Erro ao salvar no banco de dados.', 'error');
+        }
+    };
+
+    if (loading) return <div className="p-20 text-center text-slate-400 font-bold uppercase tracking-widest animate-pulse">Carregando Configurações...</div>;
+
+    return (
+        <div className="p-8 space-y-10 animate-in fade-in duration-500">
+            <div className="flex items-center gap-4">
+                <div className="w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center shadow-2xl">
+                    <span className="material-icons-round text-white text-3xl">settings_suggest</span>
+                </div>
+                <div>
+                    <h3 className="text-2xl font-black dark:text-white uppercase tracking-tighter">Configurações Base</h3>
+                    <p className="text-slate-500 text-sm font-medium">Parâmetros globais de funcionamento do core MyZap</p>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="bg-white dark:bg-indigo-950/10 border border-indigo-500/10 rounded-huge p-8 space-y-6 shadow-xl">
+                    <div className="flex items-center gap-3">
+                        <span className="material-icons-round text-primary">hub</span>
+                        <h4 className="text-sm font-black dark:text-white uppercase tracking-widest">Integração Evolution API</h4>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">URL da API (Ex: https://api.exemplo.com)</label>
+                            <input
+                                value={settings.evolution_url}
+                                onChange={e => setSettings({ ...settings, evolution_url: e.target.value })}
+                                type="text"
+                                placeholder="https://app-evolution.ublochat.com.br"
+                                className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-primary outline-none transition-all"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Global ApiKey</label>
+                            <input
+                                value={settings.evolution_apikey}
+                                onChange={e => setSettings({ ...settings, evolution_apikey: e.target.value })}
+                                type="password"
+                                placeholder="4296069E-..."
+                                className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-primary outline-none transition-all"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-slate-50 dark:bg-slate-900/50 rounded-huge p-8 space-y-4 border border-slate-100 dark:border-white/5">
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Informações de Status</h4>
+                    <div className="space-y-4">
+                        <div className="flex justify-between items-center py-2 border-b border-slate-200 dark:border-white/5">
+                            <span className="text-[11px] font-bold text-slate-500 uppercase">Versão do Core</span>
+                            <span className="text-xs font-black dark:text-white">v1.2.0-stable</span>
+                        </div>
+                        <div className="flex justify-between items-center py-2 border-b border-slate-200 dark:border-white/5">
+                            <span className="text-[11px] font-bold text-slate-500 uppercase">Banco de Dados</span>
+                            <span className="text-[10px] font-black text-emerald-500 uppercase flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                                Conectado (MySQL)
+                            </span>
+                        </div>
+                        <div className="flex justify-between items-center py-2 border-b border-slate-200 dark:border-white/5">
+                            <span className="text-[11px] font-bold text-slate-500 uppercase">Fuso Horário</span>
+                            <span className="text-xs font-black dark:text-white">America/Sao_Paulo</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <button
+                onClick={saveSettings}
+                className="bg-primary text-white px-10 py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-2xl shadow-primary/30 hover:bg-emerald-700 transition-all active:scale-95 flex items-center gap-3"
+            >
+                <span className="material-icons-round">cloud_done</span>
+                Salvar Configurações Globais
+            </button>
         </div>
     );
 };

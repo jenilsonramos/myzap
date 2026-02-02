@@ -113,6 +113,103 @@ app.put('/api/auth/update', authenticateToken, async (req, res) => {
     }
 });
 
+// --- CONFIGURAÇÕES DE SISTEMA ---
+async function setupSystemSettings() {
+    try {
+        await pool.execute(`
+            CREATE TABLE IF NOT EXISTS system_settings (
+                setting_key VARCHAR(100) PRIMARY KEY,
+                setting_value TEXT,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            )
+        `);
+    } catch (err) {
+        console.error('Erro ao criar tabela de configurações:', err);
+    }
+}
+setupSystemSettings();
+
+app.get('/api/admin/settings', authenticateToken, async (req, res) => {
+    try {
+        const [rows] = await pool.execute('SELECT setting_key, setting_value FROM system_settings');
+        const settings = rows.reduce((acc, row) => ({ ...acc, [row.setting_key]: row.setting_value }), {});
+        res.json(settings);
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao buscar configurações.' });
+    }
+});
+
+app.post('/api/admin/settings', authenticateToken, async (req, res) => {
+    const settings = req.body; // { key: value }
+    try {
+        for (const [key, value] of Object.entries(settings)) {
+            await pool.execute(
+                'INSERT INTO system_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?',
+                [key, value, value]
+            );
+        }
+        res.json({ message: 'Configurações salvas!' });
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao salvar configurações.' });
+    }
+});
+
+// --- PROXY EVOLUTION API ---
+const getEvolutionConfig = async () => {
+    const [rows] = await pool.execute('SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ("evolution_url", "evolution_apikey")');
+    const config = rows.reduce((acc, row) => ({ ...acc, [row.setting_key]: row.setting_value }), {});
+    return {
+        url: config.evolution_url?.replace(/\/$/, ''),
+        apiKey: config.evolution_apikey
+    };
+};
+
+app.get('/api/evolution/instance/fetchInstances', authenticateToken, async (req, res) => {
+    try {
+        const { url, apiKey } = await getEvolutionConfig();
+        if (!url || !apiKey) return res.status(400).json({ error: 'Evolution API não configurada no painel.' });
+
+        const response = await fetch(`${url}/instance/fetchInstances`, {
+            headers: { 'apikey': apiKey }
+        });
+        const data = await response.json();
+        res.json(data);
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao buscar instâncias na Evolution API.' });
+    }
+});
+
+app.post('/api/evolution/instance/create', authenticateToken, async (req, res) => {
+    try {
+        const { url, apiKey } = await getEvolutionConfig();
+        if (!url || !apiKey) return res.status(400).json({ error: 'Evolution API não configurada.' });
+
+        const response = await fetch(`${url}/instance/create`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
+            body: JSON.stringify(req.body)
+        });
+        const data = await response.json();
+        res.status(response.status).json(data);
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao criar instância.' });
+    }
+});
+
+app.get('/api/evolution/instance/connect/:instanceName', authenticateToken, async (req, res) => {
+    try {
+        const { url, apiKey } = await getEvolutionConfig();
+        const { instanceName } = req.params;
+        const response = await fetch(`${url}/instance/connect/${instanceName}`, {
+            headers: { 'apikey': apiKey }
+        });
+        const data = await response.json();
+        res.json(data);
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao buscar QR Code.' });
+    }
+});
+
 const PORT = 5000;
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 API do MyZap rodando em http://0.0.0.0:${PORT}`);
