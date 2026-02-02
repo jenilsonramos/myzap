@@ -443,6 +443,16 @@ const AdminView: React.FC = () => {
                                                 </select>
                                             </div>
                                         </div>
+                                        <div className="space-y-1.5 pt-2">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fim do Teste Grátis (Trial Ends)</label>
+                                            <input
+                                                type="datetime-local"
+                                                value={editingUser.trial_ends_at ? new Date(new Date(editingUser.trial_ends_at).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ''}
+                                                onChange={e => setEditingUser({ ...editingUser, trial_ends_at: e.target.value })}
+                                                className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                                            />
+                                            <p className="text-[9px] text-slate-400 font-bold uppercase ml-1 italic">* Deixe vazio se não for um usuário em teste.</p>
+                                        </div>
                                     </div>
                                     <div className="p-6 bg-white dark:bg-card-dark border-t border-slate-100 dark:border-white/5 flex gap-4">
                                         <button onClick={() => setIsUserModalOpen(false)} className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 font-black text-xs uppercase tracking-widest rounded-xl hover:bg-slate-200 transition-all">Cancelar</button>
