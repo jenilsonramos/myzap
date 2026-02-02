@@ -53,9 +53,12 @@ async function setupTables() {
 
         for (const col of columns) {
             await pool.query(`ALTER TABLE flows ADD COLUMN ${col.name} ${col.type}`).catch(() => {
-                // Silencia erro se a coluna já existir, mas força o tipo se necessário (ex: content)
+                // Força o tipo correto se a coluna já existir mas com tipo errado
                 if (col.name === 'content') {
                     pool.query(`ALTER TABLE flows MODIFY COLUMN content LONGTEXT`).catch(() => { });
+                }
+                if (col.name === 'status') {
+                    pool.query(`ALTER TABLE flows MODIFY COLUMN status VARCHAR(20) DEFAULT 'paused'`).catch(() => { });
                 }
             });
         }
