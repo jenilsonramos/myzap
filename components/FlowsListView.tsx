@@ -12,10 +12,10 @@ interface Flow {
 }
 
 interface FlowsListViewProps {
-    onOpenFlow: (id: string) => void;
+    onEditFlow: (id: string) => void;
 }
 
-const FlowsListView: React.FC<FlowsListViewProps> = ({ onOpenFlow }) => {
+const FlowsListView: React.FC<FlowsListViewProps> = ({ onEditFlow }) => {
     const [flows, setFlows] = useState<Flow[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -34,7 +34,8 @@ const FlowsListView: React.FC<FlowsListViewProps> = ({ onOpenFlow }) => {
                 showToast('Erro ao carregar fluxos do servidor.', 'error');
             }
         } catch (err) {
-            showToast('Falha na conexão com o servidor.', 'error');
+            console.error('Network error fetching flows:', err);
+            showToast('Falha na conexão com o servidor. Verifique se o backend está online.', 'error');
         } finally {
             setIsLoading(false);
         }
@@ -59,9 +60,9 @@ const FlowsListView: React.FC<FlowsListViewProps> = ({ onOpenFlow }) => {
             });
 
             if (response.ok) {
-                showToast('Fluxo criado com sucesso!', 'success');
+                showToast('Fluxo criado no banco!', 'success');
                 fetchFlows();
-                onOpenFlow(id);
+                onEditFlow(id);
             } else {
                 let errorMsg = 'Falha no banco';
                 try {
@@ -78,7 +79,8 @@ const FlowsListView: React.FC<FlowsListViewProps> = ({ onOpenFlow }) => {
                 showToast(`Erro ao criar: ${errorMsg}`, 'error');
             }
         } catch (err) {
-            showToast('Erro de conexão.', 'error');
+            console.error('Connection error creating flow:', err);
+            showToast('Erro de conexão ao criar no banco.', 'error');
         }
     };
 
@@ -103,14 +105,14 @@ const FlowsListView: React.FC<FlowsListViewProps> = ({ onOpenFlow }) => {
         }
     };
 
-    const filteredFlows = flows.filter(f => f.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    const filteredFlows = flows.filter(f => (f.name || '').toLowerCase().includes(searchTerm.toLowerCase()));
 
-    if (isLoading) {
+    if (isLoading && flows.length === 0) {
         return (
             <div className="p-8 flex items-center justify-center min-h-[400px]">
                 <div className="flex flex-col items-center gap-4">
                     <div className="w-12 h-12 border-4 border-indigo-600/20 border-t-indigo-600 rounded-full animate-spin"></div>
-                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Carregando seus fluxos...</p>
+                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Sincronizando com o banco...</p>
                 </div>
             </div>
         );
@@ -122,7 +124,7 @@ const FlowsListView: React.FC<FlowsListViewProps> = ({ onOpenFlow }) => {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h2 className="text-2xl md:text-3xl font-black dark:text-white uppercase tracking-tighter">Meus Fluxos</h2>
-                    <p className="text-slate-500 text-sm font-medium">Gerencie suas automações inteligentes</p>
+                    <p className="text-slate-500 text-sm font-medium">Gerencie suas automações no banco de dados</p>
                 </div>
                 <button
                     onClick={createNewFlow}
@@ -138,7 +140,7 @@ const FlowsListView: React.FC<FlowsListViewProps> = ({ onOpenFlow }) => {
                 <span className="material-icons-round absolute left-4 md:left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors">search</span>
                 <input
                     type="text"
-                    placeholder="Buscar por nome do fluxo..."
+                    placeholder="Pesquisar nos seus fluxos salvos..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full bg-white dark:bg-card-dark border-none rounded-2xl md:rounded-huge px-12 md:px-14 py-4 md:py-5 text-sm md:text-base dark:text-white shadow-xl shadow-slate-200/50 dark:shadow-none outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-medium"
@@ -149,10 +151,10 @@ const FlowsListView: React.FC<FlowsListViewProps> = ({ onOpenFlow }) => {
             {filteredFlows.length === 0 && (
                 <div className="bg-slate-50 dark:bg-white/5 border-2 border-dashed border-slate-200 dark:border-white/10 rounded-huge p-10 md:p-20 text-center">
                     <div className="w-16 h-16 md:w-20 md:h-20 bg-white dark:bg-slate-800 rounded-3xl shadow-xl flex items-center justify-center mx-auto mb-6">
-                        <span className="material-icons-round text-3xl md:text-4xl text-slate-300">account_tree</span>
+                        <span className="material-icons-round text-3xl md:text-4xl text-slate-300">cloud_off</span>
                     </div>
-                    <h3 className="text-lg md:text-xl font-black dark:text-white uppercase tracking-tight mb-2">Nenhum fluxo encontrado</h3>
-                    <p className="text-slate-500 text-sm font-medium mb-8 max-w-md mx-auto">Você ainda não criou nenhum fluxo de automação ou sua busca não retornou resultados.</p>
+                    <h3 className="text-lg md:text-xl font-black dark:text-white uppercase tracking-tight mb-2">Sem fluxos no banco</h3>
+                    <p className="text-slate-500 text-sm font-medium mb-8 max-w-md mx-auto">Você ainda não tem fluxos salvos na sua conta ou a busca não retornou nada.</p>
                     {searchTerm && (
                         <button onClick={() => setSearchTerm('')} className="text-indigo-600 font-black text-xs uppercase tracking-widest border-b-2 border-indigo-600 pb-1">Limpar busca</button>
                     )}
@@ -164,7 +166,7 @@ const FlowsListView: React.FC<FlowsListViewProps> = ({ onOpenFlow }) => {
                 {filteredFlows.map((flow) => (
                     <div
                         key={flow.id}
-                        onClick={() => onOpenFlow(flow.id)}
+                        onClick={() => onEditFlow(flow.id)}
                         className="group relative bg-white dark:bg-card-dark rounded-huge p-6 md:p-8 border border-slate-100 dark:border-white/5 shadow-xl shadow-slate-200/50 dark:shadow-none hover:shadow-2xl hover:border-indigo-500/30 transition-all cursor-pointer overflow-hidden active:scale-[0.98]"
                     >
                         {/* Status Badge */}
@@ -183,7 +185,9 @@ const FlowsListView: React.FC<FlowsListViewProps> = ({ onOpenFlow }) => {
 
                         {/* Flow Info */}
                         <h4 className="text-lg md:text-xl font-black dark:text-white mb-2 uppercase tracking-tight group-hover:text-indigo-500 transition-colors leading-tight line-clamp-2">{flow.name}</h4>
-                        <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-6">Atualizado em {new Date(flow.updated_at).toLocaleDateString('pt-BR')}</p>
+                        <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-6 px-1">
+                            {flow.updated_at ? `Sincronizado: ${new Date(flow.updated_at).toLocaleDateString('pt-BR')}` : 'Novo'}
+                        </p>
 
                         {/* Stats */}
                         <div className="grid grid-cols-2 gap-4 pt-6 border-t border-slate-50 dark:border-white/5">
@@ -192,8 +196,8 @@ const FlowsListView: React.FC<FlowsListViewProps> = ({ onOpenFlow }) => {
                                 <p className="text-sm font-black dark:text-white">{flow.executions?.toLocaleString() || 0}</p>
                             </div>
                             <div>
-                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Conversão</p>
-                                <p className="text-sm font-black dark:text-white">{flow.performance || '0%'}</p>
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Status</p>
+                                <p className="text-sm font-black dark:text-white uppercase">{flow.status || 'Paused'}</p>
                             </div>
                         </div>
 
