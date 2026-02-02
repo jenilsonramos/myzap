@@ -5,8 +5,33 @@ const SettingsView: React.FC = () => {
     const { showToast } = useToast();
     const [activeTab, setActiveTab] = useState<'profile' | 'api' | 'webhook' | 'security'>('profile');
 
+    // Dados Reais do Usuário
+    const user = JSON.parse(localStorage.getItem('myzap_user') || '{}');
+    const [profileData, setProfileData] = useState({
+        name: user.name || 'Admin Evolution',
+        email: user.email || 'admin@myzap.com.br',
+        role: 'Project Owner',
+        phone: '+55 11 99999-9999',
+        avatar: localStorage.getItem('myzap_avatar') || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150&q=80'
+    });
+
     const handleSave = () => {
+        localStorage.setItem('myzap_user', JSON.stringify({ ...user, name: profileData.name, email: profileData.email }));
+        localStorage.setItem('myzap_avatar', profileData.avatar);
+        window.dispatchEvent(new Event('profileUpdate')); // Notifica o Header
         showToast('Configurações salvas com sucesso!');
+    };
+
+    const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setProfileData({ ...profileData, avatar: reader.result as string });
+                showToast('Foto carregada! Clique em salvar para aplicar.', 'info');
+            };
+            reader.readAsDataURL(file);
+        }
     };
 
     return (
@@ -45,12 +70,13 @@ const SettingsView: React.FC = () => {
                     <div className="space-y-8 animate-in fade-in duration-500">
                         <div className="flex items-center gap-6">
                             <div className="relative group">
-                                <div className="w-24 h-24 rounded-3xl overflow-hidden border-4 border-slate-50 dark:border-slate-800 shadow-xl group-hover:opacity-80 transition-all">
-                                    <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150&q=80" alt="Profile" className="w-full h-full object-cover" />
+                                <div className="w-24 h-24 rounded-3xl overflow-hidden border-4 border-slate-50 dark:border-slate-800 shadow-xl group-hover:opacity-80 transition-all bg-slate-100 dark:bg-slate-800">
+                                    <img src={profileData.avatar} alt="Profile" className="w-full h-full object-cover" />
                                 </div>
-                                <button className="absolute -bottom-2 -right-2 w-8 h-8 bg-primary text-white rounded-xl flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-all">
+                                <label className="absolute -bottom-2 -right-2 w-8 h-8 bg-primary text-white rounded-xl flex items-center justify-center shadow-lg transform group-hover:scale-110 transition-all cursor-pointer">
                                     <span className="material-icons-round text-sm">photo_camera</span>
-                                </button>
+                                    <input type="file" className="hidden" accept="image/*" onChange={handlePhotoChange} />
+                                </label>
                             </div>
                             <div>
                                 <h3 className="text-xl font-black dark:text-white uppercase tracking-tight">Informações de Perfil</h3>
@@ -61,19 +87,39 @@ const SettingsView: React.FC = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome Completo</label>
-                                <input type="text" defaultValue="Admin Evolution" className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-primary transition-all outline-none" />
+                                <input
+                                    type="text"
+                                    value={profileData.name}
+                                    onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
+                                    className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-primary transition-all outline-none"
+                                />
                             </div>
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email Profissional</label>
-                                <input type="email" defaultValue="admin@myzap.com.br" className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-primary transition-all outline-none" />
+                                <input
+                                    type="email"
+                                    value={profileData.email}
+                                    onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
+                                    className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-primary transition-all outline-none"
+                                />
                             </div>
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Cargo / Função</label>
-                                <input type="text" defaultValue="Project Owner" className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-primary transition-all outline-none" />
+                                <input
+                                    type="text"
+                                    value={profileData.role}
+                                    onChange={(e) => setProfileData({ ...profileData, role: e.target.value })}
+                                    className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-primary transition-all outline-none"
+                                />
                             </div>
                             <div className="space-y-2">
                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Telefone / WhatsApp</label>
-                                <input type="text" defaultValue="+55 11 99999-9999" className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-primary transition-all outline-none" />
+                                <input
+                                    type="text"
+                                    value={profileData.phone}
+                                    onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
+                                    className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-primary transition-all outline-none"
+                                />
                             </div>
                         </div>
                     </div>

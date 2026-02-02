@@ -7,6 +7,23 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ currentView }) => {
+  const [userData, setUserData] = React.useState(() => {
+    const user = JSON.parse(localStorage.getItem('myzap_user') || '{}');
+    const avatar = localStorage.getItem('myzap_avatar') || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150&q=80';
+    return { name: user.name || 'Admin Evolution', role: 'Project Owner', avatar };
+  });
+
+  React.useEffect(() => {
+    const updateProfile = () => {
+      const user = JSON.parse(localStorage.getItem('myzap_user') || '{}');
+      const avatar = localStorage.getItem('myzap_avatar') || userData.avatar;
+      setUserData({ name: user.name || 'Admin Evolution', role: 'Project Owner', avatar });
+    };
+
+    window.addEventListener('profileUpdate', updateProfile);
+    return () => window.removeEventListener('profileUpdate', updateProfile);
+  }, []);
+
   const titles: Record<string, { title: string; subtitle: string }> = {
     [AppView.INSTANCES]: { title: 'Instâncias', subtitle: 'Gerencie suas conexões Evolution API' },
     [AppView.ANALYTICS]: { title: 'Análise Geral', subtitle: 'Métricas de tráfego e atendimento' },
@@ -58,12 +75,12 @@ const Header: React.FC<HeaderProps> = ({ currentView }) => {
               <img
                 alt="Avatar"
                 className="w-full h-full object-cover"
-                src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150&q=80"
+                src={userData.avatar}
               />
             </div>
             <div className="hidden sm:block pr-3 leading-tight">
-              <p className="text-xs font-bold text-slate-900 dark:text-white">Admin Evolution</p>
-              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Project Owner</p>
+              <p className="text-xs font-bold text-slate-900 dark:text-white">{userData.name}</p>
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">{userData.role}</p>
             </div>
           </div>
         </div>
