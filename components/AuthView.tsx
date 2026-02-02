@@ -98,9 +98,18 @@ const AuthView: React.FC<AuthViewProps> = ({
                     })
                 });
 
-                const data = await response.json();
-                if (!response.ok) throw new Error(data.error || 'Falha no login.');
+                const contentType = response.headers.get('content-type');
+                let data;
 
+                if (contentType && contentType.includes('application/json')) {
+                    data = await response.json();
+                } else {
+                    const text = await response.text();
+                    console.error('Server returned non-JSON response:', text.substring(0, 100));
+                    throw new Error('Servidor da API não está respondendo corretamente. Por favor, reinicie o backend no VPS.');
+                }
+
+                if (!response.ok) throw new Error(data?.error || 'Falha no login.');
 
                 console.log('Login success! Storing token and user data...');
                 localStorage.setItem('myzap_auth', 'true');

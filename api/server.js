@@ -31,6 +31,11 @@ async function connectToDB() {
 
 connectToDB();
 
+// --- HEALTH CHECK ---
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'OK', uptime: process.uptime(), mysql: pool ? 'Connected' : 'Disconnected' });
+});
+
 // --- ENDPOINTS DE AUTENTICAÇÃO ---
 
 app.post('/api/auth/register', async (req, res) => {

@@ -34,7 +34,16 @@ const SettingsView: React.FC = () => {
                 })
             });
 
-            const data = await response.json();
+            const contentType = response.headers.get('content-type');
+            let data;
+
+            if (contentType && contentType.includes('application/json')) {
+                data = await response.json();
+            } else {
+                const text = await response.text();
+                console.error('Server returned non-JSON:', text.substring(0, 100));
+                throw new Error('A API não respondeu em JSON. O backend pode estar fora do ar.');
+            }
 
             if (!response.ok) {
                 throw new Error(data.error || 'Erro ao atualizar perfil.');
