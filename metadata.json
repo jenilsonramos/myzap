@@ -1,0 +1,5 @@
+{
+  "name": "MyZap",
+  "description": "A high-performance management and analytics dashboard for Evolution API instances, featuring real-time status monitoring, message volume analytics, and responsive dark/light mode support.",
+  "requestFramePermissions": []
+}
