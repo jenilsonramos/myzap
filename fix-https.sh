@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# Script de Correção Automática v2 - MyZap HTTPS/Proxy
+# Script de Correção Automática v3 - MyZap HTTPS/Proxy/Rewrite
 # Este script deve ser executado no VPS com sudo.
 
-echo ">>> Iniciando correção avançada de Proxy Reverso para HTTPS..."
+echo ">>> Iniciando correção definitiva de Proxy e Rewrite para HTTPS..."
 
 # 1. Ativar módulos do Apache
 echo "Ativando módulos proxy e proxy_http..."
@@ -16,12 +16,17 @@ for VHOST_FILE in "${CONFIG_FILES[@]}"; do
     if [ -f "$VHOST_FILE" ]; then
         echo "Processando arquivo: $VHOST_FILE"
         
-        # Verificar se o Proxy já está configurado para evitar duplicidade
+        # A. Adicionar Exceção no Rewrite (SPA) - Evita retornar HTML em vez de JSON
+        if ! grep -q "RewriteCond %{REQUEST_URI} !^/api" "$VHOST_FILE"; then
+            echo "Adicionando exceção /api no Rewrite..."
+            sudo sed -i '/RewriteCond %{REQUEST_URI} !^/phpmyadmin/i \        RewriteCond %{REQUEST_URI} !^/api [NC]' "$VHOST_FILE"
+        fi
+
+        # B. Adicionar Proxy Reverso
         if grep -q "ProxyPass /api" "$VHOST_FILE"; then
-            echo "A configuração de Proxy já existe em $(basename $VHOST_FILE)."
+            echo "A configuração de Proxy já existe."
         else
-            echo "Injetando configuração de Proxy Reverso em $(basename $VHOST_FILE)..."
-            # Inserir antes da linha ErrorLog
+            echo "Injetando configuração de Proxy Reverso..."
             sudo sed -i '/ErrorLog/i \
     # Proxy Reverso para a API\n    ProxyPreserveHost On\n    ProxyPass /api http://localhost:5000/api\n    ProxyPassReverse /api http://localhost:5000/api\n' "$VHOST_FILE"
         fi
@@ -35,4 +40,4 @@ echo "Reiniciando Apache..."
 sudo systemctl restart apache2
 
 echo ">>> CORREÇÃO APLICADA COM SUCESSO! <<<"
-echo "Agora o sistema deve funcionar via HTTPS sem erros de Mixed Content."
+echo "Agora o sistema deve retornar JSON corretamente para as chamadas de API."
