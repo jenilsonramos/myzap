@@ -40,11 +40,13 @@ const AuthView: React.FC<AuthViewProps> = ({
         const API_URL = '/api/auth';
 
         try {
+            console.log('Starting Auth Action:', initialView);
             if (initialView === 'signup') {
                 if (formData.password !== formData.confirmPassword) {
                     throw new Error('As senhas não coincidem.');
                 }
 
+                console.log('Registering user...');
                 const response = await fetch(`${API_URL}/register`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -58,9 +60,11 @@ const AuthView: React.FC<AuthViewProps> = ({
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error || 'Erro no cadastro.');
 
+                console.log('Signup success! Showing toast...');
                 showToast('Cadastro realizado com sucesso!', 'success');
 
                 // --- AUTO LOGIN ---
+                console.log('Attempting auto-login...');
                 const loginResponse = await fetch(`${API_URL}/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -71,8 +75,12 @@ const AuthView: React.FC<AuthViewProps> = ({
                 });
 
                 const loginData = await loginResponse.json();
-                if (!loginResponse.ok) throw new Error(loginData.error || 'Erro ao realizar login automático.');
+                if (!loginResponse.ok) {
+                    console.error('Auto-login failed:', loginData.error);
+                    throw new Error(loginData.error || 'Erro ao realizar login automático.');
+                }
 
+                console.log('Auto-login success! Updating local storage and parent state...');
                 localStorage.setItem('myzap_token', loginData.token);
                 localStorage.setItem('myzap_user', JSON.stringify(loginData.user));
                 localStorage.setItem('myzap_auth', 'true');
@@ -80,6 +88,7 @@ const AuthView: React.FC<AuthViewProps> = ({
                 // ------------------
 
             } else if (initialView === 'login') {
+                console.log('Logging in user...');
                 const response = await fetch(`${API_URL}/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -99,7 +108,7 @@ const AuthView: React.FC<AuthViewProps> = ({
                 onLogin(data);
             }
         } catch (err: any) {
-            console.error('Auth Error:', err);
+            console.error('Auth Workflow Error:', err);
             setErrorStatus(err.message);
             showToast(err.message, 'error');
         } finally {
