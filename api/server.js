@@ -126,6 +126,11 @@ async function setupUsersTable() {
         if (!colNames.includes('plan')) {
             await pool.execute("ALTER TABLE users ADD COLUMN plan VARCHAR(50) DEFAULT 'Professional'");
         }
+
+        // Força valores padrão para usuários legados que ficaram com NULL
+        await pool.execute("UPDATE users SET status = 'active' WHERE status IS NULL");
+        await pool.execute("UPDATE users SET plan = 'Professional' WHERE plan IS NULL");
+
     } catch (err) {
         console.error('Erro ao configurar colunas de usuários:', err);
     }
@@ -157,11 +162,18 @@ app.put('/api/admin/users/:id', authenticateToken, async (req, res) => {
 
 app.delete('/api/admin/users/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
+    console.log(`Tentando excluir usuário ID: ${id}`);
     try {
-        await pool.execute('DELETE FROM users WHERE id = ?', [id]);
+        const [result] = await pool.execute('DELETE FROM users WHERE id = ?', [id]);
+        if (result.affectedRows === 0) {
+            console.log(`Nenhum usuário encontrado com ID: ${id}`);
+            return res.status(404).json({ error: 'Usuário não encontrado.' });
+        }
+        console.log(`Usuário ID: ${id} excluído com sucesso.`);
         res.json({ message: 'Usuário removido com sucesso!' });
     } catch (err) {
-        res.status(500).json({ error: 'Erro ao excluir usuário.' });
+        console.error(`Erro ao excluir usuário ${id}:`, err.message);
+        res.status(500).json({ error: 'Erro ao excluir usuário. Verifique se existem dependências.' });
     }
 });
 
