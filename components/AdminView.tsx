@@ -332,7 +332,7 @@ const AdminView: React.FC = () => {
                                                         onClick={() => toggleUserStatus(user)}
                                                         className="flex items-center gap-2 group"
                                                     >
-                                                        <span className={`w-2 h-2 rounded-full ${user.status === 'inactive' ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]'}`}></span>
+                                                        <span className={`w-2 h-2 rounded-full ${(user.status || 'active') === 'active' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]'}`}></span>
                                                         <span className="text-xs font-black dark:text-white uppercase tracking-tighter group-hover:underline">{(user.status || 'active') === 'active' ? 'Ativo' : 'Suspenso'}</span>
                                                     </button>
                                                 </td>
