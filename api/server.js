@@ -45,8 +45,10 @@ app.post('/api/auth/register', async (req, res) => {
         const [rows] = await pool.execute('SELECT id FROM users WHERE email = ?', [email]);
         if (rows.length > 0) return res.status(400).json({ error: 'Este email já está cadastrado.' });
         const hashedPassword = await bcrypt.hash(password, 10);
+
+        // CORREÇÃO: Inserindo status 'active' e plano 'Professional' explicitamente no registro
         const [result] = await pool.execute(
-            'INSERT INTO users (name, email, password, created_at, updated_at) VALUES (?, ?, ?, NOW(), NOW())',
+            'INSERT INTO users (name, email, password, status, plan, created_at, updated_at) VALUES (?, ?, ?, "active", "Professional", NOW(), NOW())',
             [name, email, hashedPassword]
         );
         res.status(201).json({ message: 'Usuário cadastrado com sucesso!', id: result.insertId });
