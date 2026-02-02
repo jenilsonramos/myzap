@@ -332,12 +332,14 @@ const AdminView: React.FC = () => {
                                                         onClick={() => toggleUserStatus(user)}
                                                         className="flex items-center gap-2 group"
                                                     >
-                                                        <span className={`w-2 h-2 rounded-full ${user.status === 'active' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]'}`}></span>
-                                                        <span className="text-xs font-black dark:text-white uppercase tracking-tighter group-hover:underline">{user.status === 'active' ? 'Ativo' : 'Suspenso'}</span>
+                                                        <span className={`w-2 h-2 rounded-full ${user.status === 'inactive' ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]' : 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]'}`}></span>
+                                                        <span className="text-xs font-black dark:text-white uppercase tracking-tighter group-hover:underline">{(user.status || 'active') === 'active' ? 'Ativo' : 'Suspenso'}</span>
                                                     </button>
                                                 </td>
                                                 <td className="py-4 px-4">
-                                                    <span className="text-sm text-slate-500 font-medium">{new Date(user.created_at).toLocaleDateString()}</span>
+                                                    <span className="text-sm text-slate-500 font-medium">
+                                                        {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
+                                                    </span>
                                                 </td>
                                                 <td className="py-4 px-4 text-right">
                                                     <div className="flex items-center justify-end gap-2">
