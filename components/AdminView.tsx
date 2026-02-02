@@ -452,6 +452,90 @@ const AdminView: React.FC = () => {
                     </div>
                 )}
 
+                {activeTab === 'emails' && (
+                    <div className="p-8 space-y-10 animate-in fade-in duration-500">
+                        <div>
+                            <h3 className="text-2xl font-black dark:text-white uppercase tracking-tighter">Central de Automação</h3>
+                            <p className="text-slate-500 text-sm font-medium">Templates de e-mail e servidor SMTP ZeptoMail</p>
+                        </div>
+
+                        {/* ZeptoMail Config */}
+                        <div className="bg-white dark:bg-indigo-950/10 border border-indigo-500/10 rounded-huge p-8 space-y-6">
+                            <div className="flex items-center gap-3 mb-2">
+                                <span className="material-icons-round text-indigo-500">dns</span>
+                                <h4 className="text-sm font-black dark:text-white uppercase tracking-widest">Servidor SMTP ZeptoMail</h4>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">SMTP Host</label>
+                                    <input readOnly value="smtp.zeptomail.com" className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white outline-none" />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">SMTP Port</label>
+                                    <input readOnly value="587" className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white outline-none" />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ZeproMail Key</label>
+                                    <input type="password" placeholder="api_key_..." className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none" />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Email Templates List */}
+                        <div className="space-y-6">
+                            <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] ml-1">Modelos de E-mail Ativos</h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {[
+                                    { id: 'WELCOME', name: 'Bem-vindo ao MyZap', trigger: 'Criação de Conta', color: 'bg-indigo-500' },
+                                    { id: 'PAYMENT_APPROVED', name: 'Pagamento Aprovado', trigger: 'Stripe Callback', color: 'bg-emerald-500' },
+                                    { id: 'EXPIRING_SOON', name: 'Assinatura Vencendo', trigger: '7 dias antes', color: 'bg-amber-500' },
+                                    { id: 'EXPIRED', name: 'Acesso Expirado', trigger: 'Inadimplência', color: 'bg-rose-500' },
+                                    { id: 'PASSWORD_RECOVERY', name: 'Recuperação de Senha', trigger: 'Clique Esqueci Senha', color: 'bg-indigo-400' },
+                                ].map((email, idx) => (
+                                    <div key={idx} className="p-5 bg-white dark:bg-card-dark border border-slate-100 dark:border-white/5 rounded-3xl flex items-center gap-4 hover:border-indigo-500 transition-all cursor-pointer shadow-sm relative group">
+                                        <div className={`w-3 h-12 rounded-full ${email.color}`}></div>
+                                        <div className="flex-1">
+                                            <p className="text-xs font-black dark:text-white uppercase tracking-tight">{email.name}</p>
+                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">{email.trigger}</p>
+                                        </div>
+                                        <button
+                                            onClick={() => setPreviewEmail(email.id as any)}
+                                            className="w-8 h-8 rounded-full bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-indigo-500 transition-all flex items-center justify-center"
+                                        >
+                                            <span className="material-icons-round text-sm">visibility</span>
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Email Preview Modal */}
+                        {previewEmail && (
+                            <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+                                <div className="bg-white dark:bg-card-dark w-full max-w-2xl rounded-huge shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+                                    <div className="p-6 border-b border-slate-100 dark:border-white/5 flex items-center justify-between">
+                                        <h4 className="text-sm font-black uppercase tracking-widest dark:text-white">Preview: {emailTemplates[previewEmail].subject}</h4>
+                                        <button onClick={() => setPreviewEmail(null)} className="text-slate-400 hover:text-rose-500 transition-colors">
+                                            <span className="material-icons-round">close</span>
+                                        </button>
+                                    </div>
+                                    <div className="p-8 bg-slate-50 dark:bg-slate-900 overflow-y-auto max-h-[60vh]">
+                                        <div
+                                            className="bg-white rounded-2xl shadow-sm p-8"
+                                            dangerouslySetInnerHTML={{ __html: emailTemplates[previewEmail].html }}
+                                        />
+                                    </div>
+                                    <div className="p-6 bg-white dark:bg-card-dark border-t border-slate-100 dark:border-white/5 flex justify-end">
+                                        <button onClick={() => setPreviewEmail(null)} className="px-8 py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 font-black text-xs uppercase tracking-widest rounded-xl hover:bg-slate-200 transition-all">Fechar</button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        <button onClick={() => handleAction('Automação de e-mails atualizada!')} className="bg-slate-900 dark:bg-indigo-600 text-white px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:opacity-90 transition-all">Salvar Automações</button>
+                    </div>
+                )}
+
                 {activeTab === 'system' && (
                     <SystemSettingsTab handleAction={handleAction} />
                 )}
