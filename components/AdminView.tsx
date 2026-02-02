@@ -297,6 +297,7 @@ const AdminView: React.FC = () => {
                                         <tr className="border-b border-slate-100 dark:border-white/5">
                                             <th className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-left py-4 px-4">Usuário</th>
                                             <th className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-left py-4 px-4">Plano</th>
+                                            <th className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-left py-4 px-4">Cargo</th>
                                             <th className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-left py-4 px-4">Status</th>
                                             <th className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-left py-4 px-4">Cadastro</th>
                                             <th className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right py-4 px-4">Ações</th>
@@ -326,6 +327,11 @@ const AdminView: React.FC = () => {
                                                     </select>
                                                 </td>
                                                 <td className="py-4 px-4">
+                                                    <span className={`inline-flex px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${user.role === 'admin' ? 'bg-indigo-500/10 text-indigo-500' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
+                                                        {user.role === 'admin' ? 'Administrador' : 'Usuário'}
+                                                    </span>
+                                                </td>
+                                                <td className="py-4 px-4">
                                                     <button
                                                         onClick={() => toggleUserStatus(user)}
                                                         className="flex items-center gap-2 group"
@@ -342,6 +348,12 @@ const AdminView: React.FC = () => {
                                                 <td className="py-4 px-4 text-right">
                                                     <div className="flex items-center justify-end gap-2">
                                                         <button
+                                                            onClick={() => openUserModal(user)}
+                                                            className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-indigo-500 transition-all flex items-center justify-center" title="Editar Usuário"
+                                                        >
+                                                            <span className="material-icons-round text-lg">edit</span>
+                                                        </button>
+                                                        <button
                                                             onClick={() => handleDeleteUser(user.id)}
                                                             className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-rose-500 transition-all flex items-center justify-center" title="Excluir Definitivamente"
                                                         >
@@ -353,6 +365,61 @@ const AdminView: React.FC = () => {
                                         ))}
                                     </tbody>
                                 </table>
+                            </div>
+                        )}
+
+                        {/* User Edit Modal */}
+                        {isUserModalOpen && editingUser && (
+                            <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+                                <div className="bg-white dark:bg-card-dark w-full max-w-xl rounded-huge shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+                                    <div className="p-6 border-b border-slate-100 dark:border-white/5 flex items-center justify-between">
+                                        <div>
+                                            <h4 className="text-sm font-black uppercase tracking-widest dark:text-white">Editar Usuário: {editingUser.name}</h4>
+                                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Ajuste as informações e permissões do usuário</p>
+                                        </div>
+                                        <button onClick={() => setIsUserModalOpen(false)} className="text-slate-400 hover:text-rose-500 transition-colors">
+                                            <span className="material-icons-round">close</span>
+                                        </button>
+                                    </div>
+                                    <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto scrollbar-hide">
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome</label>
+                                            <input value={editingUser.name} onChange={e => setEditingUser({ ...editingUser, name: e.target.value })} type="text" className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white outline-none focus:ring-2 focus:ring-indigo-500" />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email</label>
+                                            <input value={editingUser.email} onChange={e => setEditingUser({ ...editingUser, email: e.target.value })} type="email" className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white outline-none focus:ring-2 focus:ring-indigo-500" />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Cargo</label>
+                                                <select
+                                                    value={editingUser.role}
+                                                    onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value as 'user' | 'admin' })}
+                                                    className="w-full bg-slate-50 dark:bg-white/5 border-none rounded-2xl px-6 py-4 text-sm dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-bold"
+                                                >
+                                                    <option value="user" className="dark:bg-slate-800">Usuário Comum</option>
+                                                    <option value="admin" className="dark:bg-slate-800">Administrador</option>
+                                                </select>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Status</label>
+                                                <select
+                                                    value={editingUser.status}
+                                                    onChange={(e) => setEditingUser({ ...editingUser, status: e.target.value as 'active' | 'inactive' })}
+                                                    className="w-full bg-slate-50 dark:bg-white/5 border-none rounded-2xl px-6 py-4 text-sm dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-bold"
+                                                >
+                                                    <option value="active" className="dark:bg-slate-800">Ativo</option>
+                                                    <option value="inactive" className="dark:bg-slate-800">Inativo</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="p-6 bg-white dark:bg-card-dark border-t border-slate-100 dark:border-white/5 flex gap-4">
+                                        <button onClick={() => setIsUserModalOpen(false)} className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 font-black text-xs uppercase tracking-widest rounded-xl hover:bg-slate-200 transition-all">Cancelar</button>
+                                        <button onClick={saveUserChanges} className="flex-1 py-3 bg-indigo-600 text-white font-black text-xs uppercase tracking-widest rounded-xl shadow-lg shadow-indigo-600/30 hover:bg-indigo-700 transition-all">Salvar Alterações</button>
+                                    </div>
+                                </div>
                             </div>
                         )}
                     </div>

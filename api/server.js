@@ -25,6 +25,7 @@ async function forceSanitize() {
         if (!pool) return;
         await pool.execute("UPDATE users SET status = 'active' WHERE status IS NULL OR (status != 'active' AND status != 'inactive')");
         await pool.execute("UPDATE users SET plan = 'Professional' WHERE plan IS NULL OR plan = ''");
+        await pool.execute("UPDATE users SET role = 'user' WHERE role IS NULL OR role = ''");
         await pool.execute("UPDATE users SET created_at = NOW() WHERE created_at IS NULL OR created_at = '0000-00-00 00:00:00'");
     } catch (err) {
         console.error('❌ [FAXINA] Erro:', err.message);
@@ -63,7 +64,10 @@ async function setupTables() {
             });
         }
 
-        console.log('✅ [DB] Esquema de fluxos verificado.');
+        // 3. Garantir coluna role na tabela users
+        await pool.query("ALTER TABLE users ADD COLUMN role VARCHAR(20) DEFAULT 'user'").catch(() => { });
+
+        console.log('✅ [DB] Esquema verificado.');
         await forceSanitize();
     } catch (err) {
         console.error('❌ [DB] Falha crítica no setup:', err.message);
@@ -117,11 +121,19 @@ app.post('/api/auth/login', async (req, res) => {
         if (!await bcrypt.compare(password, user.password)) return res.status(401).json({ error: 'Senha incorreta' });
 
         const token = jwt.sign(
-            { id: user.id, email: user.email, name: user.name },
+            { id: user.id, email: user.email, name: user.name, role: user.role || 'user' },
             process.env.JWT_SECRET || 'myzap_secret_key',
             { expiresIn: '7d' }
         );
-        res.json({ token, user: { id: user.id, name: user.name, email: user.email } });
+        res.json({
+            token,
+            user: {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                role: user.role || 'user'
+            }
+        });
     } catch (err) { res.status(500).json({ error: 'Erro' }); }
 });
 
@@ -135,24 +147,33 @@ const authenticateToken = (req, res, next) => {
     });
 };
 
+const authenticateAdmin = (req, res, next) => {
+    authenticateToken(req, res, () => {
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
+        }
+        next();
+    });
+};
+
 // --- ADMIN / SETTINGS ---
 
-app.get('/api/admin/users', authenticateToken, async (req, res) => {
+app.get('/api/admin/users', authenticateAdmin, async (req, res) => {
     try {
-        const [rows] = await pool.execute('SELECT id, name, email, plan, status, created_at FROM users ORDER BY created_at DESC');
+        const [rows] = await pool.execute('SELECT id, name, email, plan, status, role, created_at FROM users ORDER BY created_at DESC');
         res.json(rows);
     } catch (err) { res.status(500).json({ error: 'Erro' }); }
 });
 
-app.put('/api/admin/users/:id', authenticateToken, async (req, res) => {
-    const { status, plan } = req.body;
+app.put('/api/admin/users/:id', authenticateAdmin, async (req, res) => {
+    const { status, plan, role } = req.body;
     try {
-        await pool.execute('UPDATE users SET status = ?, plan = ?, updated_at = NOW() WHERE id = ?', [status, plan, req.params.id]);
+        await pool.execute('UPDATE users SET status = ?, plan = ?, role = ?, updated_at = NOW() WHERE id = ?', [status, plan, role, req.params.id]);
         res.json({ message: 'OK' });
     } catch (err) { res.status(500).json({ error: 'Erro' }); }
 });
 
-app.post('/api/admin/settings', authenticateToken, async (req, res) => {
+app.post('/api/admin/settings', authenticateAdmin, async (req, res) => {
     try {
         for (const [key, value] of Object.entries(req.body)) {
             await pool.execute('INSERT INTO system_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?', [key, value, value]);

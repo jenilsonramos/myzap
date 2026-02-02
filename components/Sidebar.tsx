@@ -15,10 +15,14 @@ const Sidebar: React.FC<SidebarProps> = ({ onToggleTheme, isDarkMode, onLogout }
   const location = useLocation();
   const navigate = useNavigate();
 
+  const userStr = localStorage.getItem('myzap_user');
+  const user = userStr ? JSON.parse(userStr) : null;
+  const isAdmin = user?.role === 'admin';
+
   const isActive = (path: string) => location.pathname === path;
 
   const menuItems = [
-    { view: AppView.ADMIN, icon: 'admin_panel_settings', path: '/admin', title: 'Admin' },
+    { view: AppView.ADMIN, icon: 'admin_panel_settings', path: '/admin', title: 'Admin', adminOnly: true },
     { view: AppView.ANALYTICS, icon: 'analytics', path: '/analytics', title: 'Analytics' },
     { view: AppView.INSTANCES, icon: 'grid_view', path: '/instances', title: 'Instâncias' },
     { view: AppView.CHAT, icon: 'chat', path: '/chat', title: 'Chat' },
@@ -28,7 +32,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onToggleTheme, isDarkMode, onLogout }
     { view: AppView.AI_INTEGRATION, icon: 'psychology', path: '/ai-integration', title: 'Integração IA' },
     { view: AppView.MY_PLAN, icon: 'workspace_premium', path: '/my-plan', title: 'Meu Plano' },
     { view: AppView.SETTINGS, icon: 'settings', path: '/settings', title: 'Configurações' },
-  ];
+  ].filter(item => !item.adminOnly || isAdmin);
 
   return (
     <aside className="hidden md:flex w-24 lg:w-28 bg-primary rounded-huge flex-col items-center py-6 shrink-0 shadow-2xl border border-primary/20 relative z-30">
