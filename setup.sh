@@ -98,13 +98,18 @@ sudo bash -c "cat > $VHOST_CONF <<EOF
         RewriteRule . /index.html [L]
     </Directory>
 
+    # Proxy Reverso para a API Node.js
+    ProxyPreserveHost On
+    ProxyPass /api http://localhost:5000/api
+    ProxyPassReverse /api http://localhost:5000/api
+
     ErrorLog \${APACHE_LOG_DIR}/myzap_error.log
     CustomLog \${APACHE_LOG_DIR}/myzap_access.log combined
 </VirtualHost>
 EOF"
 
 sudo a2ensite myzap.conf
-sudo a2enmod rewrite
+sudo a2enmod rewrite proxy proxy_http
 sudo systemctl restart apache2
 
 # 8. Ativar SSL com Certbot

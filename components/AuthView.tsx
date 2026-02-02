@@ -35,7 +35,7 @@ const AuthView: React.FC<AuthViewProps> = ({
         setIsLoading(true);
         setErrorStatus(null);
 
-        const API_URL = 'http://' + window.location.hostname + ':5000/api/auth';
+        const API_URL = '/api/auth';
 
         try {
             if (initialView === 'signup') {
