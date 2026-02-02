@@ -20,10 +20,46 @@ const dbConfig = {
 
 let pool;
 
+async function setupUsersTable() {
+    try {
+        const [columns] = await pool.execute('SHOW COLUMNS FROM users');
+        const colNames = columns.map(c => c.Field);
+
+        // Garante colunas de status e plano
+        if (!colNames.includes('status')) {
+            console.log('Adicionando coluna status...');
+            await pool.execute("ALTER TABLE users ADD COLUMN status VARCHAR(20) DEFAULT 'active'");
+        }
+        if (!colNames.includes('plan')) {
+            console.log('Adicionando coluna plan...');
+            await pool.execute("ALTER TABLE users ADD COLUMN plan VARCHAR(50) DEFAULT 'Professional'");
+        }
+
+        // Garante colunas de data
+        if (!colNames.includes('created_at')) {
+            await pool.execute("ALTER TABLE users ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP");
+        }
+        if (!colNames.includes('updated_at')) {
+            await pool.execute("ALTER TABLE users ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
+        }
+
+        // --- SANEAMENTO DE DADOS AGRESSIVO ---
+        await pool.execute("UPDATE users SET status = 'active' WHERE status IS NULL OR (status != 'active' AND status != 'inactive')");
+        await pool.execute("UPDATE users SET plan = 'Professional' WHERE plan IS NULL OR plan = ''");
+        await pool.execute("UPDATE users SET created_at = NOW() WHERE created_at IS NULL OR created_at = '0000-00-00 00:00:00' OR created_at = '0000-00-00'");
+        await pool.execute("UPDATE users SET updated_at = NOW() WHERE updated_at IS NULL OR updated_at = '0000-00-00 00:00:00' OR updated_at = '0000-00-00'");
+
+        console.log('✅ Saneamento agressivo da tabela de usuários concluído.');
+    } catch (err) {
+        console.error('❌ Erro no setupUsersTable:', err.message);
+    }
+}
+
 async function connectToDB() {
     try {
         pool = mysql.createPool(dbConfig);
         console.log('✅ Conectado ao MySQL com sucesso!');
+        await setupUsersTable(); // Garante que a tabela está pronta
     } catch (err) {
         console.error('❌ Erro ao conectar ao MySQL:', err.message);
     }
@@ -46,7 +82,7 @@ app.post('/api/auth/register', async (req, res) => {
         if (rows.length > 0) return res.status(400).json({ error: 'Este email já está cadastrado.' });
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // CORREÇÃO: Inserindo status 'active' e plano 'Professional' explicitamente no registro
+        // CORREÇÃO DEFINITIVA: Inserindo status 'active' e plano 'Professional' explicitamente
         const [result] = await pool.execute(
             'INSERT INTO users (name, email, password, status, plan, created_at, updated_at) VALUES (?, ?, ?, "active", "Professional", NOW(), NOW())',
             [name, email, hashedPassword]
@@ -54,7 +90,11 @@ app.post('/api/auth/register', async (req, res) => {
         res.status(201).json({ message: 'Usuário cadastrado com sucesso!', id: result.insertId });
     } catch (err) {
         console.error('ERRO NO REGISTRO:', err.message);
-        res.status(500).json({ error: 'Erro interno no servidor.', details: err.message });
+        res.status(500).json({
+            error: 'Erro interno no servidor.',
+            details: err.message,
+            suggestion: 'Tente novamente em alguns segundos (o banco pode estar atualizando).'
+        });
     }
 });
 
@@ -92,69 +132,6 @@ const authenticateToken = (req, res, next) => {
     });
 };
 
-app.put('/api/auth/update', authenticateToken, async (req, res) => {
-    const { name, email } = req.body;
-    const userId = req.user.id;
-
-    if (!name || !email) return res.status(400).json({ error: 'Nome e email são obrigatórios.' });
-
-    try {
-        // Verifica se o email já existe para outro usuário
-        const [rows] = await pool.execute('SELECT id FROM users WHERE email = ? AND id != ?', [email, userId]);
-        if (rows.length > 0) return res.status(400).json({ error: 'Este email já está em uso por outro usuário.' });
-
-        await pool.execute(
-            'UPDATE users SET name = ?, email = ?, updated_at = NOW() WHERE id = ?',
-            [name, email, userId]
-        );
-
-        res.json({ message: 'Perfil atualizado com sucesso!', user: { id: userId, name, email } });
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Erro ao atualizar perfil no banco de dados.' });
-    }
-});
-
-// --- GESTÃO DE USUÁRIOS (ADMIN) ---
-async function setupUsersTable() {
-    try {
-        const [columns] = await pool.execute('SHOW COLUMNS FROM users');
-        const colNames = columns.map(c => c.Field);
-
-        // Garante colunas de status e plano
-        if (!colNames.includes('status')) {
-            await pool.execute("ALTER TABLE users ADD COLUMN status VARCHAR(20) DEFAULT 'active'");
-        }
-        if (!colNames.includes('plan')) {
-            await pool.execute("ALTER TABLE users ADD COLUMN plan VARCHAR(50) DEFAULT 'Professional'");
-        }
-
-        // Garante colunas de data
-        if (!colNames.includes('created_at')) {
-            await pool.execute("ALTER TABLE users ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP");
-        }
-        if (!colNames.includes('updated_at')) {
-            await pool.execute("ALTER TABLE users ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
-        }
-
-        // --- SANEAMENTO DE DADOS AGRESSIVO ---
-        // 1. Corrige Status: TUDO que não for explicitamente 'inactive' vira 'active'
-        await pool.execute("UPDATE users SET status = 'active' WHERE status IS NULL OR (status != 'active' AND status != 'inactive')");
-
-        // 2. Corrige Plano: TUDO que for nulo ou vazio vira 'Professional'
-        await pool.execute("UPDATE users SET plan = 'Professional' WHERE plan IS NULL OR plan = ''");
-
-        // 3. Corrige Datas "falsas" ou zeradas
-        await pool.execute("UPDATE users SET created_at = NOW() WHERE created_at IS NULL OR created_at = '0000-00-00 00:00:00' OR created_at = '0000-00-00'");
-        await pool.execute("UPDATE users SET updated_at = NOW() WHERE updated_at IS NULL OR updated_at = '0000-00-00 00:00:00' OR updated_at = '0000-00-00'");
-
-        console.log('✅ Saneamento agressivo da tabela de usuários concluído.');
-    } catch (err) {
-        console.error('Erro ao configurar/sanear tabela de usuários:', err.message);
-    }
-}
-setupUsersTable();
-
 app.get('/api/admin/users', authenticateToken, async (req, res) => {
     try {
         const [rows] = await pool.execute('SELECT id, name, email, plan, status, created_at FROM users ORDER BY created_at DESC');
@@ -180,18 +157,12 @@ app.put('/api/admin/users/:id', authenticateToken, async (req, res) => {
 
 app.delete('/api/admin/users/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
-    console.log(`Tentando excluir usuário ID: ${id}`);
     try {
-        const [result] = await pool.execute('DELETE FROM users WHERE id = ?', [id]);
-        if (result.affectedRows === 0) {
-            console.log(`Nenhum usuário encontrado com ID: ${id}`);
-            return res.status(404).json({ error: 'Usuário não encontrado.' });
-        }
-        console.log(`Usuário ID: ${id} excluído com sucesso.`);
+        await pool.execute('DELETE FROM users WHERE id = ?', [id]);
         res.json({ message: 'Usuário removido com sucesso!' });
     } catch (err) {
         console.error(`Erro ao excluir usuário ${id}:`, err.message);
-        res.status(500).json({ error: 'Erro ao excluir usuário. Verifique se existem dependências.' });
+        res.status(500).json({ error: 'Erro ao excluir usuário.' });
     }
 });
 
@@ -209,8 +180,8 @@ async function setupSystemSettings() {
         console.error('Erro ao criar tabela de configurações:', err);
     }
 }
-setupSystemSettings();
 
+// Chamar settings após o banco conectar
 app.get('/api/admin/settings', authenticateToken, async (req, res) => {
     try {
         const [rows] = await pool.execute('SELECT setting_key, setting_value FROM system_settings');
@@ -222,7 +193,7 @@ app.get('/api/admin/settings', authenticateToken, async (req, res) => {
 });
 
 app.post('/api/admin/settings', authenticateToken, async (req, res) => {
-    const settings = req.body; // { key: value }
+    const settings = req.body;
     try {
         for (const [key, value] of Object.entries(settings)) {
             await pool.execute(
@@ -250,45 +221,11 @@ app.get('/api/evolution/instance/fetchInstances', authenticateToken, async (req,
     try {
         const { url, apiKey } = await getEvolutionConfig();
         if (!url || !apiKey) return res.status(400).json({ error: 'Evolution API não configurada no painel.' });
-
-        const response = await fetch(`${url}/instance/fetchInstances`, {
-            headers: { 'apikey': apiKey }
-        });
+        const response = await fetch(`${url}/instance/fetchInstances`, { headers: { 'apikey': apiKey } });
         const data = await response.json();
         res.json(data);
     } catch (err) {
-        res.status(500).json({ error: 'Erro ao buscar instâncias na Evolution API.' });
-    }
-});
-
-app.post('/api/evolution/instance/create', authenticateToken, async (req, res) => {
-    try {
-        const { url, apiKey } = await getEvolutionConfig();
-        if (!url || !apiKey) return res.status(400).json({ error: 'Evolution API não configurada.' });
-
-        const response = await fetch(`${url}/instance/create`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'apikey': apiKey },
-            body: JSON.stringify(req.body)
-        });
-        const data = await response.json();
-        res.status(response.status).json(data);
-    } catch (err) {
-        res.status(500).json({ error: 'Erro ao criar instância.' });
-    }
-});
-
-app.get('/api/evolution/instance/connect/:instanceName', authenticateToken, async (req, res) => {
-    try {
-        const { url, apiKey } = await getEvolutionConfig();
-        const { instanceName } = req.params;
-        const response = await fetch(`${url}/instance/connect/${instanceName}`, {
-            headers: { 'apikey': apiKey }
-        });
-        const data = await response.json();
-        res.json(data);
-    } catch (err) {
-        res.status(500).json({ error: 'Erro ao buscar QR Code.' });
+        res.status(500).json({ error: 'Erro ao buscar instâncias.' });
     }
 });
 
