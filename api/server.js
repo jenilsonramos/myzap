@@ -48,7 +48,21 @@ async function connectToDB() {
             connectionLimit: 10,
             queueLimit: 0
         });
-        console.log('✅ MyZap MySQL Pool Criado.');
+        // Criar tabelas necessárias se não existirem
+        await pool.execute(`
+            CREATE TABLE IF NOT EXISTS flows (
+                id VARCHAR(50) PRIMARY KEY,
+                user_id INT,
+                name VARCHAR(255),
+                content JSON,
+                status VARCHAR(20) DEFAULT 'paused',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        `);
+
+        console.log('✅ MyZap MySQL Pool Criado e Tabelas Verificadas.');
         // Faxina imediata
         await forceSanitize();
     } catch (err) {
@@ -177,6 +191,59 @@ app.post('/api/admin/settings', authenticateToken, async (req, res) => {
         }
         res.json({ message: 'OK' });
     } catch (err) { res.status(500).json({ error: 'Erro' }); }
+});
+
+// --- GESTÃO DE FLUXOS (FLOWBUILDER) ---
+
+app.get('/api/flows', authenticateToken, async (req, res) => {
+    try {
+        const [rows] = await pool.execute('SELECT id, name, status, updated_at FROM flows WHERE user_id = ? ORDER BY updated_at DESC', [req.user.id]);
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao listar fluxos.' });
+    }
+});
+
+app.post('/api/flows', authenticateToken, async (req, res) => {
+    const { id, name } = req.body;
+    try {
+        await pool.execute('INSERT INTO flows (id, user_id, name, content) VALUES (?, ?, ?, ?)', [id, req.user.id, name, JSON.stringify({ nodes: [], edges: [] })]);
+        res.status(201).json({ message: 'Fluxo criado!' });
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao criar fluxo.' });
+    }
+});
+
+app.get('/api/flows/:id', authenticateToken, async (req, res) => {
+    try {
+        const [rows] = await pool.execute('SELECT * FROM flows WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+        if (rows.length === 0) return res.status(404).json({ error: 'Fluxo não encontrado.' });
+        res.json(rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao buscar fluxo.' });
+    }
+});
+
+app.put('/api/flows/:id', authenticateToken, async (req, res) => {
+    const { name, content, status } = req.body;
+    try {
+        await pool.execute(
+            'UPDATE flows SET name = ?, content = ?, status = ?, updated_at = NOW() WHERE id = ? AND user_id = ?',
+            [name, JSON.stringify(content), status, req.params.id, req.user.id]
+        );
+        res.json({ message: 'Fluxo atualizado!' });
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao salvar fluxo.' });
+    }
+});
+
+app.delete('/api/flows/:id', authenticateToken, async (req, res) => {
+    try {
+        await pool.execute('DELETE FROM flows WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+        res.json({ message: 'Fluxo excluído!' });
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao excluir fluxo.' });
+    }
 });
 
 const PORT = 5000;

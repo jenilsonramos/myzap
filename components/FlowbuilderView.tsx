@@ -89,44 +89,45 @@ const FlowbuilderView: React.FC<FlowbuilderViewProps> = ({ flowId, onClose, isDa
     const { screenToFlowPosition, getViewport, setViewport } = useReactFlow();
     const { showToast } = useToast();
 
-    // Carregar Fluxo
+    const [isLoading, setIsLoading] = useState(true);
+
+    // Carregar Fluxo do Banco de Dados
     useEffect(() => {
-        const savedFlows = JSON.parse(localStorage.getItem('myzap_flows') || '[]');
-        const currentFlow = savedFlows.find((f: any) => f.id === flowId);
+        const fetchFlowData = async () => {
+            if (!flowId) return;
+            setIsLoading(true);
+            try {
+                const response = await fetch(`/api/flows/${flowId}`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('myzap_token')}` }
+                });
 
-        if (currentFlow) {
-            setFlowName(currentFlow.name);
-            const flowData = localStorage.getItem(`flow_data_${flowId}`);
-            if (flowData) {
-                const parsed = JSON.parse(flowData);
-                setNodes(parsed.nodes || []);
-                setEdges(parsed.edges || []);
+                if (response.ok) {
+                    const data = await response.json();
+                    setFlowName(data.name);
 
-                // Restaurar Viewport (Zoom e Posição) salvo
-                if (parsed.viewport) {
-                    // Timeout pequeno para garantir que o ReactFlow montou
-                    setTimeout(() => {
-                        setViewport(parsed.viewport);
-                    }, 50);
+                    if (data.content) {
+                        const content = typeof data.content === 'string' ? JSON.parse(data.content) : data.content;
+                        setNodes(content.nodes || []);
+                        setEdges(content.edges || []);
+
+                        // Restaurar Viewport (Zoom e Posição) salvo
+                        if (content.viewport) {
+                            setTimeout(() => {
+                                setViewport(content.viewport);
+                            }, 50);
+                        }
+                    }
+                } else {
+                    showToast('Erro ao carregar dados do fluxo.', 'error');
                 }
-            } else {
-                setNodes([{
-                    id: 'start',
-                    type: 'trigger',
-                    position: { x: 0, y: 0 }, // Inicializa no 0,0 do fluxo
-                    data: { label: 'Gatilho de Entrada', type: 'keyword', keyword: '' }
-                }]);
-
-                // Zoom inicial de 40% centralizado
-                setTimeout(() => {
-                    setViewport({
-                        x: window.innerWidth / 2 - 150,
-                        y: window.innerHeight / 2 - 50,
-                        zoom: 0.4
-                    });
-                }, 100);
+            } catch (err) {
+                showToast('Falha na conexão ao carregar fluxo.', 'error');
+            } finally {
+                setIsLoading(false);
             }
-        }
+        };
+
+        fetchFlowData();
     }, [flowId, setViewport]);
 
     const onNodesChange: OnNodesChange = useCallback(
@@ -150,22 +151,35 @@ const FlowbuilderView: React.FC<FlowbuilderViewProps> = ({ flowId, onClose, isDa
         []
     );
 
-    const onSave = () => {
-        // Salva nós, arestas E o estado atual da câmera (viewport)
+    const onSave = async () => {
         const flowData = {
             nodes,
             edges,
             viewport: getViewport()
         };
-        localStorage.setItem(`flow_data_${flowId}`, JSON.stringify(flowData));
 
-        const savedFlows = JSON.parse(localStorage.getItem('myzap_flows') || '[]');
-        const updatedFlows = savedFlows.map((f: any) =>
-            f.id === flowId ? { ...f, updatedAt: new Date().toLocaleDateString('pt-BR') } : f
-        );
-        localStorage.setItem('myzap_flows', JSON.stringify(updatedFlows));
+        try {
+            const response = await fetch(`/api/flows/${flowId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('myzap_token')}`
+                },
+                body: JSON.stringify({
+                    name: flowName,
+                    content: flowData,
+                    status: 'active' // Mantemos como ativo ao salvar, ou deixamos o estado atual
+                })
+            });
 
-        showToast('Fluxo salvo com sucesso!', 'success');
+            if (response.ok) {
+                showToast('Fluxo salvo no banco de dados!', 'success');
+            } else {
+                showToast('Erro ao salvar no servidor.', 'error');
+            }
+        } catch (err) {
+            showToast('Erro de conexão ao salvar.', 'error');
+        }
     };
 
     const addNode = (type: string) => {

@@ -1,242 +1,195 @@
 import React, { useState, useEffect } from 'react';
 import { useToast } from './ToastContext';
-import Modal from './Modal';
 
 interface Flow {
     id: string;
     name: string;
     status: 'active' | 'paused';
-    executions: number;
-    performance: string;
-    instances: string[];
-    updatedAt: string;
+    executions?: number;
+    performance?: string;
+    instances?: string[];
+    updated_at: string;
 }
 
 interface FlowsListViewProps {
-    onEditFlow: (id: string) => void;
+    onOpenFlow: (id: string) => void;
 }
 
-const FlowsListView: React.FC<FlowsListViewProps> = ({ onEditFlow }) => {
-    const { showToast } = useToast();
+const FlowsListView: React.FC<FlowsListViewProps> = ({ onOpenFlow }) => {
     const [flows, setFlows] = useState<Flow[]>([]);
-    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-    const [newFlowName, setNewFlowName] = useState('');
-    const [searchQuery, setSearchQuery] = useState('');
+    const [isLoading, setIsLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
+    const { showToast } = useToast();
+
+    const fetchFlows = async () => {
+        setIsLoading(true);
+        try {
+            const response = await fetch('/api/flows', {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('myzap_token')}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setFlows(data);
+            } else {
+                showToast('Erro ao carregar fluxos do servidor.', 'error');
+            }
+        } catch (err) {
+            showToast('Falha na conexão com o servidor.', 'error');
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const savedFlows = localStorage.getItem('myzap_flows');
-        if (savedFlows) {
-            setFlows(JSON.parse(savedFlows));
-        } else {
-            setFlows([]);
-        }
+        fetchFlows();
     }, []);
 
-    const handleCreateFlow = () => {
-        if (!newFlowName.trim()) {
-            showToast('Dê um nome ao seu fluxo', 'error');
-            return;
+    const createNewFlow = async () => {
+        const id = Math.random().toString(36).substr(2, 9);
+        const name = `Novo Fluxo ${flows.length + 1}`;
+
+        try {
+            const response = await fetch('/api/flows', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('myzap_token')}`
+                },
+                body: JSON.stringify({ id, name })
+            });
+
+            if (response.ok) {
+                showToast('Fluxo criado com sucesso!', 'success');
+                fetchFlows();
+                onOpenFlow(id);
+            } else {
+                showToast('Erro ao criar fluxo no banco.', 'error');
+            }
+        } catch (err) {
+            showToast('Erro de conexão.', 'error');
         }
-
-        const newFlow: Flow = {
-            id: Date.now().toString(),
-            name: newFlowName,
-            status: 'paused',
-            executions: 0,
-            performance: '0%',
-            instances: [],
-            updatedAt: new Date().toLocaleDateString('pt-BR'),
-        };
-
-        const updatedFlows = [newFlow, ...flows];
-        setFlows(updatedFlows);
-        localStorage.setItem('myzap_flows', JSON.stringify(updatedFlows));
-        setIsCreateModalOpen(false);
-        setNewFlowName('');
-        showToast('Fluxo criado com sucesso!', 'success');
-        onEditFlow(newFlow.id);
     };
 
-    const handleDeleteFlow = (id: string, e: React.MouseEvent) => {
+    const deleteFlow = async (e: React.MouseEvent, id: string) => {
         e.stopPropagation();
-        const updatedFlows = flows.filter(f => f.id !== id);
-        setFlows(updatedFlows);
-        localStorage.setItem('myzap_flows', JSON.stringify(updatedFlows));
-        showToast('Fluxo excluído permanentemente', 'success');
+        if (!confirm('Tem certeza que deseja excluir este fluxo?')) return;
+
+        try {
+            const response = await fetch(`/api/flows/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('myzap_token')}` }
+            });
+
+            if (response.ok) {
+                showToast('Fluxo excluído!', 'success');
+                fetchFlows();
+            } else {
+                showToast('Erro ao excluir do banco.', 'error');
+            }
+        } catch (err) {
+            showToast('Erro de conexão.', 'error');
+        }
     };
 
-    const toggleStatus = (id: string, e: React.MouseEvent) => {
-        e.stopPropagation();
-        const updatedFlows = flows.map(f => f.id === id ? { ...f, status: f.status === 'active' ? 'paused' : 'active' as any } : f);
-        setFlows(updatedFlows);
-        localStorage.setItem('myzap_flows', JSON.stringify(updatedFlows));
-    };
+    const filteredFlows = flows.filter(f => f.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
-    const stats = {
-        total: flows.length,
-        active: flows.filter(f => f.status === 'active').length,
-        paused: flows.filter(f => f.status === 'paused').length,
-    };
-
-    const filteredFlows = flows.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase()));
-
-    return (
-        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            {/* Header with Stats */}
-            <div className="flex flex-col xl:flex-row gap-6 items-start justify-between">
-                <div className="flex flex-wrap gap-4">
-                    <div className="bg-white dark:bg-card-dark px-8 py-6 rounded-huge border border-slate-100 dark:border-white/5 shadow-xl min-w-[200px] group hover:scale-[1.02] transition-transform">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="w-8 h-8 rounded-lg bg-indigo-500/10 flex items-center justify-center text-indigo-500">
-                                <span className="material-icons-round text-lg">account_tree</span>
-                            </div>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total de Fluxos</p>
-                        </div>
-                        <h4 className="text-4xl font-black dark:text-white uppercase">{stats.total}</h4>
-                    </div>
-                    <div className="bg-white dark:bg-card-dark px-8 py-6 rounded-huge border border-slate-100 dark:border-white/5 shadow-xl min-w-[200px] group hover:scale-[1.02] transition-transform">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500">
-                                <span className="material-icons-round text-lg">check_circle</span>
-                            </div>
-                            <p className="text-[10px] font-black text-emerald-500/60 uppercase tracking-widest">Ativos</p>
-                        </div>
-                        <h4 className="text-4xl font-black text-emerald-500 uppercase">{stats.active}</h4>
-                    </div>
-                </div>
-
-                <div className="flex flex-col md:flex-row items-center gap-4 w-full xl:w-auto">
-                    <div className="relative flex-1 md:w-80">
-                        <span className="material-icons-round absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">search</span>
-                        <input
-                            type="text"
-                            placeholder="Pesquisar fluxos..."
-                            className="w-full bg-white dark:bg-card-dark pl-12 pr-4 py-4 rounded-2xl border border-slate-100 dark:border-white/5 text-sm outline-none focus:ring-2 focus:ring-primary transition-all shadow-sm"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                    </div>
-                    <button
-                        onClick={() => setIsCreateModalOpen(true)}
-                        className="w-full md:w-auto bg-primary text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-2xl shadow-primary/30 hover:scale-105 active:scale-95 transition-all flex items-center justify-center gap-2"
-                    >
-                        <span className="material-icons-round">add</span>
-                        Criar Novo Fluxo
-                    </button>
+    if (isLoading) {
+        return (
+            <div className="p-8 flex items-center justify-center min-h-[400px]">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="w-12 h-12 border-4 border-indigo-600/20 border-t-indigo-600 rounded-full animate-spin"></div>
+                    <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Carregando seus fluxos...</p>
                 </div>
             </div>
+        );
+    }
 
-            {/* List View Container */}
-            <div className="flex flex-col gap-3">
-                {filteredFlows.length === 0 ? (
-                    <div className="py-40 flex flex-col items-center justify-center opacity-30">
-                        <span className="material-icons-round text-9xl">account_tree</span>
-                        <p className="font-black uppercase tracking-widest mt-4">Nenhum fluxo encontrado</p>
+    return (
+        <div className="p-4 md:p-8 space-y-6 md:space-y-8 animate-in fade-in duration-500">
+            {/* Header / Actions */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h2 className="text-2xl md:text-3xl font-black dark:text-white uppercase tracking-tighter">Meus Fluxos</h2>
+                    <p className="text-slate-500 text-sm font-medium">Gerencie suas automações inteligentes</p>
+                </div>
+                <button
+                    onClick={createNewFlow}
+                    className="bg-indigo-600 text-white px-6 md:px-8 py-3 md:py-4 rounded-2xl md:rounded-3xl font-black text-xs md:text-sm uppercase tracking-widest shadow-xl shadow-indigo-600/30 hover:bg-indigo-700 hover:scale-105 transition-all active:scale-95 flex items-center justify-center gap-2"
+                >
+                    <span className="material-icons-round">add</span>
+                    Criar Novo Fluxo
+                </button>
+            </div>
+
+            {/* Search */}
+            <div className="relative group">
+                <span className="material-icons-round absolute left-4 md:left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors">search</span>
+                <input
+                    type="text"
+                    placeholder="Buscar por nome do fluxo..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full bg-white dark:bg-card-dark border-none rounded-2xl md:rounded-huge px-12 md:px-14 py-4 md:py-5 text-sm md:text-base dark:text-white shadow-xl shadow-slate-200/50 dark:shadow-none outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-medium"
+                />
+            </div>
+
+            {/* Empty State */}
+            {filteredFlows.length === 0 && (
+                <div className="bg-slate-50 dark:bg-white/5 border-2 border-dashed border-slate-200 dark:border-white/10 rounded-huge p-10 md:p-20 text-center">
+                    <div className="w-16 h-16 md:w-20 md:h-20 bg-white dark:bg-slate-800 rounded-3xl shadow-xl flex items-center justify-center mx-auto mb-6">
+                        <span className="material-icons-round text-3xl md:text-4xl text-slate-300">account_tree</span>
                     </div>
-                ) : filteredFlows.map((flow) => (
+                    <h3 className="text-lg md:text-xl font-black dark:text-white uppercase tracking-tight mb-2">Nenhum fluxo encontrado</h3>
+                    <p className="text-slate-500 text-sm font-medium mb-8 max-w-md mx-auto">Você ainda não criou nenhum fluxo de automação ou sua busca não retornou resultados.</p>
+                    {searchTerm && (
+                        <button onClick={() => setSearchTerm('')} className="text-indigo-600 font-black text-xs uppercase tracking-widest border-b-2 border-indigo-600 pb-1">Limpar busca</button>
+                    )}
+                </div>
+            )}
+
+            {/* Flows Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                {filteredFlows.map((flow) => (
                     <div
                         key={flow.id}
-                        onClick={() => onEditFlow(flow.id)}
-                        className="group relative bg-white dark:bg-card-dark hover:bg-slate-50 dark:hover:bg-white/5 rounded-2xl border border-slate-100 dark:border-white/5 p-4 flex flex-col md:flex-row items-center justify-between gap-6 transition-all cursor-pointer shadow-sm hover:shadow-lg"
+                        onClick={() => onOpenFlow(flow.id)}
+                        className="group relative bg-white dark:bg-card-dark rounded-huge p-6 md:p-8 border border-slate-100 dark:border-white/5 shadow-xl shadow-slate-200/50 dark:shadow-none hover:shadow-2xl hover:border-indigo-500/30 transition-all cursor-pointer overflow-hidden active:scale-[0.98]"
                     >
-                        {/* 1. Icon & Name info */}
-                        <div className="flex items-center gap-4 w-full md:w-auto flex-1">
-                            <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 flex items-center justify-center text-indigo-500 group-hover:scale-110 transition-transform">
-                                <span className="material-icons-round text-xl">bolt</span>
+                        {/* Status Badge */}
+                        <div className="flex justify-between items-start mb-6">
+                            <div className={`px-3 py-1.5 rounded-full flex items-center gap-1.5 ${flow.status === 'active' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}`}>
+                                <div className={`w-1.5 h-1.5 rounded-full ${flow.status === 'active' ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`}></div>
+                                <span className="text-[10px] font-black uppercase tracking-widest">{flow.status === 'active' ? 'Ativo' : 'Pausado'}</span>
+                            </div>
+                            <button
+                                onClick={(e) => deleteFlow(e, flow.id)}
+                                className="w-8 h-8 rounded-full bg-slate-50 dark:bg-slate-800 text-slate-400 hover:bg-rose-500 hover:text-white transition-all flex items-center justify-center opacity-0 group-hover:opacity-100"
+                            >
+                                <span className="material-icons-round text-sm">delete</span>
+                            </button>
+                        </div>
+
+                        {/* Flow Info */}
+                        <h4 className="text-lg md:text-xl font-black dark:text-white mb-2 uppercase tracking-tight group-hover:text-indigo-500 transition-colors leading-tight line-clamp-2">{flow.name}</h4>
+                        <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-6">Atualizado em {new Date(flow.updated_at).toLocaleDateString('pt-BR')}</p>
+
+                        {/* Stats */}
+                        <div className="grid grid-cols-2 gap-4 pt-6 border-t border-slate-50 dark:border-white/5">
+                            <div>
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Execuções</p>
+                                <p className="text-sm font-black dark:text-white">{flow.executions?.toLocaleString() || 0}</p>
                             </div>
                             <div>
-                                <h3 className="font-bold text-slate-800 dark:text-white text-base leading-tight md:truncate md:max-w-[200px] lg:max-w-xs">{flow.name}</h3>
-                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1 flex items-center gap-1">
-                                    <span className="material-icons-round text-[10px]">update</span> {flow.updatedAt}
-                                </p>
+                                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Conversão</p>
+                                <p className="text-sm font-black dark:text-white">{flow.performance || '0%'}</p>
                             </div>
                         </div>
 
-                        {/* 2. Stats (Executions & Rate) */}
-                        <div className="flex items-center gap-8 w-full md:w-auto justify-start md:justify-center border-t md:border-t-0 border-slate-100 dark:border-white/5 pt-3 md:pt-0">
-                            <div className="flex flex-col items-start md:items-center">
-                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Disparos</span>
-                                <span className="font-bold dark:text-white">{flow.executions.toLocaleString()}</span>
-                            </div>
-                            <div className="w-px h-8 bg-slate-100 dark:bg-white/10 hidden md:block"></div>
-                            <div className="flex flex-col items-start md:items-center">
-                                <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Taxa</span>
-                                <span className="font-bold dark:text-white">{flow.performance}</span>
-                            </div>
-                        </div>
-
-                        {/* 3. Instances Pill */}
-                        <div className="flex items-center gap-1">
-                            {flow.instances.length > 0 ? (
-                                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5">
-                                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                                    <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">{flow.instances.length} Instância{flow.instances.length > 1 && 's'}</span>
-                                </div>
-                            ) : (
-                                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-dashed border-slate-300 dark:border-white/10 opacity-50">
-                                    <span className="material-icons-round text-[12px]">link_off</span>
-                                    <span className="text-[10px] font-bold uppercase tracking-wider">Sem Vínculo</span>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* 4. Actions & Status */}
-                        <div className="flex items-center gap-3 w-full md:w-auto justify-end border-t md:border-t-0 border-slate-100 dark:border-white/5 pt-3 md:pt-0">
-                            <button
-                                onClick={(e) => toggleStatus(flow.id, e)}
-                                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all border ${flow.status === 'active' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 border-transparent'}`}
-                            >
-                                <span className={`w-1.5 h-1.5 rounded-full ${flow.status === 'active' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`}></span>
-                                {flow.status === 'active' ? 'Ativo' : 'Pausado'}
-                            </button>
-
-                            <div className="w-px h-8 bg-slate-100 dark:bg-white/10 mx-1"></div>
-
-                            <button
-                                onClick={(e) => { e.stopPropagation(); onEditFlow(flow.id); }}
-                                className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-500 hover:bg-indigo-100 dark:hover:bg-indigo-500/20 flex items-center justify-center transition-colors"
-                            >
-                                <span className="material-icons-round text-lg">edit</span>
-                            </button>
-                            <button
-                                onClick={(e) => handleDeleteFlow(flow.id, e)}
-                                className="w-9 h-9 rounded-xl bg-rose-50 dark:bg-rose-500/10 text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-500/20 flex items-center justify-center transition-colors"
-                            >
-                                <span className="material-icons-round text-lg">delete</span>
-                            </button>
-                        </div>
+                        {/* Visual Decor */}
+                        <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-indigo-600/5 rounded-full blur-2xl group-hover:bg-indigo-600/10 transition-all"></div>
                     </div>
                 ))}
             </div>
-
-            {/* Create Flow Modal */}
-            <Modal
-                isOpen={isCreateModalOpen}
-                onClose={() => setIsCreateModalOpen(false)}
-                title="Criar Novo Fluxo"
-                subtitle="Dê um nome épico para sua automação"
-            >
-                <div className="p-10 space-y-6">
-                    <div className="space-y-3">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Nome do Fluxo</label>
-                        <input
-                            type="text"
-                            placeholder="Ex: Recuperação de Carrinho VIP"
-                            className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-6 py-5 text-sm dark:text-white focus:ring-2 focus:ring-primary transition-all outline-none"
-                            value={newFlowName}
-                            onKeyDown={(e) => e.key === 'Enter' && handleCreateFlow()}
-                            onChange={(e) => setNewFlowName(e.target.value)}
-                        />
-                    </div>
-
-                    <button
-                        onClick={handleCreateFlow}
-                        className="w-full bg-primary text-white py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-2xl shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all mt-4"
-                    >
-                        Criar e Abrir Designer
-                    </button>
-                </div>
-            </Modal>
         </div>
     );
 };
