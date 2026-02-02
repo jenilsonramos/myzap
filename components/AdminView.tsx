@@ -95,6 +95,8 @@ const AdminView: React.FC = () => {
                 showToast(`Plano alterado para ${newPlan}`, 'success');
                 fetchUsers();
             }
+        } catch (err) {
+            showToast('Erro ao mudar plano.', 'error');
         }
     };
 
