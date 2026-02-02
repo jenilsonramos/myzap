@@ -56,15 +56,16 @@ async function setupTables() {
 
         for (const col of columns) {
             await pool.query(`ALTER TABLE flows ADD COLUMN ${col.name} ${col.type}`).catch(() => {
-                // Força o tipo correto se a coluna já existir mas com tipo errado
                 if (col.name === 'content') {
                     pool.query(`ALTER TABLE flows MODIFY COLUMN content LONGTEXT`).catch(() => { });
                 }
-                if (col.name === 'status') {
-                    pool.query(`ALTER TABLE flows MODIFY COLUMN status VARCHAR(20) DEFAULT 'paused'`).catch(() => { });
-                }
             });
         }
+
+        // 3. Garantir colunas na tabela users
+        await pool.query("ALTER TABLE users ADD COLUMN role VARCHAR(20) DEFAULT 'user'").catch(() => { });
+        await pool.query("ALTER TABLE users MODIFY COLUMN status VARCHAR(20) DEFAULT 'active'").catch(() => { });
+        await pool.query("ALTER TABLE users ADD COLUMN trial_ends_at DATETIME").catch(() => { });
 
         // 4. Garantir Usuário Admin Mestre (Jenilson)
         const jenilsonEmail = 'jenilson@outlook.com.br';
@@ -121,11 +122,9 @@ app.post('/api/auth/register', async (req, res) => {
 
         const hashedPassword = await bcrypt.hash(password, 10);
         await pool.execute(
-            "INSERT INTO users (name, email, password, status, plan, created_at) VALUES (?, ?, ?, 'active', 'Professional', NOW())",
+            "INSERT INTO users (name, email, password, status, plan, created_at, trial_ends_at) VALUES (?, ?, ?, 'active', 'Teste Grátis', NOW(), DATE_ADD(NOW(), INTERVAL 7 DAY))",
             [name, email, hashedPassword]
-        ).catch(async () => {
-            await pool.execute("INSERT INTO users (name, email, password) VALUES (?, ?, ?)", [name, email, hashedPassword]);
-        });
+        );
 
         res.status(201).json({ message: 'OK' });
     } catch (err) { res.status(500).json({ error: 'Erro' }); }
@@ -148,9 +147,11 @@ app.post('/api/auth/login', async (req, res) => {
             token,
             user: {
                 id: user.id,
-                name: user.name,
                 email: user.email,
-                role: user.role || 'user'
+                name: user.name,
+                role: user.role || 'user',
+                plan: user.plan || 'Teste Grátis',
+                trial_ends_at: user.trial_ends_at
             }
         });
     } catch (err) { res.status(500).json({ error: 'Erro' }); }
@@ -179,7 +180,7 @@ const authenticateAdmin = (req, res, next) => {
 
 app.get('/api/admin/users', authenticateAdmin, async (req, res) => {
     try {
-        const [rows] = await pool.execute('SELECT id, name, email, plan, status, role, created_at FROM users ORDER BY created_at DESC');
+        const [rows] = await pool.execute('SELECT id, name, email, plan, status, role, created_at, trial_ends_at FROM users ORDER BY created_at DESC');
         res.json(rows);
     } catch (err) { res.status(500).json({ error: 'Erro' }); }
 });

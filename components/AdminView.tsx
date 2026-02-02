@@ -128,6 +128,7 @@ const AdminView: React.FC = () => {
 
     // Dynamic Plans State
     const [plans, setPlans] = useState([
+        { id: '0', name: 'Teste Grátis', price: '0', instances: 3, messages: 1000, aiNodes: 5, aiTokens: 10000, features: ['Filtros Básicos'] },
         { id: '1', name: 'Professional', price: '99', instances: 10, messages: 100000, aiNodes: 50, aiTokens: 500000, features: ['Suporte Especializado', 'Webhooks'] },
         { id: '2', name: 'Master IA', price: '299', instances: 50, messages: 1000000, aiNodes: 200, aiTokens: 5000000, features: ['Filtros Avançados', 'AI Agent Pro'] },
         { id: '3', name: 'Enterprise', price: '499', instances: 999, messages: 9999999, aiNodes: 999, aiTokens: 99999999, features: ['SLA 99.9%', 'White-label'] },

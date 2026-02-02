@@ -20,8 +20,44 @@ const AnalyticsView: React.FC = () => {
     timeZone: 'America/Sao_Paulo'
   }).format(new Date());
 
+  const trialEndsAt = user.trial_ends_at ? new Date(user.trial_ends_at) : null;
+  const isTrial = user.plan === 'Teste Grátis';
+  const [daysLeft, setDaysLeft] = React.useState<number | null>(null);
+
+  React.useEffect(() => {
+    if (trialEndsAt) {
+      const diff = trialEndsAt.getTime() - new Date().getTime();
+      const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+      setDaysLeft(days > 0 ? days : 0);
+    }
+  }, [user.trial_ends_at]);
+
   return (
     <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom duration-500">
+      {isTrial && (
+        <div className="bg-gradient-to-r from-indigo-600 to-violet-600 rounded-[2rem] p-8 text-white relative overflow-hidden shadow-2xl shadow-indigo-500/20">
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 px-3 py-1 bg-white/20 backdrop-blur-md rounded-full w-fit">
+                <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-white">Período de Experiência</span>
+              </div>
+              <h2 className="text-2xl font-black tracking-tight">Você tem <span className="text-emerald-400 text-3xl mx-1">{daysLeft}</span> dias de teste grátis restantes!</h2>
+              <p className="text-white/80 text-sm font-medium">Aproveite todos os recursos premium do MyZap Pro antes que seu acesso expire.</p>
+            </div>
+            <button
+              onClick={() => window.location.hash = '#/planos'}
+              className="bg-white text-indigo-600 px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all active:scale-95 shadow-xl whitespace-nowrap"
+            >
+              Assinar Plano Profissional
+            </button>
+          </div>
+          {/* Decorative icons */}
+          <div className="absolute -right-10 -bottom-10 opacity-10 rotate-12">
+            <span className="material-icons-round text-[200px]">auto_awesome</span>
+          </div>
+        </div>
+      )}
       {/* Stats Row */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         <StatCard

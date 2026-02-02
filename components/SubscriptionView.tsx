@@ -4,16 +4,19 @@ import { useToast } from './ToastContext';
 const SubscriptionView: React.FC = () => {
     const { showToast } = useToast();
 
-    // Mock Data for the Plan
+    const user = JSON.parse(localStorage.getItem('myzap_user') || '{}');
+    const isTrial = user.plan === 'Teste Grátis';
+    const trialEndsAt = user.trial_ends_at ? new Date(user.trial_ends_at) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
     const [planData] = useState({
-        name: 'Plano Professional',
-        status: 'Assinatura Ativa',
-        expiryDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000 + 5 * 60 * 60 * 1000 + 30 * 60 * 1000), // Exemplo: 15 dias, 5h, 30min a partir de agora
+        name: user.plan || 'Plano Professional',
+        status: isTrial ? 'Período de Teste' : 'Assinatura Ativa',
+        expiryDate: trialEndsAt,
         limits: {
-            instances: { used: 3, total: 10 },
-            messages: { used: 45200, total: 100000 },
-            webhooks: { used: 5, total: 20 },
-            aiNodes: { used: 8, total: 50 }
+            instances: { used: 0, total: isTrial ? 3 : 10 },
+            messages: { used: 0, total: isTrial ? 1000 : 100000 },
+            webhooks: { used: 0, total: isTrial ? 1 : 20 },
+            aiNodes: { used: 0, total: isTrial ? 5 : 50 }
         }
     });
 
@@ -239,14 +242,14 @@ const SubscriptionView: React.FC = () => {
                         <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-slate-500 mb-6 group-hover:bg-primary group-hover:text-white transition-all">
                             <span className="material-icons-round">rocket_launch</span>
                         </div>
-                        <h4 className="text-lg font-black dark:text-white mb-2 uppercase">Plano Enterprise</h4>
-                        <p className="text-sm text-slate-500 font-medium mb-6">Foco em escalabilidade massiva e suporte prioritário 24/7.</p>
+                        <h4 className="text-lg font-black dark:text-white mb-2 uppercase">Plano Professional</h4>
+                        <p className="text-sm text-slate-500 font-medium mb-6">Ideal para pequenas operações e automações essenciais.</p>
                         <div className="flex items-baseline gap-1 mb-8">
-                            <span className="text-3xl font-black dark:text-white">R$ 499</span>
+                            <span className="text-3xl font-black dark:text-white">R$ 99</span>
                             <span className="text-sm text-slate-400 font-bold uppercase tracking-widest">/mês</span>
                         </div>
                         <button
-                            onClick={() => handleUpgrade('Enterprise')}
+                            onClick={() => handleUpgrade('Professional')}
                             className="w-full py-3.5 rounded-2xl border-2 border-slate-100 dark:border-white/5 font-black text-xs uppercase tracking-widest group-hover:bg-primary group-hover:border-primary group-hover:text-white transition-all"
                         >
                             Quero este plano
@@ -276,16 +279,17 @@ const SubscriptionView: React.FC = () => {
                         <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-slate-500 mb-6 group-hover:bg-primary group-hover:text-white transition-all">
                             <span className="material-icons-round">business</span>
                         </div>
-                        <h4 className="text-lg font-black dark:text-white mb-2 uppercase">Customizado</h4>
-                        <p className="text-sm text-slate-500 font-medium mb-6">Solução sob medida para o tamanho exato da sua operação.</p>
+                        <h4 className="text-lg font-black dark:text-white mb-2 uppercase">Plano Enterprise</h4>
+                        <p className="text-sm text-slate-500 font-medium mb-6">Solução robusta para grandes empresas com suporte 24h.</p>
                         <div className="flex items-baseline gap-1 mb-8">
-                            <span className="text-3xl font-black dark:text-white">Consultar</span>
+                            <span className="text-3xl font-black dark:text-white">R$ 499</span>
+                            <span className="text-sm text-slate-400 font-bold uppercase tracking-widest">/mês</span>
                         </div>
                         <button
-                            onClick={() => handleUpgrade('Customizado')}
+                            onClick={() => handleUpgrade('Enterprise')}
                             className="w-full py-3.5 rounded-2xl border-2 border-slate-100 dark:border-white/5 font-black text-xs uppercase tracking-widest group-hover:bg-primary group-hover:border-primary group-hover:text-white transition-all"
                         >
-                            Falar com Consultor
+                            Quero este plano
                         </button>
                     </div>
                 </div>
