@@ -61,6 +61,9 @@ async function connectToDB() {
             )
         `).catch(err => console.error('❌ Erro ao criar tabela flows:', err.message));
 
+        // Forçar conversão de content para LONGTEXT caso tenha sido criada como JSON antes
+        await pool.execute(`ALTER TABLE flows MODIFY COLUMN content LONGTEXT`).catch(err => { });
+
         console.log('✅ MyZap MySQL Pool Criado e Tabelas Verificadas.');
         // Faxina imediata
         await forceSanitize();

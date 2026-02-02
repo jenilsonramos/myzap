@@ -63,7 +63,8 @@ const FlowsListView: React.FC<FlowsListViewProps> = ({ onOpenFlow }) => {
                 fetchFlows();
                 onOpenFlow(id);
             } else {
-                showToast('Erro ao criar fluxo no banco.', 'error');
+                const errorData = await response.json();
+                showToast(`Erro: ${errorData.details || 'Falha no banco'}`, 'error');
             }
         } catch (err) {
             showToast('Erro de conexão.', 'error');
