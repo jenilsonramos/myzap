@@ -36,7 +36,10 @@ async function setupTables() {
         console.log('🏗️ [DB] Verificando e reparando esquema de tabelas...');
 
         // 1. Criar tabela base se não existir
-        await pool.query(`CREATE TABLE IF NOT EXISTS flows (id VARCHAR(50) PRIMARY KEY)`);
+        await pool.query(`CREATE TABLE IF NOT EXISTS flows (id VARCHAR(255) PRIMARY KEY)`);
+
+        // Forçar correção da coluna id caso tenha sido criada errado antes
+        await pool.query(`ALTER TABLE flows MODIFY COLUMN id VARCHAR(255)`).catch(() => { });
 
         // 2. Garantir colunas necessárias (correção de esquema incremental)
         const columns = [
