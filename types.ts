@@ -11,6 +11,9 @@ export enum AppView {
   MY_PLAN = 'MY_PLAN',
   AI_INTEGRATION = 'AI_INTEGRATION',
   ADMIN = 'ADMIN',
+  LOGIN = 'LOGIN',
+  SIGNUP = 'SIGNUP',
+  RECOVER = 'RECOVER',
 }
 
 export interface Flow {

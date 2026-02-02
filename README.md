@@ -2,19 +2,23 @@
 <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 </div>
 
-# Run and deploy your AI Studio app
+# MyZap - Dashboard Evolution API
 
-This contains everything you need to run your app locally.
+Este painel administrativo permite gerenciar instâncias, campanhas e fluxos da API Evolution com uma interface moderna e intuitiva.
 
-View your app in AI Studio: https://ai.studio/apps/drive/1yDIu51fX3ZoxOv4mA2sblbZNLfNkOOrH
+## 🚀 Como fazer o Deploy
 
-## Run Locally
+Para instalar o sistema no seu servidor VPS, siga as instruções detalhadas no nosso guia de deploy:
 
-**Prerequisites:**  Node.js
+👉 **[GUIA DE INSTALAÇÃO (VPS)](DEPLOY.md)**
 
+## 💻 Desenvolvimento Local
 
-1. Install dependencies:
+**Pré-requisitos:** Node.js v20+
+
+1. Instalando dependências:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
+2. Configure as variáveis de ambiente no arquivo `.env.local`
+3. Inicie o servidor de desenvolvimento:
    `npm run dev`
+
