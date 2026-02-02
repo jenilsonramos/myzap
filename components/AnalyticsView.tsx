@@ -17,7 +17,6 @@ const AnalyticsView: React.FC = () => {
 
   const brDate = new Intl.DateTimeFormat('pt-BR', {
     dateStyle: 'full',
-    timeMode: 'short',
     timeZone: 'America/Sao_Paulo'
   }).format(new Date());
 
