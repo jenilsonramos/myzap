@@ -32,13 +32,15 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
         const session = event.data.object;
         const userEmail = session.metadata.user_email || session.customer_details.email;
         const planName = session.metadata.plan_name;
+        const subscriptionId = session.subscription;
+        const customerId = session.customer;
 
-        console.log(`💰 [STRIPE WEBHOOK] Pagamento aprovado! Email: ${userEmail}, Plano: ${planName}`);
+        console.log(`💰 [STRIPE WEBHOOK] Assinatura completada! Email: ${userEmail}, Plano: ${planName}`);
 
         try {
             const [result] = await pool.execute(
-                "UPDATE users SET plan = ?, status = 'active', trial_ends_at = NULL WHERE email = ?",
-                [planName, userEmail]
+                "UPDATE users SET plan = ?, status = 'active', trial_ends_at = NULL, stripe_subscription_id = ?, stripe_customer_id = ? WHERE email = ?",
+                [planName, subscriptionId, customerId, userEmail]
             );
 
             if (result.affectedRows > 0) {
@@ -48,6 +50,19 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
             }
         } catch (err) {
             console.error('❌ [STRIPE WEBHOOK] Erro ao atualizar banco:', err);
+        }
+    }
+
+    if (event.type === 'customer.subscription.deleted') {
+        const subscription = event.data.object;
+        try {
+            await pool.execute(
+                "UPDATE users SET status = 'inactive' WHERE stripe_subscription_id = ?",
+                [subscription.id]
+            );
+            console.log(`🚫 [STRIPE WEBHOOK] Assinatura cancelada/deletada: ${subscription.id}`);
+        } catch (err) {
+            console.error('❌ [STRIPE WEBHOOK] Erro ao desativar assinatura:', err);
         }
     }
     res.json({ received: true });
@@ -111,6 +126,9 @@ async function setupTables() {
         await pool.query("ALTER TABLE users ADD COLUMN role VARCHAR(20) DEFAULT 'user'").catch(() => { });
         await pool.query("ALTER TABLE users MODIFY COLUMN status VARCHAR(20) DEFAULT 'active'").catch(() => { });
         await pool.query("ALTER TABLE users ADD COLUMN trial_ends_at DATETIME").catch(() => { });
+        await pool.query("ALTER TABLE users ADD COLUMN stripe_subscription_id VARCHAR(255)").catch(() => { });
+        await pool.query("ALTER TABLE users ADD COLUMN stripe_customer_id VARCHAR(255)").catch(() => { });
+
 
         // 4. Garantir tabela de planos
         await pool.query(`
@@ -430,7 +448,7 @@ app.post('/api/stripe/create-checkout-session', authenticateToken, async (req, r
                 },
                 quantity: 1,
             }],
-            mode: 'payment',
+            mode: 'subscription',
             customer_email: req.user.email,
             success_url: successUrl,
             cancel_url: cancelUrl,
@@ -513,8 +531,60 @@ app.put('/api/flows/:id', authenticateToken, async (req, res) => {
 app.delete('/api/flows/:id', authenticateToken, async (req, res) => {
     try {
         await pool.query('DELETE FROM flows WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
-        res.json({ message: 'OK' });
-    } catch (err) { res.status(500).json({ error: 'Erro', details: err.message }); }
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao buscar perfil' });
+    }
+});
+
+app.get('/api/user/subscription', authenticateToken, async (req, res) => {
+    try {
+        const [rows] = await pool.execute(
+            "SELECT plan, status, stripe_subscription_id FROM users WHERE id = ?",
+            [req.user.id]
+        );
+        const user = rows[0];
+
+        if (!user.stripe_subscription_id) {
+            return res.json({ active: false });
+        }
+
+        const stripeInst = await getStripe();
+        const subscription = await stripeInst.subscriptions.retrieve(user.stripe_subscription_id);
+
+        res.json({
+            active: true,
+            plan: user.plan,
+            status: subscription.status,
+            current_period_end: subscription.current_period_end,
+            cancel_at_period_end: subscription.cancel_at_period_end,
+        });
+    } catch (err) {
+        console.error('Error fetching subscription:', err);
+        res.status(500).json({ error: 'Erro ao buscar dados da assinatura' });
+    }
+});
+
+app.post('/api/stripe/cancel-subscription', authenticateToken, async (req, res) => {
+    try {
+        const [rows] = await pool.execute(
+            "SELECT stripe_subscription_id FROM users WHERE id = ?",
+            [req.user.id]
+        );
+        const subId = rows[0].stripe_subscription_id;
+
+        if (!subId) return res.status(400).json({ error: 'Nenhuma assinatura encontrada' });
+
+        const stripeInst = await getStripe();
+        // Cancela no final do período
+        await stripeInst.subscriptions.update(subId, {
+            cancel_at_period_end: true
+        });
+
+        res.json({ message: 'Sua assinatura será cancelada ao final do período vigente.' });
+    } catch (err) {
+        console.error('Error cancelling subscription:', err);
+        res.status(500).json({ error: 'Erro ao cancelar assinatura' });
+    }
 });
 
 const PORT = 5000;
