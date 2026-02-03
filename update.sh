@@ -16,6 +16,13 @@ npm install
 echo "🏗️ Construindo projeto (build)..."
 npm run build
 
+# 3.1 Configurar Evolution (se script existir)
+if [ -f "api/setup_evolution.cjs" ]; then
+    echo "⚙️ Configurando Evolution API..."
+    node api/setup_evolution.cjs
+fi
+
+
 # 4. Reiniciar serviços
 if command -v pm2 &> /dev/null; then
     echo "♻️ Reiniciando PM2..."
