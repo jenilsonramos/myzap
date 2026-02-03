@@ -23,8 +23,8 @@ const InstanceView: React.FC = () => {
       const mapped = Array.isArray(data) ? data.map((d: any) => ({
         id: d.id,
         name: d.business_name || d.phone_number || `Instância ${d.id}`,
-        // Verifica se status Evolution (d.status) ou local (d.code_verification_status) indica conexão
-        status: (d.status === 'open' || d.code_verification_status === 'VERIFIED' || d.code_verification_status === 'CONNECTED')
+        // Verifica todos os possíveis status de sucesso da Evolution
+        status: ['open', 'connected', 'authenticated', 'VERIFIED', 'CONNECTED'].includes(d.status || d.code_verification_status)
           ? InstanceStatus.CONNECTED
           : InstanceStatus.DISCONNECTED,
         battery: 100,
@@ -41,26 +41,32 @@ const InstanceView: React.FC = () => {
 
   useEffect(() => {
     fetchInstances();
-    const interval = setInterval(fetchInstances, 10000); // Poll list every 10s
+    const interval = setInterval(fetchInstances, 5000); // Poll mais rápido (5s)
     return () => clearInterval(interval);
   }, []);
 
-  // Poll specific instance status when QR modal is open
+  // Poll status when QR modal is open
   useEffect(() => {
     let pollInterval: NodeJS.Timeout;
     if (showQrModal && connectingInstance) {
       pollInterval = setInterval(async () => {
+        console.log('🔄 Verificando conexão...');
         await fetchInstances();
-        // Check if our connecting instance became connected
-        const instance = instances.find(i => i.name === connectingInstance);
-        if (instance && instance.status === InstanceStatus.CONNECTED) {
-          setShowQrModal(false);
-          alert(`Conectado com sucesso!`);
-        }
       }, 3000);
     }
     return () => clearInterval(pollInterval);
-  }, [showQrModal, connectingInstance, instances]); // Depend on instances to see update
+  }, [showQrModal, connectingInstance]);
+
+  // Effect separado para fechar modal quando conectar
+  useEffect(() => {
+    if (showQrModal && connectingInstance) {
+      const instance = instances.find(i => i.name === connectingInstance);
+      if (instance && instance.status === InstanceStatus.CONNECTED) {
+        setShowQrModal(false);
+        alert(`✅ Conectado com sucesso!`);
+      }
+    }
+  }, [instances, showQrModal, connectingInstance]);
 
   const handleCreateInstance = async () => {
     if (!newInstanceName) return;
@@ -123,12 +129,17 @@ const InstanceView: React.FC = () => {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('myzap_token')}` }
       });
       const data = await res.json();
-      if (data.base64 || (data.qrcode && data.qrcode.base64)) {
-        setQrCodeData(data.base64 || data.qrcode.base64);
-      } else if (data.instance && data.instance.status === 'open') {
+
+      // Se já estiver conectado
+      if (data.instance?.status === 'open' || data.instance?.status === 'connected') {
         alert('Instância já está conectada!');
         setShowQrModal(false);
         fetchInstances();
+        return;
+      }
+
+      if (data.base64 || (data.qrcode && data.qrcode.base64)) {
+        setQrCodeData(data.base64 || data.qrcode.base64);
       } else {
         alert('Não foi possível obter o QR Code. Tente novamente.');
       }
@@ -182,26 +193,45 @@ const InstanceView: React.FC = () => {
       {/* QR Code Modal */}
       {showQrModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4">
-          <div className="bg-white dark:bg-card-dark rounded-3xl p-8 w-full max-w-sm shadow-2xl flex flex-col items-center animate-in zoom-in-95 duration-300">
+          <div className="bg-white dark:bg-card-dark rounded-3xl p-8 w-full max-w-sm shadow-2xl flex flex-col items-center animate-in zoom-in-95 duration-300 relative">
             <h3 className="text-lg font-black dark:text-white mb-2 text-center">Conectar {connectingInstance}</h3>
+
+            {/* Loading de verificação */}
+            <div className="absolute top-4 right-4 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
+              <span className="text-[10px] uppercase font-bold text-amber-500">Aguardando...</span>
+            </div>
+
             <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mb-6 text-center">Escaneie o QR Code no seu WhatsApp</p>
 
-            <div className="w-64 h-64 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center overflow-hidden border-4 border-slate-100 dark:border-slate-700">
+            <div className="w-64 h-64 bg-slate-100 dark:bg-slate-800 rounded-2xl flex items-center justify-center overflow-hidden border-4 border-slate-100 dark:border-slate-700 relative">
               {qrCodeData ? (
-                <img src={qrCodeData.startsWith('data:') ? qrCodeData : `data:image/png;base64,${qrCodeData}`} alt="QR Code" className="w-full h-full object-contain" />
+                <>
+                  <img src={qrCodeData.startsWith('data:') ? qrCodeData : `data:image/png;base64,${qrCodeData}`} alt="QR Code" className="w-full h-full object-contain" />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/30 backdrop-blur-[1px] opacity-0 hover:opacity-100 transition-opacity">
+                    <span className="text-white font-bold text-xs bg-black/50 px-3 py-1 rounded-full">Atualiza a cada 3s</span>
+                  </div>
+                </>
               ) : (
                 <div className="flex flex-col items-center gap-2 animate-pulse">
                   <span className="material-icons-round text-4xl text-slate-300">qr_code_scanner</span>
-                  <span className="text-xs font-bold text-slate-400">Carregando QR...</span>
+                  <span className="text-xs font-bold text-slate-400">Gerando QR...</span>
                 </div>
               )}
             </div>
 
+            <div className="mt-4 flex flex-col items-center gap-1">
+              <span className="text-xs font-bold text-slate-400">Status atual:</span>
+              <span className="px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-full text-xs font-black text-slate-600 dark:text-slate-300">
+                Desconectado
+              </span>
+            </div>
+
             <button
               onClick={() => { setShowQrModal(false); fetchInstances(); }}
-              className="mt-8 w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-black rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors uppercase tracking-wider text-xs"
+              className="mt-6 w-full py-3 bg-rose-50 dark:bg-rose-500/10 text-rose-500 font-black rounded-xl hover:bg-rose-100 dark:hover:bg-rose-500/20 transition-colors uppercase tracking-wider text-xs"
             >
-              Fechar
+              Cancelar / Fechar
             </button>
           </div>
         </div>
@@ -293,8 +323,8 @@ const InstanceView: React.FC = () => {
                       </td>
                       <td className="p-4">
                         <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wide border ${instance.status === InstanceStatus.CONNECTED
-                            ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/20'
-                            : 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-500/20'
+                          ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/20'
+                          : 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-500/20'
                           }`}>
                           {instance.status === InstanceStatus.CONNECTED ? 'Conectado' : 'Desconectado'}
                         </span>
