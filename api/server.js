@@ -445,6 +445,7 @@ app.post('/api/stripe/create-checkout-session', authenticateToken, async (req, r
                         description: 'Assinatura Mensal MyZap Pro',
                     },
                     unit_amount: Math.round(parseFloat(price) * 100),
+                    recurring: { interval: 'month' },
                 },
                 quantity: 1,
             }],
@@ -460,7 +461,7 @@ app.post('/api/stripe/create-checkout-session', authenticateToken, async (req, r
 
         res.json({ url: session.url });
     } catch (err) {
-        console.error('Stripe Checkout Error:', err);
+        console.error('❌ [STRIPE CHECKOUT ERROR]:', err);
         res.status(500).json({ error: 'Erro ao criar sessão de checkout', details: err.message });
     }
 });
