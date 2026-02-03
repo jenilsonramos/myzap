@@ -6,7 +6,34 @@ import { Instance, InstanceStatus } from '../types';
 
 const InstanceView: React.FC = () => {
   const [instances, setInstances] = useState<Instance[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
+
+  React.useEffect(() => {
+    fetch('/api/instances', {
+      headers: { 'Authorization': `Bearer ${localStorage.getItem('myzap_token')}` }
+    })
+      .then(res => res.json())
+      .then(data => {
+        // Map backend data to Instance type (assuming structure)
+        const mapped = data.map((d: any) => ({
+          id: d.id,
+          name: d.business_name || d.phone_number || `Instância ${d.id}`,
+          status: d.code_verification_status === 'VERIFIED' ? 'connected' : 'disconnected',
+          battery: 100, // Mocked for now
+          phone: d.phone_number
+        }));
+        setInstances(mapped);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error(err);
+        setLoading(false);
+      });
+  }, []);
+
+  const total = instances.length;
+  const operational = instances.filter(i => i.status === 'connected').length;
+  const critical = instances.filter(i => i.status === 'disconnected').length;
 
   return (
 
@@ -15,14 +42,14 @@ const InstanceView: React.FC = () => {
       <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5 md:gap-6">
         <StatCard
           label="Instâncias Totais"
-          value="0"
+          value={total.toString()}
           icon="view_compact"
           colorClass="text-indigo-600 dark:text-indigo-400"
           bgClass="bg-white dark:bg-card-dark shadow-sm"
         />
         <StatCard
           label="Operacionais"
-          value="0"
+          value={operational.toString()}
           icon="sync_lock"
           colorClass="text-emerald-600 dark:text-emerald-400"
           bgClass="bg-white dark:bg-card-dark shadow-sm"
@@ -36,7 +63,7 @@ const InstanceView: React.FC = () => {
         />
         <StatCard
           label="Alertas Críticos"
-          value="0"
+          value={critical.toString()}
           icon="emergency"
           colorClass="text-rose-600 dark:text-rose-400"
           bgClass="bg-white dark:bg-card-dark shadow-sm"

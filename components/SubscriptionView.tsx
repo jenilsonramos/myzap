@@ -71,6 +71,25 @@ const SubscriptionView: React.FC = () => {
         }
     };
 
+    const fetchUsage = async () => {
+        try {
+            const response = await fetch('/api/user/usage', {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('myzap_token')}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setUsage(prev => ({
+                    ...prev,
+                    instances: { ...prev.instances, used: data.instances },
+                    messages: { ...prev.messages, used: data.messages },
+                    aiNodes: { ...prev.aiNodes, used: data.aiNodes }
+                }));
+            }
+        } catch (err) {
+            console.error('Erro ao buscar uso:', err);
+        }
+    };
+
     useEffect(() => {
         const init = async () => {
             const urlParams = new URLSearchParams(window.location.search);
@@ -85,7 +104,8 @@ const SubscriptionView: React.FC = () => {
             const refreshedUser = await syncProfile();
             await Promise.all([
                 fetchSubData(),
-                fetchPlansAndCalculateLimits(refreshedUser)
+                fetchPlansAndCalculateLimits(refreshedUser),
+                fetchUsage()
             ]);
             setLoading(false);
         };
@@ -212,30 +232,45 @@ const SubscriptionView: React.FC = () => {
                     <div className="space-y-4">
                         <div className="flex justify-between items-end">
                             <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Instâncias</p>
-                            <p className="text-base font-black text-slate-800 dark:text-white">{usage.instances.total}</p>
+                            <p className="text-base font-black text-slate-800 dark:text-white">
+                                {usage.instances.used} / {usage.instances.total === 999 ? '∞' : usage.instances.total}
+                            </p>
                         </div>
                         <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                            <div className="h-full bg-emerald-500 rounded-full w-full opacity-20"></div>
+                            <div
+                                className="h-full bg-emerald-500 rounded-full transition-all duration-1000"
+                                style={{ width: `${Math.min((usage.instances.used / (usage.instances.total || 1)) * 100, 100)}%` }}
+                            ></div>
                         </div>
                     </div>
                     {/* Mensagens */}
                     <div className="space-y-4">
                         <div className="flex justify-between items-end">
                             <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Mensagens</p>
-                            <p className="text-base font-black text-slate-800 dark:text-white">{usage.messages.total.toLocaleString()}</p>
+                            <p className="text-base font-black text-slate-800 dark:text-white">
+                                {usage.messages.used.toLocaleString()} / {usage.messages.total > 1000000 ? '∞' : usage.messages.total.toLocaleString()}
+                            </p>
                         </div>
                         <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                            <div className="h-full bg-indigo-500 rounded-full w-full opacity-20"></div>
+                            <div
+                                className="h-full bg-indigo-500 rounded-full transition-all duration-1000"
+                                style={{ width: `${Math.min((usage.messages.used / (usage.messages.total || 1)) * 100, 100)}%` }}
+                            ></div>
                         </div>
                     </div>
                     {/* IA Nodes */}
                     <div className="space-y-4">
                         <div className="flex justify-between items-end">
                             <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Nós de IA</p>
-                            <p className="text-base font-black text-slate-800 dark:text-white">{usage.aiNodes.total}</p>
+                            <p className="text-base font-black text-slate-800 dark:text-white">
+                                {usage.aiNodes.used} / {usage.aiNodes.total > 1000000 ? '∞' : usage.aiNodes.total}
+                            </p>
                         </div>
                         <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                            <div className="h-full bg-amber-500 rounded-full w-full opacity-20"></div>
+                            <div
+                                className="h-full bg-amber-500 rounded-full transition-all duration-1000"
+                                style={{ width: `${Math.min((usage.aiNodes.used / (usage.aiNodes.total || 1)) * 100, 100)}%` }}
+                            ></div>
                         </div>
                     </div>
                 </div>

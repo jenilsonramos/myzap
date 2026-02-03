@@ -597,5 +597,69 @@ app.post('/api/stripe/cancel-subscription', authenticateToken, async (req, res) 
     }
 });
 
+app.get('/api/user/usage', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        // 1. Instâncias
+        const [instanceRows] = await pool.query(
+            "SELECT COUNT(*) as total FROM whatsapp_accounts WHERE user_id = ?",
+            [userId]
+        );
+        const instances = instanceRows[0]?.total || 0;
+
+        // 2. Mensagens
+        const [messageRows] = await pool.query(
+            "SELECT COUNT(*) as total FROM messages WHERE user_id = ? AND type = 1",
+            [userId]
+        );
+        const messages = messageRows[0]?.total || 0;
+
+        // 3. Flows & AI Nodes
+        const [flowRows] = await pool.query(
+            "SELECT content FROM flows WHERE user_id = ?",
+            [userId]
+        );
+        const flows = flowRows.length;
+
+        let aiNodes = 0;
+        flowRows.forEach(flow => {
+            try {
+                const content = typeof flow.content === 'string' ? JSON.parse(flow.content) : flow.content;
+                if (content && content.nodes) {
+                    aiNodes += content.nodes.filter(n => n.type === 'ai').length;
+                }
+            } catch (e) {
+                // Ignore parse errors
+            }
+        });
+
+        res.json({
+            instances,
+            messages,
+            flows,
+            aiNodes
+        });
+    } catch (err) {
+        console.error('❌ Erro GET /api/user/usage:', err);
+        res.status(500).json({ error: 'Erro ao buscar dados de uso' });
+    }
+});
+
+
+
+app.get('/api/instances', authenticateToken, async (req, res) => {
+    try {
+        const [rows] = await pool.query(
+            "SELECT id, business_name, phone_number, code_verification_status, updated_at FROM whatsapp_accounts WHERE user_id = ?",
+            [req.user.id]
+        );
+        res.json(rows);
+    } catch (err) {
+        console.error('❌ Erro GET /api/instances:', err);
+        res.status(500).json({ error: 'Erro ao buscar instâncias' });
+    }
+});
+
 const PORT = 5000;
 app.listen(PORT, '0.0.0.0', () => console.log(`🚀 API: ${PORT}`));
