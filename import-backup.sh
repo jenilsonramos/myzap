@@ -36,7 +36,13 @@ echo "Importando dados para o banco $NEW_DB..."
 mysql -u $NEW_USER -p$NEW_PASS $NEW_DB < $SQL_FILE
 
 if [ $? -eq 0 ]; then
-    echo "✅ Restauração concluída com sucesso!"
+    echo "✅ Importação concluída com sucesso!"
+    
+    echo "🔧 Aplicando correções de esquema (Garantindo coluna 'name')..."
+    mysql -u $NEW_USER -p$NEW_PASS $NEW_DB -e "ALTER TABLE users ADD COLUMN IF NOT EXISTS name VARCHAR(255) FIRST;"
+    mysql -u $NEW_USER -p$NEW_PASS $NEW_DB -e "ALTER TABLE users ADD COLUMN IF NOT EXISTS plan VARCHAR(100) DEFAULT 'Teste Grátis';"
+    mysql -u $NEW_USER -p$NEW_PASS $NEW_DB -e "ALTER TABLE users ADD COLUMN IF NOT EXISTS trial_ends_at DATETIME;"
+    
     echo "Agora seus dados devem estar acessíveis em https://ublochat.com.br"
 else
     echo "❌ Erro ao importar dados no MySQL."
