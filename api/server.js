@@ -30,39 +30,47 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
     // Handle the event
     if (event.type === 'checkout.session.completed') {
         const session = event.data.object;
-        const userEmail = session.metadata.user_email || session.customer_details.email;
+        const userEmail = (session.metadata.user_email || session.customer_details.email || '').toLowerCase().trim();
         const planName = session.metadata.plan_name;
         const subscriptionId = session.subscription;
         const customerId = session.customer;
 
-        console.log(`💰 [STRIPE WEBHOOK] Assinatura completada! Email: ${userEmail}, Plano: ${planName}`);
+        console.log(`💰 [STRIPE WEBHOOK] Iniciando processamento... Email: ${userEmail}, Plano: ${planName}`);
 
         try {
             const [result] = await pool.execute(
-                "UPDATE users SET plan = ?, status = 'active', trial_ends_at = NULL, stripe_subscription_id = ?, stripe_customer_id = ? WHERE email = ?",
+                "UPDATE users SET plan = ?, status = 'active', trial_ends_at = NULL, stripe_subscription_id = ?, stripe_customer_id = ? WHERE LOWER(email) = ?",
                 [planName, subscriptionId, customerId, userEmail]
             );
 
             if (result.affectedRows > 0) {
-                console.log(`✅ [STRIPE WEBHOOK] Banco atualizado para ${userEmail}`);
+                console.log(`✅ [STRIPE WEBHOOK] Sucesso! Banco atualizado para ${userEmail}`);
             } else {
-                console.warn(`⚠️ [STRIPE WEBHOOK] Nenhum usuário encontrado com o email ${userEmail}`);
+                console.warn(`⚠️ [STRIPE WEBHOOK] Falha: Nenhum usuário encontrado com o email [${userEmail}]`);
+                // Fallback: Tentar buscar por metadata caso o email do Stripe seja diferente do login
+                if (session.metadata.user_id) {
+                    await pool.execute(
+                        "UPDATE users SET plan = ?, status = 'active', trial_ends_at = NULL, stripe_subscription_id = ?, stripe_customer_id = ? WHERE id = ?",
+                        [planName, subscriptionId, customerId, session.metadata.user_id]
+                    );
+                    console.log(`✅ [STRIPE WEBHOOK] Sucesso via fallback ID usuário.`);
+                }
             }
         } catch (err) {
-            console.error('❌ [STRIPE WEBHOOK] Erro ao atualizar banco:', err);
+            console.error('❌ [STRIPE WEBHOOK] Erro crítico ao atualizar banco:', err);
         }
     }
 
     if (event.type === 'customer.subscription.deleted') {
         const subscription = event.data.object;
         try {
+            console.log(`🚫 [STRIPE WEBHOOK] Desativando assinatura: ${subscription.id}`);
             await pool.execute(
                 "UPDATE users SET status = 'inactive' WHERE stripe_subscription_id = ?",
                 [subscription.id]
             );
-            console.log(`🚫 [STRIPE WEBHOOK] Assinatura cancelada/deletada: ${subscription.id}`);
         } catch (err) {
-            console.error('❌ [STRIPE WEBHOOK] Erro ao desativar assinatura:', err);
+            console.error('❌ [STRIPE WEBHOOK] Erro ao desativar:', err);
         }
     }
     res.json({ received: true });
@@ -455,7 +463,8 @@ app.post('/api/stripe/create-checkout-session', authenticateToken, async (req, r
             cancel_url: cancelUrl,
             metadata: {
                 plan_name: planName,
-                user_email: req.user.email
+                user_email: req.user.email,
+                user_id: req.user.id
             }
         });
 

@@ -9,7 +9,31 @@ const SubscriptionView: React.FC = () => {
     const [isCancelling, setIsCancelling] = useState(false);
     const [showCancelModal, setShowCancelModal] = useState(false);
 
-    const user = JSON.parse(localStorage.getItem('myzap_user') || '{}');
+    // State for dashboard data
+    const [user, setUser] = useState<any>(JSON.parse(localStorage.getItem('myzap_user') || '{}'));
+    const [usage, setUsage] = useState({
+        instances: { used: 0, total: 10 },
+        messages: { used: 0, total: 100000 },
+        webhooks: { used: 0, total: 20 },
+        aiNodes: { used: 0, total: 50 }
+    });
+
+    const syncProfile = async () => {
+        try {
+            const response = await fetch('/api/auth/me', {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('myzap_token')}` }
+            });
+            if (response.ok) {
+                const refreshedUser = await response.json();
+                localStorage.setItem('myzap_user', JSON.stringify(refreshedUser));
+                setUser(refreshedUser);
+                return refreshedUser;
+            }
+        } catch (err) {
+            console.error('Erro ao sincronizar perfil:', err);
+        }
+        return user;
+    };
 
     const fetchSubData = async () => {
         try {
@@ -25,11 +49,22 @@ const SubscriptionView: React.FC = () => {
         }
     };
 
-    const fetchPlans = async () => {
+    const fetchPlansAndCalculateLimits = async (currentUser: any) => {
         try {
             const response = await fetch('/api/plans');
             if (response.ok) {
-                setPlans(await response.json());
+                const allPlans = await response.json();
+                setPlans(allPlans);
+
+                const currentPlan = allPlans.find((p: any) => p.name === currentUser.plan);
+                if (currentPlan) {
+                    setUsage(prev => ({
+                        ...prev,
+                        instances: { ...prev.instances, total: currentPlan.instances || 10 },
+                        messages: { ...prev.messages, total: currentPlan.messages || 100000 },
+                        aiNodes: { ...prev.aiNodes, total: currentPlan.ai_nodes || 50 }
+                    }));
+                }
             }
         } catch (err) {
             console.error('Erro ao carregar planos:', err);
@@ -37,7 +72,24 @@ const SubscriptionView: React.FC = () => {
     };
 
     useEffect(() => {
-        Promise.all([fetchSubData(), fetchPlans()]).finally(() => setLoading(false));
+        const init = async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const isSuccess = urlParams.get('payment') === 'success';
+
+            if (isSuccess) {
+                showToast('Pagamento recebido! Atualizando seu plano...', 'success');
+                // Pequeno delay para o webhook processar
+                await new Promise(r => setTimeout(r, 2000));
+            }
+
+            const refreshedUser = await syncProfile();
+            await Promise.all([
+                fetchSubData(),
+                fetchPlansAndCalculateLimits(refreshedUser)
+            ]);
+            setLoading(false);
+        };
+        init();
     }, []);
 
     const handleUpgrade = async (planName: string) => {
@@ -109,7 +161,7 @@ const SubscriptionView: React.FC = () => {
                             <h2 className="text-4xl font-black tracking-tighter mb-2">{user.plan}</h2>
                             <p className="text-indigo-100 text-sm font-medium opacity-80">
                                 {subInfo?.cancel_at_period_end
-                                    ? "Sua assinatura será encerrada embreve."
+                                    ? "Sua assinatura será encerrada em breve."
                                     : "Sua conta está configurada para renovação automática."}
                             </p>
                         </div>
@@ -139,7 +191,53 @@ const SubscriptionView: React.FC = () => {
                 <div className="lg:col-span-4 bg-white dark:bg-card-dark rounded-huge p-8 border border-slate-100 dark:border-white/5 shadow-xl flex flex-col items-center justify-center text-center">
                     <span className="material-icons-round text-indigo-500 text-5xl mb-4">autorenew</span>
                     <h4 className="text-lg font-black dark:text-white mb-2">Renovação Automática</h4>
-                    <p className="text-xs text-slate-500 font-medium">As cobranças serão feitas no cartão utilizado no ato da compra.</p>
+                    <p className="text-xs text-slate-500 font-medium px-4">As cobranças serão feitas no cartão utilizado no ato da compra.</p>
+                </div>
+            </div>
+
+            {/* Usage Limits Section */}
+            <div className="bg-white dark:bg-card-dark rounded-huge p-8 border border-slate-100 dark:border-white/5 shadow-xl">
+                <div className="flex items-center justify-between mb-10">
+                    <div>
+                        <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight uppercase">Limites de Uso</h3>
+                        <p className="text-slate-500 text-sm font-medium">Recursos disponíveis no seu plano atual</p>
+                    </div>
+                    <div className="w-12 h-12 bg-indigo-500/10 rounded-2xl flex items-center justify-center text-indigo-500 shadow-inner">
+                        <span className="material-icons-round">analytics</span>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    {/* Instâncias */}
+                    <div className="space-y-4">
+                        <div className="flex justify-between items-end">
+                            <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Instâncias</p>
+                            <p className="text-base font-black text-slate-800 dark:text-white">{usage.instances.total}</p>
+                        </div>
+                        <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                            <div className="h-full bg-emerald-500 rounded-full w-full opacity-20"></div>
+                        </div>
+                    </div>
+                    {/* Mensagens */}
+                    <div className="space-y-4">
+                        <div className="flex justify-between items-end">
+                            <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Mensagens</p>
+                            <p className="text-base font-black text-slate-800 dark:text-white">{usage.messages.total.toLocaleString()}</p>
+                        </div>
+                        <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                            <div className="h-full bg-indigo-500 rounded-full w-full opacity-20"></div>
+                        </div>
+                    </div>
+                    {/* IA Nodes */}
+                    <div className="space-y-4">
+                        <div className="flex justify-between items-end">
+                            <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Nós de IA</p>
+                            <p className="text-base font-black text-slate-800 dark:text-white">{usage.aiNodes.total}</p>
+                        </div>
+                        <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                            <div className="h-full bg-amber-500 rounded-full w-full opacity-20"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -147,7 +245,7 @@ const SubscriptionView: React.FC = () => {
             <div>
                 <h3 className="text-xl font-black text-slate-900 dark:text-white tracking-tight uppercase mb-6 flex items-center gap-3">
                     <span className="w-1.5 h-8 bg-indigo-500 rounded-full"></span>
-                    Planos Disponíveis
+                    Mudar de Plano
                 </h3>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
