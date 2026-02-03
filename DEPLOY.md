@@ -8,31 +8,22 @@ Este documento descreve como realizar o deploy automatizado do painel MyZap em u
 2. Domínio apontado para o IP do servidor (`app.ublochat.com.br`).
 3. Portas 80 e 443 abertas no firewall.
 
-## Instalação Automatizada
+### Instalação no Domínio Principal (ublochat.com.br)
 
-O script `setup.sh` automatiza a instalação de todo o ambiente:
-- Apache 2
-- MySQL 8.0
-- phpMyAdmin
-- Node.js 20 & NPM
-- Certbot (SSL Let's Encrypt)
-
-### Passos para Instalação
-
-1. Acesse seu servidor via SSH.
-2. Execute o comando abaixo para iniciar a instalação:
+Para instalar no domínio principal com o nome amigável do phpMyAdmin, use o script especializado:
 
 ```bash
-# Baixar o script diretamente do repositório
-curl -L -O https://raw.githubusercontent.com/jenilsonramos/myzap/main/setup.sh
+# Baixar o script especializado
+curl -L -O https://raw.githubusercontent.com/jenilsonramos/myzap/main/setup-ublochat.sh
 
-# Baixar o banco de dados compactado (necessário para o setup.sh)
-curl -L -O https://raw.githubusercontent.com/jenilsonramos/myzap/main/setup_sql.zip
-
-# Dar permissão de execução e rodar
-chmod +x setup.sh
-sudo ./setup.sh
+# Dar permissão e rodar
+chmod +x setup-ublochat.sh
+sudo ./setup-ublochat.sh
 ```
+
+Este script configura:
+- Domínio: `ublochat.com.br`
+- phpMyAdmin: `ublochat.com.br/gerenciar-banco`
 
 
 ## O que o script faz?
