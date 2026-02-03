@@ -90,13 +90,13 @@ class EvolutionService {
         return this._request(`/webhook/set/${instanceName}`, 'POST', {
             webhook: {
                 url: webhookUrl,
-                webhook_by_events: false,
+                webhookByEvents: false,
                 events: [
-                    'messages.upsert',
-                    'messages.update',
-                    'messages.delete',
-                    'send.message',
-                    'connection.update'
+                    'MESSAGES_UPSERT',
+                    'MESSAGES_UPDATE',
+                    'MESSAGES_DELETE',
+                    'SEND_MESSAGE',
+                    'CONNECTION_UPDATE'
                 ],
                 enabled: enabled
             }
