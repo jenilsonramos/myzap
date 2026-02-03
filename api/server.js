@@ -7,8 +7,53 @@ const cors = require('cors');
 require('dotenv').config();
 
 const app = express();
-app.use(express.json());
 app.use(cors());
+
+// --- STRIPE WEBHOOK (Deve vir ANTES do express.json() para pegar o body raw) ---
+app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+    const sig = req.headers['stripe-signature'];
+    let event;
+
+    try {
+        const [rows] = await pool.execute("SELECT setting_value FROM system_settings WHERE setting_key = 'stripe_webhook_secret'");
+        const webhookSecret = rows.length > 0 ? rows[0].setting_value : null;
+
+        const stripeInst = await getStripe();
+        if (!stripeInst || !webhookSecret) return res.status(400).send('Webhook Secret or Stripe Key missing');
+
+        event = stripeInst.webhooks.constructEvent(req.body, sig, webhookSecret);
+    } catch (err) {
+        console.error('Webhook Error:', err.message);
+        return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    // Handle the event
+    if (event.type === 'checkout.session.completed') {
+        const session = event.data.object;
+        const userEmail = session.metadata.user_email || session.customer_details.email;
+        const planName = session.metadata.plan_name;
+
+        console.log(`💰 [STRIPE WEBHOOK] Pagamento aprovado! Email: ${userEmail}, Plano: ${planName}`);
+
+        try {
+            const [result] = await pool.execute(
+                "UPDATE users SET plan = ?, status = 'active', trial_ends_at = NULL WHERE email = ?",
+                [planName, userEmail]
+            );
+
+            if (result.affectedRows > 0) {
+                console.log(`✅ [STRIPE WEBHOOK] Banco atualizado para ${userEmail}`);
+            } else {
+                console.warn(`⚠️ [STRIPE WEBHOOK] Nenhum usuário encontrado com o email ${userEmail}`);
+            }
+        } catch (err) {
+            console.error('❌ [STRIPE WEBHOOK] Erro ao atualizar banco:', err);
+        }
+    }
+    res.json({ received: true });
+});
+
+app.use(express.json());
 
 // Configuração do Banco de Dados
 const dbConfig = {
@@ -363,50 +408,7 @@ app.post('/api/admin/ai-settings', authenticateAdmin, async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'Erro' }); }
 });
 
-// --- STRIPE WEBHOOK ---
-app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
-    const sig = req.headers['stripe-signature'];
-    let event;
 
-    try {
-        const [rows] = await pool.execute("SELECT setting_value FROM system_settings WHERE setting_key = 'stripe_webhook_secret'");
-        const webhookSecret = rows.length > 0 ? rows[0].setting_value : null;
-
-        const stripeInst = await getStripe();
-        if (!stripeInst || !webhookSecret) return res.status(400).send('Webhook Secret or Stripe Key missing');
-
-        event = stripeInst.webhooks.constructEvent(req.body, sig, webhookSecret);
-    } catch (err) {
-        console.error('Webhook Error:', err.message);
-        return res.status(400).send(`Webhook Error: ${err.message}`);
-    }
-
-    // Handle the event
-    if (event.type === 'checkout.session.completed') {
-        const session = event.data.object;
-        const userEmail = session.metadata.user_email || session.customer_details.email;
-        const planName = session.metadata.plan_name;
-
-        console.log(`💰 [STRIPE WEBHOOK] Pagamento aprovado! Email: ${userEmail}, Plano: ${planName}`);
-
-        try {
-            const [result] = await pool.execute(
-                "UPDATE users SET plan = ?, status = 'active', trial_ends_at = NULL WHERE email = ?",
-                [planName, userEmail]
-            );
-
-            if (result.affectedRows > 0) {
-                console.log(`✅ [STRIPE WEBHOOK] Banco atualizado para ${userEmail}`);
-            } else {
-                console.warn(`⚠️ [STRIPE WEBHOOK] Nenhum usuário encontrado com o email ${userEmail}`);
-            }
-        } catch (err) {
-            console.error('❌ [STRIPE WEBHOOK] Erro ao atualizar banco:', err);
-        }
-    }
-
-    res.json({ received: true });
-});
 
 app.post('/api/stripe/create-checkout-session', authenticateToken, async (req, res) => {
     const { planName, price, successUrl, cancelUrl } = req.body;
