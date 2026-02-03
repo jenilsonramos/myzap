@@ -38,11 +38,16 @@ const SubscriptionView: React.FC = () => {
                 if (response.ok) {
                     const updatedUser = await response.json();
                     localStorage.setItem('myzap_user', JSON.stringify(updatedUser));
+
+                    const newExpiry = parseDate(updatedUser.trial_ends_at);
+                    const newPlan = updatedUser.plan || 'Plano Professional';
+                    const newStatus = updatedUser.plan === 'Teste Grátis' ? 'Período de Teste' : 'Assinatura Ativa';
+
                     setPlanData(prev => ({
                         ...prev,
-                        name: updatedUser.plan,
-                        expiryDate: parseDate(updatedUser.trial_ends_at) || prev.expiryDate,
-                        status: updatedUser.plan === 'Teste Grátis' ? 'Período de Teste' : 'Assinatura Ativa'
+                        name: newPlan,
+                        expiryDate: newExpiry || prev.expiryDate,
+                        status: newStatus
                     }));
                     window.dispatchEvent(new Event('profileUpdate'));
                 }
@@ -78,7 +83,7 @@ const SubscriptionView: React.FC = () => {
         };
         fetchUserData();
         fetchPlans();
-    }, [user.plan]);
+    }, []); // Empty dependency array to force sync on mount
 
     const [timeLeft, setTimeLeft] = useState({
         days: 0,
