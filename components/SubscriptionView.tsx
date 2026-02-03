@@ -6,13 +6,21 @@ const SubscriptionView: React.FC = () => {
 
     const user = JSON.parse(localStorage.getItem('myzap_user') || '{}');
     const isTrial = user.plan === 'Teste Grátis';
-    const trialEndsAt = user.trial_ends_at ? new Date(user.trial_ends_at) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    // Parse trial_ends_at robustly, fallback to null instead of hardcoded 7 days
+    const parseDate = (dateStr: any) => {
+        if (!dateStr) return null;
+        const d = new Date(dateStr);
+        return isNaN(d.getTime()) ? null : d;
+    };
+
+    const initialExpiry = parseDate(user.trial_ends_at);
 
     const [plans, setPlans] = useState<any[]>([]);
     const [planData, setPlanData] = useState({
         name: user.plan || 'Plano Professional',
         status: isTrial ? 'Período de Teste' : 'Assinatura Ativa',
-        expiryDate: trialEndsAt,
+        expiryDate: initialExpiry || new Date(), // Fallback to now if null to avoid crash, but will be updated by API
         limits: {
             instances: { used: 0, total: 10 },
             messages: { used: 0, total: 100000 },
@@ -33,9 +41,10 @@ const SubscriptionView: React.FC = () => {
                     setPlanData(prev => ({
                         ...prev,
                         name: updatedUser.plan,
-                        expiryDate: updatedUser.trial_ends_at ? new Date(updatedUser.trial_ends_at) : prev.expiryDate,
+                        expiryDate: parseDate(updatedUser.trial_ends_at) || prev.expiryDate,
                         status: updatedUser.plan === 'Teste Grátis' ? 'Período de Teste' : 'Assinatura Ativa'
                     }));
+                    window.dispatchEvent(new Event('profileUpdate'));
                 }
             } catch (err) {
                 console.error('Erro ao sincronizar dados do usuário:', err);
