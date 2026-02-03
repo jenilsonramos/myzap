@@ -720,6 +720,32 @@ app.post('/api/webhook/evolution', async (req, res) => {
     res.status(200).send('OK');
 });
 
+app.post('/api/instances/:name/webhook', authenticateToken, async (req, res) => {
+    try {
+        const { name } = req.params;
+        const enabled = req.body.enabled !== false;
+        const evo = await getEvolutionService();
+        if (!evo) throw new Error('Evolution API offline');
+
+        const [rows] = await pool.query("SELECT setting_value FROM system_settings WHERE setting_key = 'app_url'");
+        const appUrl = rows[0]?.setting_value || 'https://app.ublochat.com.br';
+        const webhookUrl = `${appUrl}/api/webhook/evolution`;
+
+        console.log(`🔗 [MANUAL] Configurando Webhook para ${name}: ${webhookUrl}`);
+        const result = await evo.setWebhook(name, webhookUrl, enabled);
+
+        // Verifica se deu erro na response da Evolution
+        if (result?.status === 400 || result?.error) {
+            throw new Error(result.message || JSON.stringify(result));
+        }
+
+        res.json(result || { message: 'Configurado com sucesso' });
+    } catch (err) {
+        console.error('❌ Erro Config Webhook:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.post('/api/instances', authenticateToken, async (req, res) => {
     const { instanceName } = req.body;
     if (!instanceName) return res.status(400).json({ error: 'Nome da instância obrigatório' });

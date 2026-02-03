@@ -341,8 +341,8 @@ const InstanceView: React.FC = () => {
                       </td>
                       <td className="p-4">
                         <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wide border ${instance.status === InstanceStatus.CONNECTED
-                            ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/20'
-                            : 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-500/20'
+                          ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/20'
+                          : 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-500/20'
                           }`}>
                           {instance.status === InstanceStatus.CONNECTED ? 'Conectado' : 'Desconectado'}
                         </span>
@@ -367,6 +367,29 @@ const InstanceView: React.FC = () => {
                               <span className="material-icons-round text-lg">qr_code</span>
                             </button>
                           ) : null}
+                          <button
+                            onClick={async () => {
+                              showToast('Configurando Webhook...', 'info');
+                              try {
+                                const res = await fetch(`/api/instances/${instance.name}/webhook`, {
+                                  method: 'POST',
+                                  headers: { 'Authorization': `Bearer ${localStorage.getItem('myzap_token')}` }
+                                });
+                                if (res.ok) {
+                                  showToast('Webhook configurado com sucesso!', 'success');
+                                } else {
+                                  const err = await res.json();
+                                  showToast('Erro: ' + (err.error || 'Falha ao configurar'), 'error');
+                                }
+                              } catch (e) {
+                                showToast('Erro de conexão', 'error');
+                              }
+                            }}
+                            className="p-2 rounded-lg bg-indigo-50 dark:bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500 hover:text-white transition-colors"
+                            title="Configurar Webhook"
+                          >
+                            <span className="material-icons-round text-lg">hub</span>
+                          </button>
                           <button
                             onClick={() => handleDelete(instance)}
                             className="p-2 rounded-lg bg-rose-50 dark:bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-colors"
