@@ -672,18 +672,27 @@ app.get('/api/instances', authenticateToken, async (req, res) => {
             try {
                 // Tenta buscar da Evolution
                 const instances = await evo.fetchInstances();
+                console.log('📦 [DEBUG] Raw Instances from Evolution:', JSON.stringify(instances, null, 2));
+
                 // Opcional: Sincronizar com DB local se necessário
                 // Por simplicidade, retornamos direto, mas mantemos o formato esperado
 
                 // Formatação básica (pode variar conforme a versão da Evolution)
                 const formatted = Array.isArray(instances) ? instances : (instances.instances || []);
-                return res.json(formatted.map(i => ({
-                    id: i.instance?.instanceName || i.instanceName || i.name,
-                    business_name: i.instance?.instanceName || i.name,
-                    code_verification_status: i.instance?.status === 'open' ? 'VERIFIED' : 'NOT_VERIFIED', // Adaptar conforme status real
-                    status: i.instance?.status || i.status,
-                    phone_number: i.instance?.owner || ''
-                })));
+
+                const mappedInstances = formatted.map(i => {
+                    const status = i.instance?.status || i.status;
+                    const name = i.instance?.instanceName || i.instanceName || i.name;
+                    return {
+                        id: name,
+                        business_name: name,
+                        code_verification_status: (status === 'open' || status === 'connected') ? 'VERIFIED' : 'NOT_VERIFIED',
+                        status: status,
+                        phone_number: i.instance?.owner || ''
+                    };
+                });
+                console.log('🔄 [DEBUG] Mapped Instances:', JSON.stringify(mappedInstances, null, 2));
+                return res.json(mappedInstances);
             } catch (evoErr) {
                 console.warn('⚠️ [EVOLUTION] Falha ao listar instâncias, fallback para DB:', evoErr.message);
             }
