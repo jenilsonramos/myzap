@@ -82,6 +82,15 @@ async function setupTables() {
             )
         `);
 
+        // 5. Garantir tabela de configurações globais
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS system_settings (
+                setting_key VARCHAR(100) PRIMARY KEY,
+                setting_value TEXT,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            )
+        `);
+
         // Inserir planos padrão se a tabela estiver vazia
         const [planRows] = await pool.query("SELECT COUNT(*) as count FROM plans");
         if (planRows[0].count === 0) {
@@ -141,6 +150,21 @@ async function connectToDB() {
 }
 
 connectToDB();
+
+// stripe integration (inicializado sob demanda)
+let stripe;
+const getStripe = async () => {
+    if (stripe) return stripe;
+    try {
+        const [rows] = await pool.execute("SELECT setting_value FROM system_settings WHERE setting_key = 'stripe_secret_key'");
+        if (rows.length > 0 && rows[0].setting_value) {
+            stripe = require('stripe')(rows[0].setting_value);
+            return stripe;
+        }
+    } catch (err) { console.error('Stripe Init Error:', err); }
+    return null;
+};
+
 
 const authenticateToken = (req, res, next) => {
     const token = req.headers['authorization']?.split(' ')[1];
@@ -306,7 +330,31 @@ app.put('/api/admin/users/:id', authenticateAdmin, async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'Erro' }); }
 });
 
+app.get('/api/admin/settings', authenticateAdmin, async (req, res) => {
+    try {
+        const [rows] = await pool.execute('SELECT setting_key, setting_value FROM system_settings');
+        const settings = {};
+        rows.forEach(row => {
+            settings[row.setting_key] = row.setting_value;
+        });
+        res.json(settings);
+    } catch (err) { res.status(500).json({ error: 'Erro ao buscar configurações' }); }
+});
+
 app.post('/api/admin/settings', authenticateAdmin, async (req, res) => {
+    try {
+        for (const [key, value] of Object.entries(req.body)) {
+            await pool.execute('INSERT INTO system_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?', [key, value, value]);
+        }
+        // Reset stripe instance if secret key changed
+        if (req.body.stripe_secret_key) stripe = null;
+        res.json({ message: 'OK' });
+    } catch (err) { res.status(500).json({ error: 'Erro ao salvar configurações' }); }
+});
+
+// --- GOOGLE GEMINI / AI SETTINGS ---
+app.post('/api/admin/ai-settings', authenticateAdmin, async (req, res) => {
+    // Reutiliza a lógica de settings globais
     try {
         for (const [key, value] of Object.entries(req.body)) {
             await pool.execute('INSERT INTO system_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?', [key, value, value]);
@@ -314,6 +362,46 @@ app.post('/api/admin/settings', authenticateAdmin, async (req, res) => {
         res.json({ message: 'OK' });
     } catch (err) { res.status(500).json({ error: 'Erro' }); }
 });
+
+// --- STRIPE WEBHOOK ---
+app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+    const sig = req.headers['stripe-signature'];
+    let event;
+
+    try {
+        const [rows] = await pool.execute("SELECT setting_value FROM system_settings WHERE setting_key = 'stripe_webhook_secret'");
+        const webhookSecret = rows.length > 0 ? rows[0].setting_value : null;
+
+        const stripeInst = await getStripe();
+        if (!stripeInst || !webhookSecret) return res.status(400).send('Webhook Secret or Stripe Key missing');
+
+        event = stripeInst.webhooks.constructEvent(req.body, sig, webhookSecret);
+    } catch (err) {
+        console.error('Webhook Error:', err.message);
+        return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    // Handle the event
+    if (event.type === 'checkout.session.completed') {
+        const session = event.data.object;
+        const customerEmail = session.customer_details.email;
+        const planName = session.metadata.plan_name;
+
+        console.log(`💰 [STRIPE] Pagamento aprovado para ${customerEmail} (Plano: ${planName})`);
+
+        try {
+            await pool.execute(
+                "UPDATE users SET plan = ?, status = 'active', trial_ends_at = NULL WHERE email = ?",
+                [planName, customerEmail]
+            );
+        } catch (err) {
+            console.error('Error updating user after payment:', err);
+        }
+    }
+
+    res.json({ received: true });
+});
+
 
 // --- FLUXOS (COM LOGS EXTREMOS PARA DEBUG) ---
 

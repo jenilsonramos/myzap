@@ -10,6 +10,59 @@ const AdminView: React.FC = () => {
     const [editingPlan, setEditingPlan] = useState<any>(null);
     const [isUserModalOpen, setIsUserModalOpen] = useState(false);
     const [editingUser, setEditingUser] = useState<any>(null);
+    const [settings, setSettings] = useState({
+        evolution_url: '',
+        evolution_apikey: '',
+        stripe_public_key: '',
+        stripe_secret_key: '',
+        stripe_webhook_secret: ''
+    });
+    const [loadingSettings, setLoadingSettings] = useState(true);
+
+    const fetchSettings = async () => {
+        try {
+            const response = await fetch('/api/admin/settings', {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('myzap_token')}` }
+            });
+            const data = await response.json();
+            if (response.ok) setSettings({
+                evolution_url: data.evolution_url || '',
+                evolution_apikey: data.evolution_apikey || '',
+                stripe_public_key: data.stripe_public_key || '',
+                stripe_secret_key: data.stripe_secret_key || '',
+                stripe_webhook_secret: data.stripe_webhook_secret || ''
+            });
+        } catch (err) {
+            console.error('Error fetching settings:', err);
+        } finally {
+            setLoadingSettings(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchSettings();
+    }, []);
+
+    const saveSettings = async () => {
+        try {
+            const response = await fetch('/api/admin/settings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('myzap_token')}`
+                },
+                body: JSON.stringify(settings)
+            });
+            if (response.ok) {
+                showToast('Configurações salvas com sucesso!', 'success');
+            } else {
+                throw new Error('Falha ao salvar');
+            }
+        } catch (err) {
+            showToast('Erro ao salvar no banco de dados.', 'error');
+        }
+    };
+
 
     const FEATURE_OPTIONS = [
         { id: 'flow_builder', label: 'FlowBuilder', icon: 'account_tree' },
@@ -671,23 +724,52 @@ const AdminView: React.FC = () => {
                             <div className="space-y-4">
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Stripe Public Key (Live)</label>
-                                    <input type="text" placeholder="pk_live_..." className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 transition-all outline-none font-mono" />
+                                    <input
+                                        type="text"
+                                        value={settings.stripe_public_key}
+                                        onChange={e => setSettings({ ...settings, stripe_public_key: e.target.value })}
+                                        placeholder="pk_live_..."
+                                        className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 transition-all outline-none font-mono"
+                                    />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Stripe Secret Key (Live)</label>
-                                    <input type="password" placeholder="sk_live_..." className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 transition-all outline-none font-mono" />
+                                    <input
+                                        type="password"
+                                        value={settings.stripe_secret_key}
+                                        onChange={e => setSettings({ ...settings, stripe_secret_key: e.target.value })}
+                                        placeholder="sk_live_..."
+                                        className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 transition-all outline-none font-mono"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Stripe Webhook Secret (whsec_...)</label>
+                                    <input
+                                        type="password"
+                                        value={settings.stripe_webhook_secret}
+                                        onChange={e => setSettings({ ...settings, stripe_webhook_secret: e.target.value })}
+                                        placeholder="whsec_..."
+                                        className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 transition-all outline-none font-mono"
+                                    />
                                 </div>
                             </div>
                             <div className="bg-slate-50 dark:bg-indigo-950/20 border border-slate-200 dark:border-indigo-500/20 rounded-huge p-6 space-y-4">
                                 <h4 className="text-xs font-black dark:text-white uppercase tracking-widest">Webhooks do Stripe</h4>
                                 <p className="text-xs text-slate-500 font-medium leading-relaxed">Configure a URL abaixo no painel do Stripe para processar renovações e cancelamentos automáticos.</p>
-                                <div className="relative">
-                                    <input readOnly value="https://api.myzap.chat/webhooks/stripe" className="w-full bg-white dark:bg-indigo-900/30 border-none rounded-xl px-4 py-3 text-[11px] dark:text-indigo-200 font-bold" />
-                                    <span className="material-icons-round absolute right-3 top-1/2 -translate-y-1/2 text-indigo-400 cursor-pointer text-sm">content_copy</span>
+                                <div className="relative group">
+                                    <input readOnly value={`${window.location.origin}/api/stripe/webhook`} className="w-full bg-white dark:bg-indigo-900/30 border-none rounded-xl px-4 py-3 text-[11px] dark:text-indigo-200 font-bold" />
+                                    <span
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(`${window.location.origin}/api/stripe/webhook`);
+                                            showToast('URL do Webhook copiada!', 'info');
+                                        }}
+                                        className="material-icons-round absolute right-3 top-1/2 -translate-y-1/2 text-indigo-400 cursor-pointer text-sm hover:text-indigo-600 transition-colors">content_copy</span>
                                 </div>
+                                <p className="text-[9px] text-slate-400 font-bold uppercase italic">* Eventos recomendados: checkout.session.completed, customer.subscription.deleted</p>
                             </div>
                         </div>
-                        <button onClick={() => handleAction('Configurações do Stripe salvas!')} className="bg-indigo-600 text-white px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-indigo-600/30 hover:bg-indigo-700 transition-all active:scale-95">Salvar Configuração de Pagamento</button>
+                        <button onClick={saveSettings} className="bg-indigo-600 text-white px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-indigo-600/30 hover:bg-indigo-700 transition-all active:scale-95">Salvar Configuração de Pagamento</button>
+
                     </div>
                 )}
 
@@ -776,57 +858,19 @@ const AdminView: React.FC = () => {
                 )}
 
                 {activeTab === 'system' && (
-                    <SystemSettingsTab handleAction={handleAction} />
+                    <SystemSettingsTab settings={settings} setSettings={setSettings} saveSettings={saveSettings} loading={loadingSettings} />
                 )}
             </div>
         </div>
     );
 };
 
-const SystemSettingsTab: React.FC<{ handleAction: (msg: string) => void }> = ({ handleAction }) => {
-    const { showToast } = useToast();
-    const [loading, setLoading] = React.useState(true);
-    const [settings, setSettings] = React.useState({
-        evolution_url: '',
-        evolution_apikey: ''
-    });
-
-    React.useEffect(() => {
-        const fetchSettings = async () => {
-            try {
-                const response = await fetch('/api/admin/settings', {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('myzap_token')}` }
-                });
-                const data = await response.json();
-                if (response.ok) setSettings({ evolution_url: data.evolution_url || '', evolution_apikey: data.evolution_apikey || '' });
-            } catch (err) {
-                console.error('Error fetching settings:', err);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchSettings();
-    }, []);
-
-    const saveSettings = async () => {
-        try {
-            const response = await fetch('/api/admin/settings', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('myzap_token')}`
-                },
-                body: JSON.stringify(settings)
-            });
-            if (response.ok) {
-                showToast('Configurações do Sistema salvas com sucesso!', 'success');
-            } else {
-                throw new Error('Falha ao salvar');
-            }
-        } catch (err) {
-            showToast('Erro ao salvar no banco de dados.', 'error');
-        }
-    };
+const SystemSettingsTab: React.FC<{
+    settings: any,
+    setSettings: (s: any) => void,
+    saveSettings: () => Promise<void>,
+    loading: boolean
+}> = ({ settings, setSettings, saveSettings, loading }) => {
 
     if (loading) return <div className="p-20 text-center text-slate-400 font-bold uppercase tracking-widest animate-pulse">Carregando Configurações...</div>;
 
@@ -905,5 +949,6 @@ const SystemSettingsTab: React.FC<{ handleAction: (msg: string) => void }> = ({ 
         </div>
     );
 };
+
 
 export default AdminView;
