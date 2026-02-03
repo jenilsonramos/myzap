@@ -384,20 +384,27 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
     // Handle the event
     if (event.type === 'checkout.session.completed') {
         const session = event.data.object;
-        const customerEmail = session.customer_details.email;
+        const userEmail = session.metadata.user_email || session.customer_details.email;
         const planName = session.metadata.plan_name;
 
-        console.log(`💰 [STRIPE] Pagamento aprovado para ${customerEmail} (Plano: ${planName})`);
+        console.log(`💰 [STRIPE WEBHOOK] Pagamento aprovado! Email: ${userEmail}, Plano: ${planName}`);
 
         try {
-            await pool.execute(
+            const [result] = await pool.execute(
                 "UPDATE users SET plan = ?, status = 'active', trial_ends_at = NULL WHERE email = ?",
-                [planName, customerEmail]
+                [planName, userEmail]
             );
+
+            if (result.affectedRows > 0) {
+                console.log(`✅ [STRIPE WEBHOOK] Banco atualizado para ${userEmail}`);
+            } else {
+                console.warn(`⚠️ [STRIPE WEBHOOK] Nenhum usuário encontrado com o email ${userEmail}`);
+            }
         } catch (err) {
-            console.error('Error updating user after payment:', err);
+            console.error('❌ [STRIPE WEBHOOK] Erro ao atualizar banco:', err);
         }
     }
+
     res.json({ received: true });
 });
 

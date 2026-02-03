@@ -19,9 +19,26 @@ import AuthView from './components/AuthView';
 import { AppView } from './types';
 import { ToastProvider } from './components/ToastContext';
 
+import { useToast } from './components/ToastContext';
+
 const AppContent: React.FC = () => {
+  const { showToast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Handle payment status from URL
+  React.useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('payment') === 'success') {
+      showToast('Assinatura processada com sucesso! Bem-vindo.', 'success');
+      // Limpa os parâmetros da URL sem recarregar a página
+      navigate(location.pathname, { replace: true });
+    } else if (params.get('payment') === 'cancel') {
+      showToast('O pagamento foi cancelado.', 'warning');
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location, showToast, navigate]);
+
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     return localStorage.getItem('myzap_auth') === 'true';
   });

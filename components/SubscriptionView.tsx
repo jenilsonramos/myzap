@@ -135,8 +135,8 @@ const SubscriptionView: React.FC = () => {
                 body: JSON.stringify({
                     planName: plan.name,
                     price: plan.price,
-                    successUrl: `${window.location.origin}/dashboard?payment=success`,
-                    cancelUrl: `${window.location.origin}/dashboard?payment=cancel`
+                    successUrl: `${window.location.origin}/my-plan?payment=success`,
+                    cancelUrl: `${window.location.origin}/my-plan?payment=cancel`
                 })
             });
 
