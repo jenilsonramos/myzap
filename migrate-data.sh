@@ -7,10 +7,10 @@
 # Destino: ublochat.com.br (Banco: ublochat_db)
 # ==========================================================================
 
-# Configurações da Origem (Ajuste se necessário)
+# Configurações da Origem (O BANCO DE ONDE VEM OS DADOS)
 OLD_DB="myzap"
 OLD_USER="myzap_user"
-OLD_PASS="myzap_password_2026" # Senha padrão do script de reparo
+OLD_PASS="SUA_SENHA_ANTIGA_AQUI" # <--- INSIRA A SENHA DO BANCO ANTIGO AQUI
 
 # Configurações do Destino
 NEW_DB="ublochat_db"
