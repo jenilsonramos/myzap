@@ -681,14 +681,18 @@ app.get('/api/instances', authenticateToken, async (req, res) => {
                 const formatted = Array.isArray(instances) ? instances : (instances.instances || []);
 
                 const mappedInstances = formatted.map(i => {
-                    const status = i.instance?.status || i.status;
-                    const name = i.instance?.instanceName || i.instanceName || i.name;
+                    // Tenta encontrar o status em vários lugares possíveis (v1 vs v2)
+                    const status = i.connectionStatus || i.status || i.instance?.status || i.state || 'unknown';
+                    const name = i.name || i.instanceName || i.instance?.instanceName || i.instance?.name;
+                    const owner = i.owner || i.ownerJid || i.instance?.owner || i.instance?.ownerJid || '';
+
                     return {
                         id: name,
                         business_name: name,
-                        code_verification_status: (status === 'open' || status === 'connected') ? 'VERIFIED' : 'NOT_VERIFIED',
+                        // Aceita 'open', 'connected', 'online' como conectado
+                        code_verification_status: ['open', 'connected', 'online', 'authenticated'].includes(status) ? 'VERIFIED' : 'NOT_VERIFIED',
                         status: status,
-                        phone_number: i.instance?.owner || ''
+                        phone_number: owner
                     };
                 });
                 console.log('🔄 [DEBUG] Mapped Instances:', JSON.stringify(mappedInstances, null, 2));
