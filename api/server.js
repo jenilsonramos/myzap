@@ -231,25 +231,35 @@ app.post('/api/admin/plans', authenticateAdmin, async (req, res) => {
             [name, price, instances, messages, ai_nodes, ai_tokens, JSON.stringify(features)]
         );
         res.status(201).json({ message: 'OK' });
-    } catch (err) { res.status(500).json({ error: 'Erro' }); }
+    } catch (err) {
+        console.error('❌ Erro POST /api/admin/plans:', err);
+        res.status(500).json({ error: 'Erro ao criar plano', details: err.message });
+    }
 });
 
 app.put('/api/admin/plans/:id', authenticateAdmin, async (req, res) => {
     const { name, price, instances, messages, ai_nodes, ai_tokens, features } = req.body;
     try {
+        console.log('📝 [DEBUG] Atualizando plano:', req.params.id, req.body);
         await pool.execute(
             'UPDATE plans SET name = ?, price = ?, instances = ?, messages = ?, ai_nodes = ?, ai_tokens = ?, features = ? WHERE id = ?',
             [name, price, instances, messages, ai_nodes, ai_tokens, JSON.stringify(features), req.params.id]
         );
         res.json({ message: 'OK' });
-    } catch (err) { res.status(500).json({ error: 'Erro' }); }
+    } catch (err) {
+        console.error('❌ Erro PUT /api/admin/plans:', err);
+        res.status(500).json({ error: 'Erro ao atualizar plano', details: err.message });
+    }
 });
 
 app.delete('/api/admin/plans/:id', authenticateAdmin, async (req, res) => {
     try {
         await pool.execute('DELETE FROM plans WHERE id = ?', [req.params.id]);
         res.json({ message: 'OK' });
-    } catch (err) { res.status(500).json({ error: 'Erro' }); }
+    } catch (err) {
+        console.error('❌ Erro DELETE /api/admin/plans:', err);
+        res.status(500).json({ error: 'Erro ao excluir plano', details: err.message });
+    }
 });
 
 app.put('/api/admin/users/:id', authenticateAdmin, async (req, res) => {
