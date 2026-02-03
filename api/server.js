@@ -711,7 +711,7 @@ app.post('/api/instances', authenticateToken, async (req, res) => {
 
         // Salvar referência no DB local para contagem
         await pool.query(
-            "INSERT INTO whatsapp_accounts (user_id, business_name, code_verification_status) VALUES (?, ?, 'PENDING')",
+            "INSERT INTO whatsapp_accounts (user_id, business_name, code_verification_status, phone_number_id) VALUES (?, ?, 'PENDING', '')",
             [req.user.id, instanceName]
         );
 
