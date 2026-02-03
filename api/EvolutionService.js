@@ -86,17 +86,20 @@ class EvolutionService {
     // 6. Configurar Webhook
     async setWebhook(instanceName, webhookUrl, enabled = true) {
         // V2 endpoint: /webhook/set/:instance
+        // Payload deve ser envelopado em 'webhook' object
         return this._request(`/webhook/set/${instanceName}`, 'POST', {
-            url: webhookUrl,
-            webhook_by_events: false, // false = envia tudo ou events especificos se array
-            events: [
-                'messages.upsert',
-                'messages.update',
-                'messages.delete',
-                'send.message',
-                'connection.update'
-            ],
-            enabled: enabled
+            webhook: {
+                url: webhookUrl,
+                webhook_by_events: false,
+                events: [
+                    'messages.upsert',
+                    'messages.update',
+                    'messages.delete',
+                    'send.message',
+                    'connection.update'
+                ],
+                enabled: enabled
+            }
         });
     }
 }
