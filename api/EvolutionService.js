@@ -82,6 +82,23 @@ class EvolutionService {
     async getConnectionState(instanceName) {
         return this._request(`/instance/connectionState/${instanceName}`, 'GET');
     }
+
+    // 6. Configurar Webhook
+    async setWebhook(instanceName, webhookUrl, enabled = true) {
+        // V2 endpoint: /webhook/set/:instance
+        return this._request(`/webhook/set/${instanceName}`, 'POST', {
+            url: webhookUrl,
+            webhook_by_events: false, // false = envia tudo ou events especificos se array
+            events: [
+                'messages.upsert',
+                'messages.update',
+                'messages.delete',
+                'send.message',
+                'connection.update'
+            ],
+            enabled: enabled
+        });
+    }
 }
 
 module.exports = EvolutionService;

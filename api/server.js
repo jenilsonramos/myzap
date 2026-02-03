@@ -714,13 +714,37 @@ app.get('/api/instances', authenticateToken, async (req, res) => {
     }
 });
 
+app.post('/api/webhook/evolution', async (req, res) => {
+    // console.log('🔔 [WEBHOOK EVOLUTION]', JSON.stringify(req.body, null, 2));
+    // Futuro: Processar mensagens para chatbot/livechat
+    res.status(200).send('OK');
+});
+
 app.post('/api/instances', authenticateToken, async (req, res) => {
     const { instanceName } = req.body;
+    if (!instanceName) return res.status(400).json({ error: 'Nome da instância obrigatório' });
+
     try {
         const evo = await getEvolutionService();
-        if (!evo) return res.status(400).json({ error: 'Evolution API não configurada' });
+        if (!evo) return res.status(500).json({ error: 'Evolution API não configurada' });
 
-        const result = await evo.createInstance(instanceName, req.user.id);
+        // Pega token do usuário para usar como API Key da instância (segurança extra)
+        // ou gera um aleatório.
+        const token = req.headers['authorization']?.split(' ')[1] || 'default-token';
+
+        const data = await evo.createInstance(instanceName, token);
+
+        // Configura Webhook automaticamente
+        try {
+            const [rows] = await pool.query("SELECT setting_value FROM system_settings WHERE setting_key = 'app_url'");
+            const appUrl = rows[0]?.setting_value || 'https://app.ublochat.com.br';
+            const webhookUrl = `${appUrl}/api/webhook/evolution`;
+
+            console.log(`🔗 Configurando Webhook para ${instanceName}: ${webhookUrl}`);
+            await evo.setWebhook(instanceName, webhookUrl, true);
+        } catch (whErr) {
+            console.error('⚠️ Falha ao configurar webhook:', whErr.message);
+        }
 
         // Salvar referência no DB local para contagem
         await pool.query(
@@ -728,7 +752,7 @@ app.post('/api/instances', authenticateToken, async (req, res) => {
             [req.user.id, instanceName]
         );
 
-        res.json(result);
+        res.json(data);
     } catch (err) {
         console.error('❌ Erro POST /api/instances:', err);
         res.status(500).json({ error: err.message });

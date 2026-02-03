@@ -2,8 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import StatCard from './StatCard';
 import { Instance, InstanceStatus } from '../types';
+import { useToast } from './ToastContext';
 
 const InstanceView: React.FC = () => {
+  const { showToast } = useToast();
   const [instances, setInstances] = useState<Instance[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -24,7 +26,7 @@ const InstanceView: React.FC = () => {
         id: d.id,
         name: d.business_name || d.phone_number || `Instância ${d.id}`,
         // Verifica todos os possíveis status de sucesso da Evolution
-        status: ['open', 'connected', 'authenticated', 'VERIFIED', 'CONNECTED'].includes(d.status || d.code_verification_status)
+        status: ['open', 'connected', 'authenticated', 'VERIFIED', 'CONNECTED', 'online', 'PAIRED'].includes(d.status || d.code_verification_status)
           ? InstanceStatus.CONNECTED
           : InstanceStatus.DISCONNECTED,
         battery: 100,
@@ -50,7 +52,7 @@ const InstanceView: React.FC = () => {
     let pollInterval: NodeJS.Timeout;
     if (showQrModal && connectingInstance) {
       pollInterval = setInterval(async () => {
-        console.log('🔄 Verificando conexão...');
+        // console.log('🔄 Verificando conexão...');
         await fetchInstances();
       }, 3000);
     }
@@ -63,10 +65,11 @@ const InstanceView: React.FC = () => {
       const instance = instances.find(i => i.name === connectingInstance);
       if (instance && instance.status === InstanceStatus.CONNECTED) {
         setShowQrModal(false);
-        alert(`✅ Conectado com sucesso!`);
+        showToast(`Conectado com sucesso!`, 'success');
+        setConnectingInstance(''); // Limpa para não disparar novamente
       }
     }
-  }, [instances, showQrModal, connectingInstance]);
+  }, [instances, showQrModal, connectingInstance, showToast]);
 
   const handleCreateInstance = async () => {
     if (!newInstanceName) return;
@@ -85,7 +88,14 @@ const InstanceView: React.FC = () => {
       if (res.ok) {
         setShowCreateModal(false);
         setNewInstanceName('');
+        showToast('Instância criada com sucesso! Configurando Webhooks...', 'success');
         fetchInstances();
+
+        // Se a API já retornar o QR Code na criação (comum na Evolution)
+        if (data.instance?.status === 'open' || data.instance?.status === 'connected') {
+          showToast('Instância já conectada!', 'success');
+          return;
+        }
 
         if (data.qrcode && data.qrcode.base64) {
           setQrCodeData(data.qrcode.base64);
@@ -97,10 +107,10 @@ const InstanceView: React.FC = () => {
           setShowQrModal(true);
         }
       } else {
-        alert('Erro ao criar: ' + (data.error || 'Desconhecido'));
+        showToast('Erro ao criar: ' + (data.error || 'Desconhecido'), 'error');
       }
     } catch (err) {
-      alert('Erro de conexão ao criar instância');
+      showToast('Erro de conexão ao criar instância', 'error');
     } finally {
       setIsCreating(false);
     }
@@ -113,10 +123,11 @@ const InstanceView: React.FC = () => {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${localStorage.getItem('myzap_token')}` }
       });
+      showToast('Instância excluída.', 'success');
       fetchInstances();
     } catch (err) {
       console.error(err);
-      alert('Erro ao excluir');
+      showToast('Erro ao excluir', 'error');
     }
   };
 
@@ -132,7 +143,7 @@ const InstanceView: React.FC = () => {
 
       // Se já estiver conectado
       if (data.instance?.status === 'open' || data.instance?.status === 'connected') {
-        alert('Instância já está conectada!');
+        showToast('Instância já está conectada!', 'success');
         setShowQrModal(false);
         fetchInstances();
         return;
@@ -141,11 +152,11 @@ const InstanceView: React.FC = () => {
       if (data.base64 || (data.qrcode && data.qrcode.base64)) {
         setQrCodeData(data.base64 || data.qrcode.base64);
       } else {
-        alert('Não foi possível obter o QR Code. Tente novamente.');
+        showToast('Não foi possível obter o QR Code. Tente novamente.', 'error');
       }
     } catch (err) {
       console.error(err);
-      alert('Erro ao buscar QR Code');
+      showToast('Erro ao buscar QR Code', 'error');
       setShowQrModal(false);
     }
   };
@@ -279,6 +290,13 @@ const InstanceView: React.FC = () => {
             </h2>
             <div className="flex gap-2">
               <button
+                onClick={fetchInstances}
+                className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-card-dark rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 shadow-sm hover:text-primary transition-colors"
+              >
+                <span className={`material-icons-round text-lg ${loading ? 'animate-spin' : ''}`}>refresh</span>
+                Atualizar
+              </button>
+              <button
                 onClick={() => setShowCreateModal(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-xs font-bold shadow-lg shadow-primary/30 hover:brightness-110 transition-all active:scale-95"
               >
@@ -323,8 +341,8 @@ const InstanceView: React.FC = () => {
                       </td>
                       <td className="p-4">
                         <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wide border ${instance.status === InstanceStatus.CONNECTED
-                          ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/20'
-                          : 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-500/20'
+                            ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/20'
+                            : 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-500/20'
                           }`}>
                           {instance.status === InstanceStatus.CONNECTED ? 'Conectado' : 'Desconectado'}
                         </span>
