@@ -53,7 +53,15 @@ if [ $? -eq 0 ]; then
     echo "Migrando nomes antigos..."
     mysql -u $NEW_USER -p$NEW_PASS $NEW_DB -e "UPDATE users SET name = CONCAT(IFNULL(firstname,''), ' ', IFNULL(lastname,'')) WHERE name IS NULL OR name = '';"
     
-    echo "✅ Esquema reparado e nomes migrados."
+    echo "🔧 Corrigindo tabela de fluxos (Flow Builder)..."
+    mysql -u $NEW_USER -p$NEW_PASS $NEW_DB -e "CREATE TABLE IF NOT EXISTS flows (id VARCHAR(255) PRIMARY KEY);"
+    mysql -u $NEW_USER -p$NEW_PASS $NEW_DB -e "ALTER TABLE flows ADD user_id INT;" 2>/dev/null || true
+    mysql -u $NEW_USER -p$NEW_PASS $NEW_DB -e "ALTER TABLE flows ADD name VARCHAR(255);" 2>/dev/null || true
+    mysql -u $NEW_USER -p$NEW_PASS $NEW_DB -e "ALTER TABLE flows ADD content LONGTEXT;" 2>/dev/null || true
+    mysql -u $NEW_USER -p$NEW_PASS $NEW_DB -e "ALTER TABLE flows ADD status VARCHAR(20) DEFAULT 'paused';" 2>/dev/null || true
+    mysql -u $NEW_USER -p$NEW_PASS $NEW_DB -e "ALTER TABLE flows MODIFY status VARCHAR(20) DEFAULT 'paused';"
+    
+    echo "✅ Esquema reparado e fluxos corrigidos."
     echo "Agora seus dados devem estar acessíveis em https://ublochat.com.br"
 else
     echo "❌ Erro ao importar dados no MySQL."
