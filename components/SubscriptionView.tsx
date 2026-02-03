@@ -8,17 +8,47 @@ const SubscriptionView: React.FC = () => {
     const isTrial = user.plan === 'Teste Grátis';
     const trialEndsAt = user.trial_ends_at ? new Date(user.trial_ends_at) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    const [planData] = useState({
+    const [plans, setPlans] = useState<any[]>([]);
+    const [planData, setPlanData] = useState({
         name: user.plan || 'Plano Professional',
         status: isTrial ? 'Período de Teste' : 'Assinatura Ativa',
         expiryDate: trialEndsAt,
         limits: {
-            instances: { used: 0, total: isTrial ? 3 : 10 },
-            messages: { used: 0, total: isTrial ? 1000 : 100000 },
-            webhooks: { used: 0, total: isTrial ? 1 : 20 },
-            aiNodes: { used: 0, total: isTrial ? 5 : 50 }
+            instances: { used: 0, total: 10 },
+            messages: { used: 0, total: 100000 },
+            webhooks: { used: 0, total: 20 },
+            aiNodes: { used: 0, total: 50 }
         }
     });
+
+    useEffect(() => {
+        const fetchPlans = async () => {
+            try {
+                const response = await fetch('/api/plans');
+                if (response.ok) {
+                    const data = await response.json();
+                    setPlans(data);
+
+                    const currentPlan = data.find((p: any) => p.name === user.plan);
+                    if (currentPlan) {
+                        setPlanData(prev => ({
+                            ...prev,
+                            name: currentPlan.name,
+                            limits: {
+                                ...prev.limits,
+                                instances: { ...prev.limits.instances, total: currentPlan.instances },
+                                messages: { ...prev.limits.messages, total: currentPlan.messages },
+                                aiNodes: { ...prev.limits.aiNodes, total: currentPlan.ai_nodes || currentPlan.aiNodes }
+                            }
+                        }));
+                    }
+                }
+            } catch (err) {
+                console.error('Erro ao carregar planos:', err);
+            }
+        };
+        fetchPlans();
+    }, [user.plan]);
 
     const [timeLeft, setTimeLeft] = useState({
         days: 0,
