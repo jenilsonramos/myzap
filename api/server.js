@@ -5,6 +5,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
 require('dotenv').config();
+const EvolutionService = require('./EvolutionService');
 
 const app = express();
 app.use(cors());
@@ -648,8 +649,47 @@ app.get('/api/user/usage', authenticateToken, async (req, res) => {
 
 
 
+
+async function getEvolutionService() {
+    const [rows] = await pool.query(
+        "SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ('evolution_url', 'evolution_apikey')"
+    );
+    const settings = {};
+    rows.forEach(r => settings[r.setting_key] = r.setting_value);
+
+    if (!settings.evolution_url || !settings.evolution_apikey) {
+        return null;
+    }
+    return new EvolutionService(settings.evolution_url, settings.evolution_apikey);
+}
+
+// --- EVOLUTION API ENDPOINTS ---
+
 app.get('/api/instances', authenticateToken, async (req, res) => {
     try {
+        const evo = await getEvolutionService();
+        if (evo) {
+            try {
+                // Tenta buscar da Evolution
+                const instances = await evo.fetchInstances();
+                // Opcional: Sincronizar com DB local se necessário
+                // Por simplicidade, retornamos direto, mas mantemos o formato esperado
+
+                // Formatação básica (pode variar conforme a versão da Evolution)
+                const formatted = Array.isArray(instances) ? instances : (instances.instances || []);
+                return res.json(formatted.map(i => ({
+                    id: i.instance?.instanceName || i.instanceName || i.name,
+                    business_name: i.instance?.instanceName || i.name,
+                    code_verification_status: i.instance?.status === 'open' ? 'VERIFIED' : 'NOT_VERIFIED', // Adaptar conforme status real
+                    status: i.instance?.status || i.status,
+                    phone_number: i.instance?.owner || ''
+                })));
+            } catch (evoErr) {
+                console.warn('⚠️ [EVOLUTION] Falha ao listar instâncias, fallback para DB:', evoErr.message);
+            }
+        }
+
+        // Fallback para DB local
         const [rows] = await pool.query(
             "SELECT id, business_name, phone_number, code_verification_status, updated_at FROM whatsapp_accounts WHERE user_id = ?",
             [req.user.id]
@@ -658,6 +698,57 @@ app.get('/api/instances', authenticateToken, async (req, res) => {
     } catch (err) {
         console.error('❌ Erro GET /api/instances:', err);
         res.status(500).json({ error: 'Erro ao buscar instâncias' });
+    }
+});
+
+app.post('/api/instances', authenticateToken, async (req, res) => {
+    const { instanceName } = req.body;
+    try {
+        const evo = await getEvolutionService();
+        if (!evo) return res.status(400).json({ error: 'Evolution API não configurada' });
+
+        const result = await evo.createInstance(instanceName, req.user.id);
+
+        // Salvar referência no DB local para contagem
+        await pool.query(
+            "INSERT INTO whatsapp_accounts (user_id, business_name, code_verification_status) VALUES (?, ?, 'PENDING')",
+            [req.user.id, instanceName]
+        );
+
+        res.json(result);
+    } catch (err) {
+        console.error('❌ Erro POST /api/instances:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.delete('/api/instances/:name', authenticateToken, async (req, res) => {
+    try {
+        const evo = await getEvolutionService();
+        if (!evo) return res.status(400).json({ error: 'Evolution API não configurada' });
+
+        await evo.deleteInstance(req.params.name);
+
+        // Remover do DB local
+        await pool.query("DELETE FROM whatsapp_accounts WHERE business_name = ?", [req.params.name]);
+
+        res.json({ message: 'Instância removida' });
+    } catch (err) {
+        console.error('❌ Erro DELETE /api/instances:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/instances/:name/connect', authenticateToken, async (req, res) => {
+    try {
+        const evo = await getEvolutionService();
+        if (!evo) return res.status(400).json({ error: 'Evolution API não configurada' });
+
+        const data = await evo.connectInstance(req.params.name);
+        res.json(data); // Espera-se que retorne base64 do QR Code ou dados dele
+    } catch (err) {
+        console.error('❌ Erro GET connect:', err);
+        res.status(500).json({ error: err.message });
     }
 });
 

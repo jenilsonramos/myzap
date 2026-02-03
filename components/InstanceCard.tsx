@@ -4,9 +4,11 @@ import { Instance, InstanceStatus } from '../types';
 
 interface InstanceCardProps {
   instance: Instance;
+  onConnect?: (instance: Instance) => void;
+  onDelete?: (instance: Instance) => void;
 }
 
-const InstanceCard: React.FC<InstanceCardProps> = ({ instance }) => {
+const InstanceCard: React.FC<InstanceCardProps> = ({ instance, onConnect, onDelete }) => {
   const getStatusColor = (status: InstanceStatus) => {
     switch (status) {
       case InstanceStatus.CONNECTED: return 'bg-emerald-500';
@@ -31,7 +33,7 @@ const InstanceCard: React.FC<InstanceCardProps> = ({ instance }) => {
     <div className="bg-card-light dark:bg-card-dark rounded-huge p-6 shadow-sm border border-slate-100 dark:border-slate-800/50 hover:shadow-2xl hover:-translate-y-1 transition-all duration-500 group relative overflow-hidden flex flex-col justify-between">
       {/* Glossy Overlay */}
       <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-white/20 to-transparent -mr-16 -mt-16 rounded-full blur-2xl group-hover:bg-primary/5 transition-all"></div>
-      
+
       <div>
         <div className="flex justify-between items-start mb-6">
           <div className="flex items-center gap-4">
@@ -46,8 +48,12 @@ const InstanceCard: React.FC<InstanceCardProps> = ({ instance }) => {
               <p className="text-xs text-slate-400 font-bold tracking-tight opacity-70 uppercase tracking-widest">{instance.id.split('_').pop()}</p>
             </div>
           </div>
-          <button className="text-slate-300 hover:text-primary transition-colors p-1.5 bg-slate-50 dark:bg-slate-800/50 rounded-xl">
-            <span className="material-icons-round text-xl">more_vert</span>
+          <button
+            onClick={() => onDelete && onDelete(instance)}
+            className="text-slate-300 hover:text-rose-500 transition-colors p-1.5 bg-slate-50 dark:bg-slate-800/50 rounded-xl"
+            title="Excluir Instância"
+          >
+            <span className="material-icons-round text-xl">delete</span>
           </button>
         </div>
 
@@ -78,12 +84,18 @@ const InstanceCard: React.FC<InstanceCardProps> = ({ instance }) => {
           Config
         </button>
         {instance.status === InstanceStatus.DISCONNECTED ? (
-          <button className="flex items-center justify-center gap-2 py-3.5 px-4 rounded-2xl bg-primary text-white text-xs font-black hover:brightness-110 transition-all shadow-lg shadow-primary/30 active:scale-95 uppercase tracking-wider">
+          <button
+            onClick={() => onConnect && onConnect(instance)}
+            className="flex items-center justify-center gap-2 py-3.5 px-4 rounded-2xl bg-primary text-white text-xs font-black hover:brightness-110 transition-all shadow-lg shadow-primary/30 active:scale-95 uppercase tracking-wider"
+          >
             <span className="material-icons-round text-lg">sensors</span>
             Ativar
           </button>
         ) : (
-          <button className="flex items-center justify-center gap-2 py-3.5 px-4 rounded-2xl bg-emerald-500 text-white text-xs font-black hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/30 active:scale-95 uppercase tracking-wider">
+          <button
+            onClick={() => onConnect && onConnect(instance)}
+            className="flex items-center justify-center gap-2 py-3.5 px-4 rounded-2xl bg-emerald-500 text-white text-xs font-black hover:bg-emerald-600 transition-all shadow-lg shadow-emerald-500/30 active:scale-95 uppercase tracking-wider"
+          >
             <span className="material-icons-round text-lg">qr_code_scanner</span>
             QR Code
           </button>
