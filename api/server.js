@@ -142,6 +142,25 @@ async function connectToDB() {
 
 connectToDB();
 
+const authenticateToken = (req, res, next) => {
+    const token = req.headers['authorization']?.split(' ')[1];
+    if (!token) return res.sendStatus(401);
+    jwt.verify(token, process.env.JWT_SECRET || 'myzap_secret_key', (err, user) => {
+        if (err) return res.sendStatus(403);
+        req.user = user;
+        next();
+    });
+};
+
+const authenticateAdmin = (req, res, next) => {
+    authenticateToken(req, res, () => {
+        if (req.user.role !== 'admin') {
+            return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
+        }
+        next();
+    });
+};
+
 // --- AUTH ---
 
 app.post('/api/auth/register', async (req, res) => {
@@ -222,25 +241,6 @@ const cleanupTrials = async () => {
 // Executa limpeza a cada 1 hora
 setInterval(cleanupTrials, 60 * 60 * 1000);
 setTimeout(cleanupTrials, 5000); // Executa 5s apos iniciar
-
-const authenticateToken = (req, res, next) => {
-    const token = req.headers['authorization']?.split(' ')[1];
-    if (!token) return res.sendStatus(401);
-    jwt.verify(token, process.env.JWT_SECRET || 'myzap_secret_key', (err, user) => {
-        if (err) return res.sendStatus(403);
-        req.user = user;
-        next();
-    });
-};
-
-const authenticateAdmin = (req, res, next) => {
-    authenticateToken(req, res, () => {
-        if (req.user.role !== 'admin') {
-            return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
-        }
-        next();
-    });
-};
 
 // --- ADMIN / SETTINGS ---
 
