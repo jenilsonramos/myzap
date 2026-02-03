@@ -131,11 +131,32 @@ const AuthView: React.FC<AuthViewProps> = ({
         }
     };
 
+    const [passwordStrength, setPasswordStrength] = useState(0);
+
+    const checkPasswordStrength = (pass: string) => {
+        let strength = 0;
+        if (pass.length >= 8) strength += 25;
+        if (/[A-Z]/.test(pass)) strength += 25;
+        if (/[0-9]/.test(pass)) strength += 25;
+        if (/[^A-Za-z0-9]/.test(pass)) strength += 25;
+        setPasswordStrength(strength);
+    };
+
+    const getStrengthColor = () => {
+        if (passwordStrength <= 25) return 'bg-rose-500';
+        if (passwordStrength <= 50) return 'bg-orange-500';
+        if (passwordStrength <= 75) return 'bg-yellow-500';
+        return 'bg-emerald-500';
+    };
+
     const renderLoginForm = () => (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="text-center lg:text-left mb-8">
-                <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Entrar na Conta</h2>
-                <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">Bem-vindo de volta! Por favor, insira seus dados.</p>
+            <div className="text-center mb-8">
+                <div className="w-20 h-20 bg-primary/10 rounded-3xl flex items-center justify-center mx-auto mb-6 transform rotate-12 group-hover:rotate-0 transition-transform duration-500 shadow-xl shadow-primary/5 border border-primary/20">
+                    <span className="material-icons-round text-primary text-4xl">hub</span>
+                </div>
+                <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">Bem-vindo ao MyZap</h2>
+                <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">Sua central premium de Evolution API</p>
             </div>
 
             {errorStatus && (
@@ -144,77 +165,70 @@ const AuthView: React.FC<AuthViewProps> = ({
                 </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <button type="button" className="flex items-center justify-center gap-3 py-3 px-4 border border-slate-200 dark:border-white/10 rounded-2xl hover:bg-slate-50 dark:hover:bg-white/5 transition-all outline-none">
-                    <img src="https://www.google.com/favicon.ico" className="w-4 h-4" alt="Google" />
-                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-tighter">Entrar com Google</span>
-                </button>
-                <button type="button" className="flex items-center justify-center gap-3 py-3 px-4 border border-slate-200 dark:border-white/10 rounded-2xl hover:bg-slate-50 dark:hover:bg-white/5 transition-all outline-none">
-                    <img src="https://www.facebook.com/favicon.ico" className="w-4 h-4" alt="Facebook" />
-                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-tighter">Entrar com Facebook</span>
-                </button>
-            </div>
-
-            <div className="relative py-4">
-                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200 dark:border-white/5"></div></div>
-                <div className="relative flex justify-center text-xs uppercase"><span className="bg-white dark:bg-slate-900 px-4 text-slate-400 font-bold tracking-widest">-OU-</span></div>
-            </div>
-
             <div className="space-y-4">
-                <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Email</label>
-                    <input
-                        type="email"
-                        required
-                        value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        placeholder="seu@email.com"
-                        className="w-full bg-slate-50 dark:bg-white/5 border-b-2 border-transparent focus:border-primary focus:bg-white dark:focus:bg-white/10 py-3 px-4 text-sm text-slate-900 dark:text-white outline-none transition-all"
-                    />
+                <div className="space-y-2 group">
+                    <label className="text-xs font-bold uppercase tracking-widest text-slate-400 ml-1 group-focus-within:text-primary transition-colors">Email de Acesso</label>
+                    <div className="relative">
+                        <span className="material-icons-round absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 opacity-50">mail</span>
+                        <input
+                            type="email"
+                            required
+                            value={formData.email}
+                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                            placeholder="seu@email.com"
+                            className="w-full bg-slate-100/50 dark:bg-white/5 border-2 border-transparent focus:border-primary/20 focus:bg-white dark:focus:bg-white/10 rounded-2xl py-4 pl-14 pr-6 text-sm text-slate-900 dark:text-white outline-none transition-all shadow-inner"
+                        />
+                    </div>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-2 group">
                     <div className="flex justify-between items-center px-1">
-                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Senha</label>
-                        <button type="button" onClick={() => navigate('/recuperar')} className="material-icons-round text-lg text-slate-400 hover:text-primary transition-colors">visibility_off</button>
+                        <label className="text-xs font-bold uppercase tracking-widest text-slate-400 group-focus-within:text-primary transition-colors">Senha</label>
+                        <button type="button" onClick={() => navigate('/recuperar')} className="text-[10px] font-black text-primary hover:underline uppercase tracking-tighter">Esqueceu?</button>
                     </div>
-                    <input
-                        type="password"
-                        required
-                        value={formData.password}
-                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                        placeholder="••••••••"
-                        className="w-full bg-slate-50 dark:bg-white/5 border-b-2 border-transparent focus:border-primary focus:bg-white dark:focus:bg-white/10 py-3 px-4 text-sm text-slate-900 dark:text-white outline-none transition-all"
-                    />
+                    <div className="relative">
+                        <span className="material-icons-round absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 opacity-50">lock</span>
+                        <input
+                            type="password"
+                            required
+                            value={formData.password}
+                            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                            placeholder="••••••••"
+                            className="w-full bg-slate-100/50 dark:bg-white/5 border-2 border-transparent focus:border-primary/20 focus:bg-white dark:focus:bg-white/10 rounded-2xl py-4 pl-14 pr-6 text-sm text-slate-900 dark:text-white outline-none transition-all shadow-inner"
+                        />
+                    </div>
                 </div>
             </div>
 
             <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 rounded-2xl shadow-xl shadow-indigo-600/20 transition-all uppercase tracking-widest text-xs mt-4"
+                className="w-full bg-primary hover:bg-primary-dark text-white font-black py-5 rounded-2xl shadow-2xl shadow-primary/30 transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
             >
                 {isLoading ? (
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" />
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
-                    "Entrar no Sistema"
+                    <>
+                        <span className="uppercase tracking-[0.2em] text-xs">Acessar Painel</span>
+                        <span className="material-icons-round text-lg">arrow_forward</span>
+                    </>
                 )}
             </button>
 
             <div className="text-center pt-4">
                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                    Ainda não tem conta? {' '}
-                    <button type="button" onClick={() => navigate('/cadastro')} className="text-indigo-600 font-black hover:underline">Cadastre-se</button>
+                    Novo no MyZap? {' '}
+                    <button type="button" onClick={() => navigate('/cadastro')} className="text-primary font-black hover:underline">Quero uma conta grátis</button>
                 </p>
             </div>
         </div>
     );
 
     const renderSignupForm = () => (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="text-center lg:text-left mb-8">
-                <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Criar Conta</h2>
-                <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">Junte-se a nós e comece sua jornada hoje!</p>
+        <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="text-center mb-8">
+                <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">Crie sua Conta</h2>
+                <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">Comece a gerenciar suas instâncias agora!</p>
             </div>
 
             {errorStatus && (
@@ -223,76 +237,96 @@ const AuthView: React.FC<AuthViewProps> = ({
                 </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <button type="button" className="flex items-center justify-center gap-3 py-3 px-4 border border-slate-200 dark:border-white/10 rounded-2xl hover:bg-slate-50 dark:hover:bg-white/5 transition-all outline-none">
-                    <img src="https://www.google.com/favicon.ico" className="w-4 h-4" alt="Google" />
-                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-tighter">Sign up with Google</span>
-                </button>
-                <button type="button" className="flex items-center justify-center gap-3 py-3 px-4 border border-slate-200 dark:border-white/10 rounded-2xl hover:bg-slate-50 dark:hover:bg-white/5 transition-all outline-none">
-                    <img src="https://www.facebook.com/favicon.ico" className="w-4 h-4" alt="Facebook" />
-                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-tighter">Sign up with Facebook</span>
-                </button>
-            </div>
-
-            <div className="relative py-4">
-                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200 dark:border-white/5"></div></div>
-                <div className="relative flex justify-center text-xs uppercase"><span className="bg-white dark:bg-slate-900 px-4 text-slate-400 font-bold tracking-widest">-OR-</span></div>
-            </div>
-
             <div className="space-y-4">
                 <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Nome Completo:</label>
+                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-2">Nome Completo</label>
                     <input
                         type="text"
                         required
                         value={formData.name}
                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        className="w-full bg-slate-50 dark:bg-white/5 border-b-2 border-transparent focus:border-primary focus:bg-white dark:focus:bg-white/10 py-3 px-4 text-sm text-slate-900 dark:text-white outline-none transition-all"
+                        placeholder="Como devemos te chamar?"
+                        className="w-full bg-slate-100/50 dark:bg-white/5 border-2 border-transparent focus:border-primary/20 focus:bg-white dark:focus:bg-white/10 rounded-[1.25rem] py-4 px-6 text-sm text-slate-900 dark:text-white outline-none transition-all"
                     />
                 </div>
 
                 <div className="space-y-1">
-                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Email:</label>
+                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-2">Melhor Email</label>
                     <input
                         type="email"
                         required
                         value={formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        className="w-full bg-slate-50 dark:bg-white/5 border-b-2 border-transparent focus:border-primary focus:bg-white dark:focus:bg-white/10 py-3 px-4 text-sm text-slate-900 dark:text-white outline-none transition-all"
+                        placeholder="exemplo@email.com"
+                        className="w-full bg-slate-100/50 dark:bg-white/5 border-2 border-transparent focus:border-primary/20 focus:bg-white dark:focus:bg-white/10 rounded-[1.25rem] py-4 px-6 text-sm text-slate-900 dark:text-white outline-none transition-all"
                     />
                 </div>
 
-                <div className="space-y-1">
-                    <div className="flex justify-between items-center px-1">
-                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Senha:</label>
-                        <span className="material-icons-round text-lg text-slate-400">visibility_off</span>
-                    </div>
+                <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-2">Crie uma Senha Forte</label>
                     <input
                         type="password"
                         required
                         value={formData.password}
-                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                        className="w-full bg-slate-50 dark:bg-white/5 border-b-2 border-transparent focus:border-primary focus:bg-white dark:focus:bg-white/10 py-3 px-4 text-sm text-slate-900 dark:text-white outline-none transition-all"
+                        onChange={(e) => {
+                            setFormData({ ...formData, password: e.target.value });
+                            checkPasswordStrength(e.target.value);
+                        }}
+                        placeholder="••••••••"
+                        className="w-full bg-slate-100/50 dark:bg-white/5 border-2 border-transparent focus:border-primary/20 focus:bg-white dark:focus:bg-white/10 rounded-[1.25rem] py-4 px-6 text-sm text-slate-900 dark:text-white outline-none transition-all"
+                    />
+
+                    {/* Password Strength Meter */}
+                    {formData.password && (
+                        <div className="px-2 pt-1">
+                            <div className="flex justify-between items-center mb-1">
+                                <span className="text-[9px] font-black uppercase text-slate-400 tracking-tighter">Segurança da Senha</span>
+                                <span className={`text-[9px] font-black uppercase tracking-tighter ${getStrengthColor().replace('bg-', 'text-')}`}>
+                                    {passwordStrength <= 25 ? 'Fraca' : passwordStrength <= 50 ? 'Razoável' : passwordStrength <= 75 ? 'Boa' : 'Excelente!'}
+                                </span>
+                            </div>
+                            <div className="h-1.5 w-full bg-slate-200 dark:bg-white/10 rounded-full overflow-hidden">
+                                <div
+                                    className={`h-full transition-all duration-500 ${getStrengthColor()}`}
+                                    style={{ width: `${passwordStrength}%` }}
+                                />
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-2">Repita a Senha</label>
+                    <input
+                        type="password"
+                        required
+                        value={formData.confirmPassword}
+                        onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+                        placeholder="••••••••"
+                        className="w-full bg-slate-100/50 dark:bg-white/5 border-2 border-transparent focus:border-primary/20 focus:bg-white dark:focus:bg-white/10 rounded-[1.25rem] py-4 px-6 text-sm text-slate-900 dark:text-white outline-none transition-all"
                     />
                 </div>
             </div>
 
             <button
                 type="submit"
-                disabled={isLoading}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 rounded-2xl shadow-xl shadow-indigo-600/20 transition-all uppercase tracking-widest text-xs mt-4"
+                disabled={isLoading || (passwordStrength < 50 && initialView === 'signup')}
+                className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black py-4 rounded-[1.25rem] shadow-xl hover:shadow-2xl transition-all flex items-center justify-center gap-3 mt-4 active:scale-[0.98] disabled:opacity-50"
             >
                 {isLoading ? (
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" />
+                    <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
                 ) : (
-                    "Criar Minha Conta"
+                    <>
+                        <span className="uppercase tracking-[0.2em] text-xs">Criar Minha Conta</span>
+                        <span className="material-icons-round text-lg">check_circle</span>
+                    </>
                 )}
             </button>
 
             <div className="text-center pt-4">
                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                    Já tem uma conta? {' '}
-                    <button type="button" onClick={() => navigate('/login')} className="text-indigo-600 font-black hover:underline">Fazer Login</button>
+                    Já é de casa? {' '}
+                    <button type="button" onClick={() => navigate('/login')} className="text-primary font-black hover:underline">Fazer Login</button>
                 </p>
             </div>
         </div>
@@ -300,22 +334,22 @@ const AuthView: React.FC<AuthViewProps> = ({
 
     const renderRecoverForm = () => (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="text-center lg:text-left mb-8">
-                <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight text-center">Recuperar Senha</h2>
-                <div className="w-16 h-16 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto mt-4 mb-2">
-                    <span className="material-icons-round text-3xl">lock_reset</span>
+            <div className="text-center mb-10">
+                <div className="w-20 h-20 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto mb-6">
+                    <span className="material-icons-round text-4xl">key</span>
                 </div>
-                <p className="text-sm text-slate-500 dark:text-slate-400 text-center">Enviaremos orientações para seu email.</p>
+                <h3 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">Recuperar Senha</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">Sem problemas! Acontece com os melhores.</p>
             </div>
 
             <div className="space-y-4">
                 <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Email</label>
+                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-2">Email para Recuperação</label>
                     <input
                         type="email"
                         required
                         placeholder="seu@email.com"
-                        className="w-full bg-slate-50 dark:bg-white/5 border-b-2 border-transparent focus:border-primary focus:bg-white dark:focus:bg-white/10 py-3 px-4 text-sm text-slate-900 dark:text-white outline-none transition-all"
+                        className="w-full bg-slate-100/50 dark:bg-white/5 border-2 border-transparent focus:border-primary/20 focus:bg-white dark:focus:bg-white/10 rounded-[1.25rem] py-4 px-6 text-sm text-slate-900 dark:text-white outline-none transition-all"
                     />
                 </div>
             </div>
@@ -323,18 +357,21 @@ const AuthView: React.FC<AuthViewProps> = ({
             <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black py-4 rounded-2xl shadow-xl transition-all uppercase tracking-widest text-xs mt-4"
+                className="w-full bg-primary text-white font-black py-5 rounded-[1.25rem] shadow-2xl shadow-primary/30 transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
             >
                 {isLoading ? (
-                    <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin mx-auto" />
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
-                    "Enviar Link de Recuperação"
+                    <>
+                        <span className="uppercase tracking-[0.2em] text-xs">Enviar Instruções</span>
+                        <span className="material-icons-round">send</span>
+                    </>
                 )}
             </button>
 
             <div className="text-center">
-                <button type="button" onClick={() => navigate('/login')} className="text-sm text-slate-400 hover:text-primary transition-colors flex items-center justify-center gap-2 mx-auto font-bold uppercase tracking-tighter">
-                    <span className="material-icons-round text-lg">arrow_back</span>
+                <button type="button" onClick={() => navigate('/login')} className="text-xs font-black uppercase text-slate-400 hover:text-primary transition-colors flex items-center justify-center gap-2 mx-auto tracking-widest">
+                    <span className="material-icons-round text-lg">west</span>
                     Voltar ao Login
                 </button>
             </div>
@@ -342,68 +379,34 @@ const AuthView: React.FC<AuthViewProps> = ({
     );
 
     return (
-        <div className="min-h-screen w-full flex items-center justify-center bg-[#f0f2f5] dark:bg-slate-950 p-4 lg:p-12">
-            <div className="w-full max-w-6xl aspect-[16/9] bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-[0_20px_100px_rgba(0,0,0,0.1)] overflow-hidden flex flex-col lg:flex-row border border-white/20">
+        <div className="min-h-screen w-full flex items-center justify-center p-6 relative overflow-hidden bg-[#f8fafc] dark:bg-slate-950">
+            {/* Background Decorative Blobs */}
+            <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary/20 rounded-full blur-[120px] pointer-events-none animate-pulse" />
+            <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-indigo-500/20 rounded-full blur-[120px] pointer-events-none animate-pulse" style={{ animationDelay: '1s' }} />
 
-                {/* Lado Esquerdo - Ilustração e Branding */}
-                <div className="hidden lg:flex w-2/5 bg-[#cbd5ff] dark:bg-indigo-950/50 p-12 flex-col justify-between relative overflow-hidden">
-                    <div className="relative z-10 space-y-4">
-                        <div className="w-12 h-12 bg-white/30 backdrop-blur-xl rounded-xl flex items-center justify-center shadow-lg">
-                            <span className="material-icons-round text-slate-800 dark:text-white">hub</span>
-                        </div>
-                        <div className="space-y-2">
-                            <p className="text-slate-700 dark:text-indigo-200 text-lg leading-relaxed font-bold">
-                                Nós da MyZap estamos focados em escalar suas vendas e atendimentos.
-                            </p>
-                        </div>
-                    </div>
+            <button
+                onClick={onToggleTheme}
+                className="fixed top-8 right-8 w-12 h-12 bg-white dark:bg-white/5 backdrop-blur-xl border border-white dark:border-white/5 rounded-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all text-slate-500 dark:text-slate-400 z-50 shadow-xl"
+            >
+                <span className="material-icons-round">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
+            </button>
 
-                    <div className="relative z-10 flex justify-center items-center py-8">
-                        <img
-                            src="/C:/Users/levepedidos/.gemini/antigravity/brain/231c0009-ee8c-4f02-9be0-c50e2319e30c/auth_side_illustration_1770115987582.png"
-                            alt="3D Illustration"
-                            className="w-full max-w-[280px] drop-shadow-2xl animate-float"
-                        />
-                        <style>{`
-                            @keyframes float {
-                                0%, 100% { transform: translateY(0px) rotate(0deg); }
-                                50% { transform: translateY(-15px) rotate(2deg); }
-                            }
-                            .animate-float { animation: float 6s ease-in-out infinite; }
-                        `}</style>
-                    </div>
-
-                    <div className="relative z-10 text-[10px] font-black uppercase tracking-[0.4em] text-indigo-400/60 text-center">
-                        Evolution API Dashboard
-                    </div>
-
-                    {/* Elementos Decorativos de Fundo */}
-                    <div className="absolute top-[-10%] left-[-10%] w-full h-full bg-indigo-400/10 blur-[100px] rounded-full"></div>
+            <div className="w-full max-w-xl relative group z-10 transition-all duration-700">
+                <div className="absolute -inset-1 bg-gradient-to-r from-primary to-indigo-600 rounded-[3rem] blur opacity-25 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
+                <div className="relative bg-white/70 dark:bg-slate-900/60 backdrop-blur-3xl p-8 md:p-14 rounded-[2.75rem] shadow-2xl border border-white dark:border-white/10">
+                    <form onSubmit={handleSubmit}>
+                        {initialView === 'login' && renderLoginForm()}
+                        {initialView === 'signup' && renderSignupForm()}
+                        {initialView === 'recover' && renderRecoverForm()}
+                    </form>
                 </div>
+            </div>
 
-                {/* Lado Direito - Formulário */}
-                <div className="flex-1 flex flex-col p-8 lg:p-16 relative overflow-y-auto custom-scrollbar">
-                    {/* Botão de Idioma / Tema (Topo Direito) */}
-                    <div className="flex justify-end gap-2 mb-8">
-                        <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase tracking-widest cursor-pointer hover:text-slate-600 transition-colors">
-                            English(US) <span className="material-icons-round text-sm">expand_more</span>
-                        </div>
-                        <button
-                            onClick={onToggleTheme}
-                            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors"
-                        >
-                            <span className="material-icons-round text-lg">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
-                        </button>
-                    </div>
-
-                    <div className="w-full max-w-sm mx-auto flex-1 flex flex-col justify-center">
-                        <form onSubmit={handleSubmit}>
-                            {initialView === 'login' && renderLoginForm()}
-                            {initialView === 'signup' && renderSignupForm()}
-                            {initialView === 'recover' && renderRecoverForm()}
-                        </form>
-                    </div>
-                </div>
+            {/* Footer Text */}
+            <div className="fixed bottom-8 left-0 right-0 text-center">
+                <p className="text-[10px] font-black uppercase tracking-[0.5em] text-slate-400 dark:text-slate-600">
+                    Premium Dashboard Experience • Evolution API v2
+                </p>
             </div>
         </div>
     );
