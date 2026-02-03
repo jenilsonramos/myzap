@@ -27,12 +27,23 @@ class EvolutionService {
         console.log(`📡 [Evolution] ${method} ${url}`);
         const response = await fetch(url, options);
 
-        // Se for 204 No Content
         if (response.status === 204) return null;
 
-        const data = await response.json();
+        const text = await response.text();
+        console.log(`📥 [Evolution] Response (${response.status}):`, text);
+
+        let data;
+        try {
+            data = JSON.parse(text);
+        } catch (e) {
+            console.error('❌ Falha ao parsear JSON da Evolution:', e.message);
+            throw new Error(`Evolution API Error (${response.status}): ${text.slice(0, 100)}`);
+        }
+
         if (!response.ok) {
-            throw new Error(data.message || data.error || `Error ${response.status}: ${response.statusText}`);
+            const errorMsg = data.response?.message || data.message || data.error || JSON.stringify(data);
+            console.error(`❌ Erro da API Evolution [${response.status}]:`, errorMsg);
+            throw new Error(errorMsg);
         }
         return data;
     }
