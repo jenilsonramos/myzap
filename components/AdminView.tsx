@@ -208,7 +208,8 @@ const AdminView: React.FC = () => {
                 setIsPlanModalOpen(false);
                 fetchPlans();
             } else {
-                showToast('Erro ao salvar plano', 'error');
+                const errorData = await response.json();
+                showToast(`Erro ao salvar: ${errorData.details || errorData.error}`, 'error');
             }
         } catch (err) {
             showToast('Erro de conexão ao salvar plano', 'error');

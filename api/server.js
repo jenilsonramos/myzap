@@ -226,9 +226,9 @@ app.get('/api/plans', async (req, res) => {
 app.post('/api/admin/plans', authenticateAdmin, async (req, res) => {
     const { name, price, instances, messages, ai_nodes, ai_tokens, features } = req.body;
     try {
-        await pool.execute(
+        await pool.query(
             'INSERT INTO plans (name, price, instances, messages, ai_nodes, ai_tokens, features) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [name, price, instances, messages, ai_nodes, ai_tokens, JSON.stringify(features)]
+            [name, parseFloat(price) || 0, instances, messages, ai_nodes, ai_tokens, JSON.stringify(features)]
         );
         res.status(201).json({ message: 'OK' });
     } catch (err) {
@@ -241,9 +241,9 @@ app.put('/api/admin/plans/:id', authenticateAdmin, async (req, res) => {
     const { name, price, instances, messages, ai_nodes, ai_tokens, features } = req.body;
     try {
         console.log('📝 [DEBUG] Atualizando plano:', req.params.id, req.body);
-        await pool.execute(
+        await pool.query(
             'UPDATE plans SET name = ?, price = ?, instances = ?, messages = ?, ai_nodes = ?, ai_tokens = ?, features = ? WHERE id = ?',
-            [name, price, instances, messages, ai_nodes, ai_tokens, JSON.stringify(features), req.params.id]
+            [name, parseFloat(price) || 0, instances, messages, ai_nodes, ai_tokens, JSON.stringify(features), req.params.id]
         );
         res.json({ message: 'OK' });
     } catch (err) {
