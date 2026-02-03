@@ -187,6 +187,42 @@ app.post('/api/auth/login', async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'Erro' }); }
 });
 
+app.get('/api/auth/me', authenticateToken, async (req, res) => {
+    try {
+        const [rows] = await pool.execute('SELECT id, name, email, plan, role, status, trial_ends_at FROM users WHERE id = ?', [req.user.id]);
+        if (rows.length === 0) return res.status(404).json({ error: 'Usuario nao encontrado' });
+        res.json(rows[0]);
+    } catch (err) { res.status(500).json({ error: 'Erro ao buscar dados do usuario' }); }
+});
+
+app.put('/api/auth/update', authenticateToken, async (req, res) => {
+    const { name, email } = req.body;
+    try {
+        await pool.execute('UPDATE users SET name = ?, email = ? WHERE id = ?', [name, email, req.user.id]);
+        res.json({ message: 'Perfil atualizado com sucesso' });
+    } catch (err) { res.status(500).json({ error: 'Erro ao atualizar perfil' }); }
+});
+
+const cleanupTrials = async () => {
+    try {
+        console.log('🧹 [CRON] Verificando trials expirados...');
+        // Usuarios 'Teste Grátis' com data passada -> Muda para 'Inativo' ou 'Expirado'
+        // Por simplicidade, vamos apenas mudar o status ou plano se necessário
+        const [result] = await pool.execute(
+            "UPDATE users SET status = 'inactive' WHERE plan = 'Teste Grátis' AND trial_ends_at < NOW() AND status = 'active'"
+        );
+        if (result.affectedRows > 0) {
+            console.log(`✅ [CRON] ${result.affectedRows} trials expirados foram desativados.`);
+        }
+    } catch (err) {
+        console.error('❌ [CRON] Erro no cleanup:', err.message);
+    }
+};
+
+// Executa limpeza a cada 1 hora
+setInterval(cleanupTrials, 60 * 60 * 1000);
+setTimeout(cleanupTrials, 5000); // Executa 5s apos iniciar
+
 const authenticateToken = (req, res, next) => {
     const token = req.headers['authorization']?.split(' ')[1];
     if (!token) return res.sendStatus(401);

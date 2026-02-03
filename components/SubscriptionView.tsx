@@ -22,6 +22,26 @@ const SubscriptionView: React.FC = () => {
     });
 
     useEffect(() => {
+        const fetchUserData = async () => {
+            try {
+                const response = await fetch('/api/auth/me', {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('myzap_token')}` }
+                });
+                if (response.ok) {
+                    const updatedUser = await response.json();
+                    localStorage.setItem('myzap_user', JSON.stringify(updatedUser));
+                    setPlanData(prev => ({
+                        ...prev,
+                        name: updatedUser.plan,
+                        expiryDate: updatedUser.trial_ends_at ? new Date(updatedUser.trial_ends_at) : prev.expiryDate,
+                        status: updatedUser.plan === 'Teste Grátis' ? 'Período de Teste' : 'Assinatura Ativa'
+                    }));
+                }
+            } catch (err) {
+                console.error('Erro ao sincronizar dados do usuário:', err);
+            }
+        };
+
         const fetchPlans = async () => {
             try {
                 const response = await fetch('/api/plans');
@@ -47,6 +67,7 @@ const SubscriptionView: React.FC = () => {
                 console.error('Erro ao carregar planos:', err);
             }
         };
+        fetchUserData();
         fetchPlans();
     }, [user.plan]);
 
