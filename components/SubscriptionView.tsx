@@ -119,9 +119,38 @@ const SubscriptionView: React.FC = () => {
         return () => clearInterval(timer);
     }, [planData.expiryDate]);
 
-    const handleUpgrade = (plano: string) => {
-        showToast(`Redirecionando para o upgrade: ${plano}`, 'info');
+    const handleUpgrade = async (planName: string) => {
+        const plan = plans.find(p => p.name === planName);
+        if (!plan) return showToast('Plano não encontrado', 'error');
+
+        showToast(`Iniciando checkout para o plano ${planName}...`, 'info');
+
+        try {
+            const response = await fetch('/api/stripe/create-checkout-session', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('myzap_token')}`
+                },
+                body: JSON.stringify({
+                    planName: plan.name,
+                    price: plan.price,
+                    successUrl: `${window.location.origin}/dashboard?payment=success`,
+                    cancelUrl: `${window.location.origin}/dashboard?payment=cancel`
+                })
+            });
+
+            const data = await response.json();
+            if (response.ok && data.url) {
+                window.location.href = data.url;
+            } else {
+                throw new Error(data.error || 'Erro ao criar sessão de pagamento');
+            }
+        } catch (err: any) {
+            showToast(err.message, 'error');
+        }
     };
+
 
     return (
         <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
