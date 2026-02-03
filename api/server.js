@@ -13,9 +13,9 @@ app.use(cors());
 // Configuração do Banco de Dados
 const dbConfig = {
     host: process.env.DB_HOST || 'localhost',
-    user: process.env.DB_USER || 'myzap_user',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'myzap'
+    user: process.env.DB_USER || 'ublochat_user',
+    password: process.env.DB_PASSWORD || 'uBoX4+5pacw2WJBn',
+    database: process.env.DB_NAME || 'ublochat_db'
 };
 
 let pool;
