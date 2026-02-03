@@ -133,40 +133,58 @@ const AuthView: React.FC<AuthViewProps> = ({
 
     const renderLoginForm = () => (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="text-center lg:text-left mb-8">
+                <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Entrar na Conta</h2>
+                <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">Bem-vindo de volta! Por favor, insira seus dados.</p>
+            </div>
+
             {errorStatus && (
                 <div className="bg-rose-500/10 border border-rose-500/20 text-rose-500 p-4 rounded-2xl text-xs font-bold text-center">
                     {errorStatus}
                 </div>
             )}
-            <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400 ml-1">Email</label>
-                <div className="relative group">
-                    <span className="material-icons-round absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">alternate_email</span>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <button type="button" className="flex items-center justify-center gap-3 py-3 px-4 border border-slate-200 dark:border-white/10 rounded-2xl hover:bg-slate-50 dark:hover:bg-white/5 transition-all outline-none">
+                    <img src="https://www.google.com/favicon.ico" className="w-4 h-4" alt="Google" />
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-tighter">Entrar com Google</span>
+                </button>
+                <button type="button" className="flex items-center justify-center gap-3 py-3 px-4 border border-slate-200 dark:border-white/10 rounded-2xl hover:bg-slate-50 dark:hover:bg-white/5 transition-all outline-none">
+                    <img src="https://www.facebook.com/favicon.ico" className="w-4 h-4" alt="Facebook" />
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-tighter">Entrar com Facebook</span>
+                </button>
+            </div>
+
+            <div className="relative py-4">
+                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200 dark:border-white/5"></div></div>
+                <div className="relative flex justify-center text-xs uppercase"><span className="bg-white dark:bg-slate-900 px-4 text-slate-400 font-bold tracking-widest">-OU-</span></div>
+            </div>
+
+            <div className="space-y-4">
+                <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Email</label>
                     <input
                         type="email"
                         required
                         value={formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                         placeholder="seu@email.com"
-                        className="w-full bg-slate-50 dark:bg-white/5 border-2 border-transparent focus:border-primary/20 focus:bg-white dark:focus:bg-white/10 rounded-2xl py-4 pl-14 pr-6 text-sm text-slate-900 dark:text-white outline-none transition-all"
+                        className="w-full bg-slate-50 dark:bg-white/5 border-b-2 border-transparent focus:border-primary focus:bg-white dark:focus:bg-white/10 py-3 px-4 text-sm text-slate-900 dark:text-white outline-none transition-all"
                     />
                 </div>
-            </div>
 
-            <div className="space-y-2">
-                <div className="flex justify-between items-center px-1">
-                    <label className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">Senha</label>
-                    <button type="button" onClick={() => navigate('/recuperar')} className="text-[10px] font-bold text-primary hover:underline uppercase tracking-tighter">Esqueceu a senha?</button>
-                </div>
-                <div className="relative group">
-                    <span className="material-icons-round absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">lock</span>
+                <div className="space-y-2">
+                    <div className="flex justify-between items-center px-1">
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Senha</label>
+                        <button type="button" onClick={() => navigate('/recuperar')} className="material-icons-round text-lg text-slate-400 hover:text-primary transition-colors">visibility_off</button>
+                    </div>
                     <input
                         type="password"
                         required
                         value={formData.password}
                         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                         placeholder="••••••••"
-                        className="w-full bg-slate-50 dark:bg-white/5 border-2 border-transparent focus:border-primary/20 focus:bg-white dark:focus:bg-white/10 rounded-2xl py-4 pl-14 pr-6 text-sm text-slate-900 dark:text-white outline-none transition-all"
+                        className="w-full bg-slate-50 dark:bg-white/5 border-b-2 border-transparent focus:border-primary focus:bg-white dark:focus:bg-white/10 py-3 px-4 text-sm text-slate-900 dark:text-white outline-none transition-all"
                     />
                 </div>
             </div>
@@ -174,85 +192,87 @@ const AuthView: React.FC<AuthViewProps> = ({
             <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-primary hover:bg-primary-dark text-white font-bold py-5 rounded-2xl shadow-xl shadow-primary/20 transition-all flex items-center justify-center gap-3"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 rounded-2xl shadow-xl shadow-indigo-600/20 transition-all uppercase tracking-widest text-xs mt-4"
             >
                 {isLoading ? (
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" />
                 ) : (
-                    <>
-                        <span>Entrar no Sistema</span>
-                        <span className="material-icons-round">login</span>
-                    </>
+                    "Entrar no Sistema"
                 )}
             </button>
 
             <div className="text-center pt-4">
                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                    Novo por aqui? {' '}
-                    <button type="button" onClick={() => navigate('/cadastro')} className="text-primary font-bold hover:underline">Criar conta grátis</button>
+                    Ainda não tem conta? {' '}
+                    <button type="button" onClick={() => navigate('/cadastro')} className="text-indigo-600 font-black hover:underline">Cadastre-se</button>
                 </p>
             </div>
         </div>
     );
 
     const renderSignupForm = () => (
-        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="text-center lg:text-left mb-8">
+                <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Criar Conta</h2>
+                <p className="text-slate-500 dark:text-slate-400 text-sm mt-2">Junte-se a nós e comece sua jornada hoje!</p>
+            </div>
+
             {errorStatus && (
                 <div className="bg-rose-500/10 border border-rose-500/20 text-rose-500 p-4 rounded-2xl text-xs font-bold text-center">
                     {errorStatus}
                 </div>
             )}
-            <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400 ml-1">Nome Completo</label>
-                <div className="relative group">
-                    <span className="material-icons-round absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">person</span>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <button type="button" className="flex items-center justify-center gap-3 py-3 px-4 border border-slate-200 dark:border-white/10 rounded-2xl hover:bg-slate-50 dark:hover:bg-white/5 transition-all outline-none">
+                    <img src="https://www.google.com/favicon.ico" className="w-4 h-4" alt="Google" />
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-tighter">Sign up with Google</span>
+                </button>
+                <button type="button" className="flex items-center justify-center gap-3 py-3 px-4 border border-slate-200 dark:border-white/10 rounded-2xl hover:bg-slate-50 dark:hover:bg-white/5 transition-all outline-none">
+                    <img src="https://www.facebook.com/favicon.ico" className="w-4 h-4" alt="Facebook" />
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-tighter">Sign up with Facebook</span>
+                </button>
+            </div>
+
+            <div className="relative py-4">
+                <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200 dark:border-white/5"></div></div>
+                <div className="relative flex justify-center text-xs uppercase"><span className="bg-white dark:bg-slate-900 px-4 text-slate-400 font-bold tracking-widest">-OR-</span></div>
+            </div>
+
+            <div className="space-y-4">
+                <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Nome Completo:</label>
                     <input
                         type="text"
                         required
                         value={formData.name}
                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        placeholder="Seu nome"
-                        className="w-full bg-slate-50 dark:bg-white/5 border-2 border-transparent focus:border-primary/20 focus:bg-white dark:focus:bg-white/10 rounded-2xl py-4 pl-14 pr-6 text-sm text-slate-900 dark:text-white outline-none transition-all"
+                        className="w-full bg-slate-50 dark:bg-white/5 border-b-2 border-transparent focus:border-primary focus:bg-white dark:focus:bg-white/10 py-3 px-4 text-sm text-slate-900 dark:text-white outline-none transition-all"
                     />
                 </div>
-            </div>
 
-            <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400 ml-1">Email</label>
-                <div className="relative group">
-                    <span className="material-icons-round absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">alternate_email</span>
+                <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Email:</label>
                     <input
                         type="email"
                         required
                         value={formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        placeholder="exemplo@email.com"
-                        className="w-full bg-slate-50 dark:bg-white/5 border-2 border-transparent focus:border-primary/20 focus:bg-white dark:focus:bg-white/10 rounded-2xl py-4 pl-14 pr-6 text-sm text-slate-900 dark:text-white outline-none transition-all"
+                        className="w-full bg-slate-50 dark:bg-white/5 border-b-2 border-transparent focus:border-primary focus:bg-white dark:focus:bg-white/10 py-3 px-4 text-sm text-slate-900 dark:text-white outline-none transition-all"
                     />
                 </div>
-            </div>
 
-            <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                    <label className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400 ml-1">Senha</label>
+                <div className="space-y-1">
+                    <div className="flex justify-between items-center px-1">
+                        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Senha:</label>
+                        <span className="material-icons-round text-lg text-slate-400">visibility_off</span>
+                    </div>
                     <input
                         type="password"
                         required
                         value={formData.password}
                         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                        placeholder="••••••••"
-                        className="w-full bg-slate-50 dark:bg-white/5 border-2 border-transparent focus:border-primary/20 focus:bg-white dark:focus:bg-white/10 rounded-2xl py-4 px-6 text-sm text-slate-900 dark:text-white outline-none transition-all"
-                    />
-                </div>
-                <div className="space-y-2">
-                    <label className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400 ml-1">Confirmar</label>
-                    <input
-                        type="password"
-                        required
-                        value={formData.confirmPassword}
-                        onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                        placeholder="••••••••"
-                        className="w-full bg-slate-50 dark:bg-white/5 border-2 border-transparent focus:border-primary/20 focus:bg-white dark:focus:bg-white/10 rounded-2xl py-4 px-6 text-sm text-slate-900 dark:text-white outline-none transition-all"
+                        className="w-full bg-slate-50 dark:bg-white/5 border-b-2 border-transparent focus:border-primary focus:bg-white dark:focus:bg-white/10 py-3 px-4 text-sm text-slate-900 dark:text-white outline-none transition-all"
                     />
                 </div>
             </div>
@@ -260,22 +280,19 @@ const AuthView: React.FC<AuthViewProps> = ({
             <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-primary hover:bg-primary-dark text-white font-bold py-5 rounded-2xl shadow-xl shadow-primary/20 transition-all flex items-center justify-center gap-3 mt-4"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 rounded-2xl shadow-xl shadow-indigo-600/20 transition-all uppercase tracking-widest text-xs mt-4"
             >
                 {isLoading ? (
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" />
                 ) : (
-                    <>
-                        <span>Finalizar Cadastro</span>
-                        <span className="material-icons-round">how_to_reg</span>
-                    </>
+                    "Criar Minha Conta"
                 )}
             </button>
 
             <div className="text-center pt-4">
                 <p className="text-sm text-slate-500 dark:text-slate-400">
-                    Já tem conta? {' '}
-                    <button type="button" onClick={() => navigate('/login')} className="text-primary font-bold hover:underline">Fazer Login</button>
+                    Já tem uma conta? {' '}
+                    <button type="button" onClick={() => navigate('/login')} className="text-indigo-600 font-black hover:underline">Fazer Login</button>
                 </p>
             </div>
         </div>
@@ -283,23 +300,22 @@ const AuthView: React.FC<AuthViewProps> = ({
 
     const renderRecoverForm = () => (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="text-center space-y-2 mb-8">
-                <div className="w-16 h-16 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto mb-4">
-                    <span className="material-icons-round text-3xl">lock_open</span>
+            <div className="text-center lg:text-left mb-8">
+                <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight text-center">Recuperar Senha</h2>
+                <div className="w-16 h-16 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto mt-4 mb-2">
+                    <span className="material-icons-round text-3xl">lock_reset</span>
                 </div>
-                <h3 className="text-xl font-bold text-slate-900 dark:text-white">Recuperar Senha</h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400">Enviaremos as instruções para o seu email.</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400 text-center">Enviaremos orientações para seu email.</p>
             </div>
 
-            <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400 ml-1">Email</label>
-                <div className="relative group">
-                    <span className="material-icons-round absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">alternate_email</span>
+            <div className="space-y-4">
+                <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Email</label>
                     <input
                         type="email"
                         required
                         placeholder="seu@email.com"
-                        className="w-full bg-slate-50 dark:bg-white/5 border-2 border-transparent focus:border-primary/20 focus:bg-white dark:focus:bg-white/10 rounded-2xl py-4 pl-14 pr-6 text-sm text-slate-900 dark:text-white outline-none transition-all"
+                        className="w-full bg-slate-50 dark:bg-white/5 border-b-2 border-transparent focus:border-primary focus:bg-white dark:focus:bg-white/10 py-3 px-4 text-sm text-slate-900 dark:text-white outline-none transition-all"
                     />
                 </div>
             </div>
@@ -307,59 +323,81 @@ const AuthView: React.FC<AuthViewProps> = ({
             <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-bold py-5 rounded-2xl shadow-xl transition-all flex items-center justify-center gap-3"
+                className="w-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black py-4 rounded-2xl shadow-xl transition-all uppercase tracking-widest text-xs mt-4"
             >
                 {isLoading ? (
-                    <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                    <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin mx-auto" />
                 ) : (
-                    <>
-                        <span>Enviar Link</span>
-                        <span className="material-icons-round">send</span>
-                    </>
+                    "Enviar Link de Recuperação"
                 )}
             </button>
 
             <div className="text-center">
-                <button type="button" onClick={() => navigate('/login')} className="text-sm text-slate-500 dark:text-slate-400 hover:text-primary transition-colors flex items-center justify-center gap-2 mx-auto">
+                <button type="button" onClick={() => navigate('/login')} className="text-sm text-slate-400 hover:text-primary transition-colors flex items-center justify-center gap-2 mx-auto font-bold uppercase tracking-tighter">
                     <span className="material-icons-round text-lg">arrow_back</span>
-                    Voltar para o login
+                    Voltar ao Login
                 </button>
             </div>
         </div>
     );
 
     return (
-        <div className="min-h-screen w-full flex overflow-hidden relative bg-white dark:bg-slate-950">
-            <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/20 rounded-full blur-[120px] pointer-events-none" />
-            <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-500/20 rounded-full blur-[120px] pointer-events-none" />
+        <div className="min-h-screen w-full flex items-center justify-center bg-[#f0f2f5] dark:bg-slate-950 p-4 lg:p-12">
+            <div className="w-full max-w-6xl aspect-[16/9] bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-[0_20px_100px_rgba(0,0,0,0.1)] overflow-hidden flex flex-col lg:flex-row border border-white/20">
 
-            <div className="hidden lg:flex flex-1 flex-col justify-center px-20 relative z-10">
-                <div className="max-w-md space-y-6">
-                    <div className="w-20 h-20 bg-primary rounded-3xl flex items-center justify-center shadow-2xl shadow-primary/40 rotate-12 hover:rotate-0 transition-all duration-700">
-                        <span className="material-icons-round text-white text-5xl">hub</span>
+                {/* Lado Esquerdo - Ilustração e Branding */}
+                <div className="hidden lg:flex w-2/5 bg-[#cbd5ff] dark:bg-indigo-950/50 p-12 flex-col justify-between relative overflow-hidden">
+                    <div className="relative z-10 space-y-4">
+                        <div className="w-12 h-12 bg-white/30 backdrop-blur-xl rounded-xl flex items-center justify-center shadow-lg">
+                            <span className="material-icons-round text-slate-800 dark:text-white">hub</span>
+                        </div>
+                        <div className="space-y-2">
+                            <p className="text-slate-700 dark:text-indigo-200 text-lg leading-relaxed font-bold">
+                                Nós da MyZap estamos focados em escalar suas vendas e atendimentos.
+                            </p>
+                        </div>
                     </div>
-                    <div className="space-y-2">
-                        <h1 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter leading-tight">
-                            MyZap <span className="text-primary italic">Pro.</span>
-                        </h1>
-                        <p className="text-lg text-slate-500 dark:text-slate-400 leading-relaxed">
-                            O controle total das suas instâncias Evolution API em um painel premium e ultra veloz.
-                        </p>
+
+                    <div className="relative z-10 flex justify-center items-center py-8">
+                        <img
+                            src="/C:/Users/levepedidos/.gemini/antigravity/brain/231c0009-ee8c-4f02-9be0-c50e2319e30c/auth_side_illustration_1770115987582.png"
+                            alt="3D Illustration"
+                            className="w-full max-w-[280px] drop-shadow-2xl animate-float"
+                        />
+                        <style>{`
+                            @keyframes float {
+                                0%, 100% { transform: translateY(0px) rotate(0deg); }
+                                50% { transform: translateY(-15px) rotate(2deg); }
+                            }
+                            .animate-float { animation: float 6s ease-in-out infinite; }
+                        `}</style>
                     </div>
+
+                    <div className="relative z-10 text-[10px] font-black uppercase tracking-[0.4em] text-indigo-400/60 text-center">
+                        Evolution API Dashboard
+                    </div>
+
+                    {/* Elementos Decorativos de Fundo */}
+                    <div className="absolute top-[-10%] left-[-10%] w-full h-full bg-indigo-400/10 blur-[100px] rounded-full"></div>
                 </div>
-            </div>
 
-            <div className="flex-1 flex flex-col items-center justify-center p-6 lg:p-12 relative z-20">
-                <button
-                    onClick={onToggleTheme}
-                    className="absolute top-8 right-8 w-12 h-12 bg-slate-50 dark:bg-white/5 rounded-2xl flex items-center justify-center hover:bg-slate-100 dark:hover:bg-white/10 transition-all text-slate-500 dark:text-slate-400"
-                >
-                    <span className="material-icons-round">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
-                </button>
+                {/* Lado Direito - Formulário */}
+                <div className="flex-1 flex flex-col p-8 lg:p-16 relative overflow-y-auto custom-scrollbar">
+                    {/* Botão de Idioma / Tema (Topo Direito) */}
+                    <div className="flex justify-end gap-2 mb-8">
+                        <div className="flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase tracking-widest cursor-pointer hover:text-slate-600 transition-colors">
+                            English(US) <span className="material-icons-round text-sm">expand_more</span>
+                        </div>
+                        <button
+                            onClick={onToggleTheme}
+                            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 transition-colors"
+                        >
+                            <span className="material-icons-round text-lg">{isDarkMode ? 'light_mode' : 'dark_mode'}</span>
+                        </button>
+                    </div>
 
-                <div className="w-full max-w-md">
-                    <div className="bg-white/70 dark:bg-slate-900/40 backdrop-blur-3xl p-8 lg:p-12 rounded-[2.5rem] shadow-2xl border border-white dark:border-white/5 ring-1 ring-black/5 relative overflow-hidden">
-                        <form onSubmit={handleSubmit} className="relative z-10">
+                    <div className="w-full max-w-sm mx-auto flex-1 flex flex-col justify-center">
+                        <form onSubmit={handleSubmit}>
                             {initialView === 'login' && renderLoginForm()}
                             {initialView === 'signup' && renderSignupForm()}
                             {initialView === 'recover' && renderRecoverForm()}
