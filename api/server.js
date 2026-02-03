@@ -398,46 +398,46 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
             console.error('Error updating user after payment:', err);
         }
     }
-
-    app.post('/api/stripe/create-checkout-session', authenticateToken, async (req, res) => {
-        const { planName, price, successUrl, cancelUrl } = req.body;
-
-        try {
-            const stripeInst = await getStripe();
-            if (!stripeInst) return res.status(500).json({ error: 'Stripe não configurado pelo administrador.' });
-
-            const session = await stripeInst.checkout.sessions.create({
-                payment_method_types: ['card'],
-                line_items: [{
-                    price_data: {
-                        currency: 'brl',
-                        product_data: {
-                            name: `Plano ${planName}`,
-                            description: 'Assinatura Mensal MyZap Pro',
-                        },
-                        unit_amount: Math.round(parseFloat(price) * 100),
-                    },
-                    quantity: 1,
-                }],
-                mode: 'payment',
-                customer_email: req.user.email,
-                success_url: successUrl,
-                cancel_url: cancelUrl,
-                metadata: {
-                    plan_name: planName,
-                    user_email: req.user.email
-                }
-            });
-
-            res.json({ url: session.url });
-        } catch (err) {
-            console.error('Stripe Checkout Error:', err);
-            res.status(500).json({ error: 'Erro ao criar sessão de checkout', details: err.message });
-        }
-    });
-
     res.json({ received: true });
 });
+
+app.post('/api/stripe/create-checkout-session', authenticateToken, async (req, res) => {
+    const { planName, price, successUrl, cancelUrl } = req.body;
+
+    try {
+        const stripeInst = await getStripe();
+        if (!stripeInst) return res.status(500).json({ error: 'Stripe não configurado pelo administrador.' });
+
+        const session = await stripeInst.checkout.sessions.create({
+            payment_method_types: ['card'],
+            line_items: [{
+                price_data: {
+                    currency: 'brl',
+                    product_data: {
+                        name: `Plano ${planName}`,
+                        description: 'Assinatura Mensal MyZap Pro',
+                    },
+                    unit_amount: Math.round(parseFloat(price) * 100),
+                },
+                quantity: 1,
+            }],
+            mode: 'payment',
+            customer_email: req.user.email,
+            success_url: successUrl,
+            cancel_url: cancelUrl,
+            metadata: {
+                plan_name: planName,
+                user_email: req.user.email
+            }
+        });
+
+        res.json({ url: session.url });
+    } catch (err) {
+        console.error('Stripe Checkout Error:', err);
+        res.status(500).json({ error: 'Erro ao criar sessão de checkout', details: err.message });
+    }
+});
+
 
 
 
