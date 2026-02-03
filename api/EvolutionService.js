@@ -54,7 +54,7 @@ class EvolutionService {
         // Standard v1/v2 usually accepts: { instanceName, token, qrcode: true }
         return this._request('/instance/create', 'POST', {
             instanceName: instanceName,
-            token: token, // Opcional: token de segurança da instância
+            token: token ? String(token) : undefined, // Garantir string
             qrcode: true
         });
     }
