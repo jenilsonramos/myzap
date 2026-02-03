@@ -31,8 +31,12 @@ if [ ! -f "$SQL_FILE" ]; then
     exit 1
 fi
 
-# 4. Importar para o banco
-echo "Importando dados para o banco $NEW_DB..."
+# 4. Limpar e Importar para o banco
+echo "Limpando o banco $NEW_DB para uma instalação limpa..."
+# Dropar e recriar o banco para evitar erro de 'Table already exists'
+mysql -u $NEW_USER -p$NEW_PASS -e "DROP DATABASE IF EXISTS $NEW_DB; CREATE DATABASE $NEW_DB;"
+
+echo "Importando novos dados para $NEW_DB..."
 mysql -u $NEW_USER -p$NEW_PASS $NEW_DB < $SQL_FILE
 
 if [ $? -eq 0 ]; then
