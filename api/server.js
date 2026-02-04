@@ -912,117 +912,104 @@ app.post('/api/webhook/evolution', async (req, res) => {
         const { type, instance, data } = req.body;
         console.log(`🔔 [WEBHOOK] Recebido evento: ${type} | Instância: ${instance}`);
 
-        // Log do payload para debug
-        console.log('📦 [WEBHOOK] Payload recebido:', JSON.stringify(req.body, null, 2));
-
-        // SALVAR EM ARQUIVO PARA DEBUG (Formato One-Line JSON para facilitar leitura)
-        const fs = require('fs');
-        fs.appendFileSync('webhook_debug.log', JSON.stringify({ time: new Date().toISOString(), body: req.body }) + '\n');
-
-
-        // Helper para log
+        // HELPER LOG (Global scope for this handler)
         const logDebug = (msg) => {
             const fs = require('fs');
             const time = new Date().toISOString();
-            fs.appendFileSync('webhook_debug.log', `[${time}] ${msg}\n`);
+            try {
+                fs.appendFileSync('webhook_debug.log', `[${time}] ${msg}\n`);
+            } catch (e) { console.error('Log Error:', e); }
         };
 
-        if (type === 'MESSAGES_UPSERT' || type === 'messages.upsert' || type === 'SEND_MESSAGE') {
-            const msg = data.data || data; // V2 data structure vary
+        // Salva Payload Bruto
+        const fs = require('fs');
+        fs.appendFileSync('webhook_debug.log', JSON.stringify({ time: new Date().toISOString(), body: req.body }) + '\n');
+
+        const safeType = String(type || '').toUpperCase().trim();
+        logDebug(`🏁 HANDLER INICIADO: Tipo='${type}' (Safe: ${safeType}) | Instancia='${instance}'`);
+
+        if (safeType.includes('UPSERT') || safeType.includes('SEND_MESSAGE')) {
+            const msg = data.data || data;
             if (!msg || !msg.key) {
-                logDebug('⚠️ Payload inválido ou vazio');
+                logDebug('⚠️ Payload sem key (ignorado)');
                 return res.status(200).send('OK');
             }
 
-            logDebug(`📨 Processando mensagem de ${msg.key.remoteJid} (Instance: ${instance})`);
+            logDebug(`📨 MSG DETECTADA: ${msg.key.remoteJid}`);
 
-            // 1. Achar dono da instancia
-            // Tentativa 1: Nome exato
+            // 1. Achar dono da instancia (Lógica Simplificada)
+            let userId = null;
+
+            // Busca Exata
             let [rows] = await pool.query("SELECT user_id FROM whatsapp_accounts WHERE business_name = ?", [instance]);
+            if (rows.length > 0) userId = rows[0].user_id;
 
-            if (rows.length === 0) {
-                logDebug(`🔍 Tentando case-insensitive para ${instance}`);
+            // Busca Case-Insensitive
+            if (!userId) {
                 [rows] = await pool.query("SELECT user_id FROM whatsapp_accounts WHERE LOWER(business_name) = LOWER(?)", [instance]);
+                if (rows.length > 0) userId = rows[0].user_id;
+
+                if (userId) logDebug('🔍 Achei por nome case-insensitive');
             }
 
-            if (rows.length === 0 && instance.includes('-')) {
-                const simpleName = instance.split('-')[0];
-                logDebug(`🔍 Tentando nome simplificado: ${simpleName}`);
-                [rows] = await pool.query("SELECT user_id FROM whatsapp_accounts WHERE LOWER(business_name) = LOWER(?)", [simpleName]);
+            // Busca Simplificada (remove sufixos)
+            if (!userId && instance.includes('-')) {
+                const simple = instance.split('-')[0];
+                [rows] = await pool.query("SELECT user_id FROM whatsapp_accounts WHERE LOWER(business_name) = LOWER(?)", [simple]);
+                if (rows.length > 0) userId = rows[0].user_id;
+
+                if (userId) logDebug('🔍 Achei por nome simplificado (sem hifen)');
             }
 
-            if (rows.length === 0) {
-                logDebug(`❌ Instância '${instance}' não vinculada a nenhum usuário no DB.`);
-                return res.status(200).send('OK');
+            if (!userId) {
+                logDebug(`❌ ERRO FATAL: Instância '${instance}' não tem dono no banco!`);
+                return res.status(200).send('OK'); // Retorna 200 pra Evolution parar de tentar
             }
 
-            const userId = rows[0].user_id;
-            logDebug(`👤 Usuário identificado: ${userId}`);
+            logDebug(`✅ USER ID: ${userId}`);
 
             const remoteJid = msg.key.remoteJid;
-            const fromMe = msg.key.fromMe;
-            const pushName = msg.pushName || (fromMe ? 'Eu' : 'Desconhecido');
-            const messageType = msg.messageType || (msg.message ? Object.keys(msg.message)[0] : 'unknown');
+            const fromMe = msg.key.fromMe ? 1 : 0;
+            const pushName = msg.pushName || 'Desconhecido';
 
-            // Extrair conteúdo de forma mais robusta
+            // Conteúdo
             let content = '';
-            if (msg.message?.conversation) {
-                content = msg.message.conversation;
-            } else if (msg.message?.extendedTextMessage?.text) {
-                content = msg.message.extendedTextMessage.text;
-            } else if (msg.message?.imageMessage?.caption) {
-                content = msg.message.imageMessage.caption;
-            } else if (msg.message?.videoMessage?.caption) {
-                content = msg.message.videoMessage.caption;
-            } else {
-                content = `[Mensagem do tipo ${messageType}]`;
-            }
+            if (msg.message?.conversation) content = msg.message.conversation;
+            else if (msg.message?.extendedTextMessage?.text) content = msg.message.extendedTextMessage.text;
+            else content = JSON.stringify(msg.message || {});
 
-            // 2. Upsert Contact
             if (remoteJid !== 'status@broadcast') {
-                logDebug(`📇 Upsert contato: ${remoteJid}`);
-                await pool.query(`
-                    INSERT INTO contacts (user_id, remote_jid, name, updated_at)
-                    VALUES (?, ?, ?, NOW())
-                    ON DUPLICATE KEY UPDATE name = VALUES(name), updated_at = NOW()
-                 `, [userId, remoteJid, pushName]).catch(e => logDebug(`⚠️ Erro contato: ${e.message}`));
+                // 2. Contato
+                logDebug(`📇 Gravando contato: ${remoteJid}`);
+                await pool.query(`INSERT INTO contacts (user_id, remote_jid, name) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name)`,
+                    [userId, remoteJid, pushName]);
 
-                // 3. Pegar ID do contato
-                const [contactRows] = await pool.query("SELECT id FROM contacts WHERE user_id = ? AND remote_jid = ?", [userId, remoteJid]);
-                const contactId = contactRows[0]?.id;
+                // 3. ID do Contato
+                const [cRows] = await pool.query("SELECT id FROM contacts WHERE user_id = ? AND remote_jid = ?", [userId, remoteJid]);
+                const contactId = cRows[0]?.id;
 
-                // 4. Salvar Mensagem
-                logDebug(`💾 Salvando mensagem id=${msg.key.id}...`);
+                // 4. Mensagem
+                logDebug(`💾 Gravando mensagem (len=${content.length})...`);
                 await pool.query(`
                     INSERT INTO messages (user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     ON DUPLICATE KEY UPDATE content = VALUES(content)
                   `, [
-                    userId,
-                    contactId,
-                    instance,
-                    msg.key.id,
-                    fromMe ? 1 : 0,
-                    content,
-                    messageType,
-                    msg.messageTimestamp || Math.floor(Date.now() / 1000)
-                ]).then(() => logDebug('✅ Mensagem SALVA com sucesso!'))
-                    .catch(e => logDebug(`❌ Erro ao salvar mensagem: ${e.message} | SQL: ${e.sql}`));
+                    userId, contactId, instance, msg.key.id, fromMe, content, 'text', Math.floor(Date.now() / 1000)
+                ])
+                    .then(() => logDebug('🏆 SUCESSO! MENSAGEM NO BANCO.'))
+                    .catch(err => logDebug(`🔥 ERRO SQL MENSAGEM: ${err.message}`));
             }
         } else {
-            // logDebug(`ℹ️ Evento ignorado: ${type}`);
+            logDebug(`💤 Ignorando tipo: ${safeType}`);
         }
 
         res.status(200).send('OK');
     } catch (err) {
+        console.error('SERVER ERROR:', err);
         const fs = require('fs');
-        fs.appendFileSync('webhook_debug.log', `[FATAL ERROR] ${err.message}\n${err.stack}\n`);
-        console.error('❌ [WEBHOOK] Erro Fatal:', err);
-        res.status(500).json({
-            error: 'Erro no processamento do webhook',
-            details: err.message,
-            code: err.code
-        });
+        fs.appendFileSync('webhook_debug.log', `[FATAL EXCEPTION] ${err.message}\n`);
+        res.status(500).send('Erro interno');
     }
 });
 
