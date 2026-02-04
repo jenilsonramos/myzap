@@ -5,7 +5,7 @@ Este documento descreve como realizar o deploy automatizado do painel MyZap em u
 ## Pré-requisitos
 
 1. Um servidor VPS com acesso root.
-2. Domínio apontado para o IP do servidor (`app.ublochat.com.br`).
+2. Domínio apontado para o IP do servidor (`ublochat.com.br`).
 3. Portas 80 e 443 abertas no firewall.
 
 ### Instalação no Domínio Principal (ublochat.com.br)
@@ -56,5 +56,5 @@ cd /var/www/myzap && sudo ./update.sh
 
 Se encontrar problemas com o Certbot (SSL), execute manualmente:
 ```bash
-sudo certbot --apache -d app.ublochat.com.br
+sudo certbot --apache -d ublochat.com.br
 ```

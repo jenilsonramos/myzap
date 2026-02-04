@@ -4,7 +4,7 @@
 # MyZap - Script de Instalação Automatizada (Ubuntu/Debian)
 # ==========================================================================
 # Este script instala: Apache, MySQL 8.0, phpMyAdmin, Node.js e Certbot.
-# Configura o domínio app.ublochat.com.br com SSL.
+# Configura o domínio ublochat.com.br com SSL.
 # ==========================================================================
 
 # Cores para saída
@@ -14,7 +14,7 @@ RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 # Configurações
-DOMAIN="app.ublochat.com.br"
+DOMAIN="ublochat.com.br"
 DB_NAME="myzap"
 DB_USER="myzap_user"
 DB_PASS=$(openssl rand -base64 12)

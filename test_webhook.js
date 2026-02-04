@@ -45,7 +45,7 @@ async function test() {
         const name = target.name || target.instance?.instanceName;
         console.log(`🎯 Testando na instância: ${name}`);
 
-        const webhookUrl = 'https://app.ublochat.com.br/api/webhook/evolution';
+        const webhookUrl = 'https://ublochat.com.br/api/webhook/evolution';
 
         console.log('📡 Enviando requisição setWebhook...');
         try {

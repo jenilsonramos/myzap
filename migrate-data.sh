@@ -3,7 +3,7 @@
 # ==========================================================================
 # MyZap - Script de Migração de Dados
 # ==========================================================================
-# Origem: app.ublochat.com.br (Banco: myzap)
+# Origem: ublochat.com.br (Banco: myzap)
 # Destino: ublochat.com.br (Banco: ublochat_db)
 # ==========================================================================
 

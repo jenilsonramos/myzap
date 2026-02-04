@@ -3,7 +3,7 @@
 # Script de Correção v16 - LIMPEZA TOTAL E REPARO DEFINITIVO
 # Resolve conflitos de PM2, Criptografia e Estrutura de Banco
 
-DOMAIN="app.ublochat.com.br"
+DOMAIN="ublochat.com.br"
 ROOT="/var/www/myzap/dist"
 DB_PASS="myzap_password_2026"
 DB_USER="myzap_user"
