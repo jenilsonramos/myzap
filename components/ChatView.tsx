@@ -432,7 +432,7 @@ const ChatView: React.FC = () => {
                                                     <span className={`text-[10px] ${msg.key_from_me ? 'text-white/70' : 'text-slate-400'}`}>
                                                         {new Date(msg.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                     </span>
-                                                    {msg.key_from_me && getStatusIcon(msg.status)}
+                                                    {!!msg.key_from_me && getStatusIcon(msg.status)}
                                                 </div>
                                             </div>
                                         </div>
