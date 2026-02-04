@@ -1912,7 +1912,7 @@ app.post('/api/webhook/evolution', async (req, res) => {
                 }
 
                 // Definir status corretamente
-                const initialStatus = fromMe ? 'sent' : 'received';
+                const initialStatus = fromMe ? 'sent' : 'received'; // Fix v2
 
                 // 4. Mensagem
                 logDebug(`💾 Gravando mensagem [${fromMe ? 'SENT' : 'RX'}] type=${type} contact=${contactId}...`);
