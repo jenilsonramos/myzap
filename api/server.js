@@ -200,6 +200,7 @@ async function setupTables() {
                 remote_jid VARCHAR(255) NOT NULL,
                 name VARCHAR(255),
                 profile_pic TEXT,
+                status VARCHAR(20) DEFAULT 'open',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 UNIQUE KEY unique_contact (user_id, remote_jid)
@@ -212,6 +213,7 @@ async function setupTables() {
         await pool.query("ALTER TABLE contacts ADD COLUMN name VARCHAR(255) AFTER remote_jid").catch(() => { });
         await pool.query("ALTER TABLE contacts ADD COLUMN profile_pic TEXT AFTER name").catch(() => { });
         await pool.query("ALTER TABLE contacts ADD COLUMN status VARCHAR(20) DEFAULT 'open' AFTER profile_pic").catch(() => { });
+        await pool.query("ALTER TABLE contacts MODIFY COLUMN status VARCHAR(20) DEFAULT 'open'").catch(() => { });
         await pool.query("ALTER TABLE contacts ADD UNIQUE KEY unique_contact (user_id, remote_jid)").catch(() => { });
 
         await pool.query(`
