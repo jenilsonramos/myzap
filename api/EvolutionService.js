@@ -85,8 +85,6 @@ class EvolutionService {
 
     // 6. Configurar Webhook
     async setWebhook(instanceName, webhookUrl, enabled = true) {
-        // V2 endpoint: /webhook/set/:instance
-        // Payload deve ser envelopado em 'webhook' object
         return this._request(`/webhook/set/${instanceName}`, 'POST', {
             webhook: {
                 url: webhookUrl,
@@ -100,6 +98,52 @@ class EvolutionService {
                 ],
                 enabled: enabled
             }
+        });
+    }
+
+    // 7. Enviar Texto
+    async sendText(instanceName, number, text) {
+        return this._request(`/message/sendText/${instanceName}`, 'POST', {
+            number: number.replace(/\D/g, ''),
+            text,
+            delay: 1200
+        });
+    }
+
+    // 8. Enviar Mídia
+    async sendImage(instanceName, number, url, caption = '') {
+        return this._request(`/message/sendMedia/${instanceName}`, 'POST', {
+            number: number.replace(/\D/g, ''),
+            mediatype: 'image',
+            media: url,
+            caption
+        });
+    }
+
+    async sendVideo(instanceName, number, url, caption = '') {
+        return this._request(`/message/sendMedia/${instanceName}`, 'POST', {
+            number: number.replace(/\D/g, ''),
+            mediatype: 'video',
+            media: url,
+            caption
+        });
+    }
+
+    async sendAudio(instanceName, number, url) {
+        return this._request(`/message/sendMedia/${instanceName}`, 'POST', {
+            number: number.replace(/\D/g, ''),
+            mediatype: 'audio',
+            media: url
+        });
+    }
+
+    async sendDocument(instanceName, number, url, fileName = 'documento', caption = '') {
+        return this._request(`/message/sendMedia/${instanceName}`, 'POST', {
+            number: number.replace(/\D/g, ''),
+            mediatype: 'document',
+            media: url,
+            fileName,
+            caption
         });
     }
 }

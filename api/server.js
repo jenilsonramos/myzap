@@ -700,10 +700,10 @@ app.get('/api/analytics/dashboard', authenticateToken, async (req, res) => {
 
         // 1. Totais Gerais
         const [totalMsg] = await pool.query("SELECT COUNT(*) as count FROM messages WHERE user_id = ?", [userId]);
-        console.log(`   - DB Total: ${totalMsg[0].count}`);
-
         const [sentMsg] = await pool.query("SELECT COUNT(*) as count FROM messages WHERE user_id = ? AND key_from_me = 1", [userId]);
         const [contacts] = await pool.query("SELECT COUNT(*) as count FROM contacts WHERE user_id = ?", [userId]);
+
+        console.log(`📊 [ANALYTICS] Stats for ${userId}: Total=${totalMsg[0].count}, Sent=${sentMsg[0].count}, Contacts=${contacts[0].count}`);
 
         // 2. Volume Semanal (Últimos 7 dias)
         // Agrupa por dia da semana (Dom, Seg, Ter...)
@@ -1018,7 +1018,7 @@ app.get('/api/user/usage', authenticateToken, async (req, res) => {
 
         // 2. Mensagens
         const [messageRows] = await pool.query(
-            "SELECT COUNT(*) as total FROM messages WHERE user_id = ? AND type = 1",
+            "SELECT COUNT(*) as total FROM messages WHERE user_id = ?",
             [userId]
         );
         const messages = messageRows[0]?.total || 0;
