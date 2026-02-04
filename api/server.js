@@ -753,42 +753,49 @@ async function getEvolutionService() {
 
 app.get('/api/instances', authenticateToken, async (req, res) => {
     try {
+        // 1. Buscar instâncias que pertencem ao usuário no DB local
+        const [userAccounts] = await pool.query(
+            "SELECT business_name FROM whatsapp_accounts WHERE user_id = ?",
+            [req.user.id]
+        );
+        const ownedInstanceNames = userAccounts.map(acc => acc.business_name.toLowerCase());
+
         const evo = await getEvolutionService();
         if (evo) {
             try {
                 // Tenta buscar da Evolution
                 const instances = await evo.fetchInstances();
-                console.log('📦 [DEBUG] Raw Instances from Evolution:', JSON.stringify(instances, null, 2));
-
-                // Opcional: Sincronizar com DB local se necessário
-                // Por simplicidade, retornamos direto, mas mantemos o formato esperado
 
                 // Formatação básica (pode variar conforme a versão da Evolution)
                 const formatted = Array.isArray(instances) ? instances : (instances.instances || []);
 
-                const mappedInstances = formatted.map(i => {
-                    // Tenta encontrar o status em vários lugares possíveis (v1 vs v2)
-                    const status = i.connectionStatus || i.status || i.instance?.status || i.state || 'unknown';
-                    const name = i.name || i.instanceName || i.instance?.instanceName || i.instance?.name;
-                    const owner = i.owner || i.ownerJid || i.instance?.owner || i.instance?.ownerJid || '';
+                // 2. Filtrar apenas as instâncias que pertencem ao usuário
+                const mappedInstances = formatted
+                    .filter(i => {
+                        const name = (i.name || i.instanceName || i.instance?.instanceName || i.instance?.name || '').toLowerCase();
+                        return ownedInstanceNames.includes(name);
+                    })
+                    .map(i => {
+                        const status = i.connectionStatus || i.status || i.instance?.status || i.state || 'unknown';
+                        const name = i.name || i.instanceName || i.instance?.instanceName || i.instance?.name;
+                        const owner = i.owner || i.ownerJid || i.instance?.owner || i.instance?.ownerJid || '';
 
-                    return {
-                        id: name,
-                        business_name: name,
-                        // Aceita 'open', 'connected', 'online' como conectado
-                        code_verification_status: ['open', 'connected', 'online', 'authenticated'].includes(status) ? 'VERIFIED' : 'NOT_VERIFIED',
-                        status: status,
-                        phone_number: owner
-                    };
-                });
-                console.log('🔄 [DEBUG] Mapped Instances:', JSON.stringify(mappedInstances, null, 2));
+                        return {
+                            id: name,
+                            business_name: name,
+                            code_verification_status: ['open', 'connected', 'online', 'authenticated'].includes(status) ? 'VERIFIED' : 'NOT_VERIFIED',
+                            status: status,
+                            phone_number: owner
+                        };
+                    });
+
                 return res.json(mappedInstances);
             } catch (evoErr) {
                 console.warn('⚠️ [EVOLUTION] Falha ao listar instâncias, fallback para DB:', evoErr.message);
             }
         }
 
-        // Fallback para DB local
+        // Fallback para DB local (já filtrado por user_id)
         const [rows] = await pool.query(
             "SELECT id, business_name, phone_number, code_verification_status, updated_at FROM whatsapp_accounts WHERE user_id = ?",
             [req.user.id]
@@ -892,6 +899,11 @@ app.post('/api/webhook/evolution', async (req, res) => {
 app.post('/api/instances/:name/webhook', authenticateToken, async (req, res) => {
     try {
         const { name } = req.params;
+
+        // VERIFICAÇÃO DE PROPRIEDADE
+        const [ownership] = await pool.query("SELECT id FROM whatsapp_accounts WHERE business_name = ? AND user_id = ?", [name, req.user.id]);
+        if (ownership.length === 0) return res.status(403).json({ error: 'Acesso negado para esta instância.' });
+
         const enabled = req.body.enabled !== false;
         const evo = await getEvolutionService();
         if (!evo) throw new Error('Evolution API offline');
@@ -956,13 +968,19 @@ app.post('/api/instances', authenticateToken, async (req, res) => {
 
 app.delete('/api/instances/:name', authenticateToken, async (req, res) => {
     try {
+        const { name } = req.params;
+
+        // VERIFICAÇÃO DE PROPRIEDADE
+        const [ownership] = await pool.query("SELECT id FROM whatsapp_accounts WHERE business_name = ? AND user_id = ?", [name, req.user.id]);
+        if (ownership.length === 0) return res.status(403).json({ error: 'Acesso negado para esta instância.' });
+
         const evo = await getEvolutionService();
         if (!evo) return res.status(400).json({ error: 'Evolution API não configurada' });
 
-        await evo.deleteInstance(req.params.name);
+        await evo.deleteInstance(name);
 
         // Remover do DB local
-        await pool.query("DELETE FROM whatsapp_accounts WHERE business_name = ?", [req.params.name]);
+        await pool.query("DELETE FROM whatsapp_accounts WHERE business_name = ? AND user_id = ?", [name, req.user.id]);
 
         res.json({ message: 'Instância removida' });
     } catch (err) {
@@ -973,10 +991,16 @@ app.delete('/api/instances/:name', authenticateToken, async (req, res) => {
 
 app.get('/api/instances/:name/connect', authenticateToken, async (req, res) => {
     try {
+        const { name } = req.params;
+
+        // VERIFICAÇÃO DE PROPRIEDADE
+        const [ownership] = await pool.query("SELECT id FROM whatsapp_accounts WHERE business_name = ? AND user_id = ?", [name, req.user.id]);
+        if (ownership.length === 0) return res.status(403).json({ error: 'Acesso negado para esta instância.' });
+
         const evo = await getEvolutionService();
         if (!evo) return res.status(400).json({ error: 'Evolution API não configurada' });
 
-        const data = await evo.connectInstance(req.params.name);
+        const data = await evo.connectInstance(name);
         res.json(data); // Espera-se que retorne base64 do QR Code ou dados dele
     } catch (err) {
         console.error('❌ Erro GET connect:', err);
