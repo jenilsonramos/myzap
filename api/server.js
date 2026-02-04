@@ -263,9 +263,16 @@ async function connectToDB() {
             keepAliveInitialDelay: 0
         });
         console.log('✅ MyZap MySQL Pool Criado.');
+
+        // TESTE DE CONEXÃO IMEDIATO
+        const connection = await pool.getConnection();
+        console.log('✅ Conexão com o Banco de Dados estabelecida com sucesso.');
+        connection.release();
+
         setTimeout(setupTables, 1000);
     } catch (err) {
-        console.error('❌ Erro Crítico MySQL:', err.message);
+        console.error('❌ ERRO CRÍTICO NA CONEXÃO COM O BANCO DE DADOS:', err.message);
+        console.error('Verifique as credenciais no arquivo .env e se o banco está rodando.');
     }
 }
 
@@ -355,9 +362,9 @@ app.post('/api/auth/login', async (req, res) => {
     } catch (err) {
         console.error('❌ [AUTH] Erro no login:', err);
         res.status(500).json({
-            error: 'Erro interno no servidor ao processar o login.',
+            error: `Erro interno no login: ${err.message}`,
             details: err.message,
-            stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+            code: 'SERVER_ERROR'
         });
     }
 });
