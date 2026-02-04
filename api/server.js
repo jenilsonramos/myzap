@@ -1852,30 +1852,70 @@ app.post('/api/webhook/evolution', async (req, res) => {
             const fromMe = msg.key.fromMe ? 1 : 0;
             const pushName = msg.pushName || 'Desconhecido';
 
-            // Conteúdo
+            // Conteúdo e Tipo de Mensagem
             let content = '';
-            if (msg.message?.conversation) content = msg.message.conversation;
-            else if (msg.message?.extendedTextMessage?.text) content = msg.message.extendedTextMessage.text;
-            else content = JSON.stringify(msg.message || {});
+            let type = 'text';
+            let mediaUrl = null;
+
+            if (msg.message?.conversation) {
+                content = msg.message.conversation;
+                type = 'text';
+            } else if (msg.message?.extendedTextMessage?.text) {
+                content = msg.message.extendedTextMessage.text;
+                type = 'text';
+            } else if (msg.message?.imageMessage) {
+                content = msg.message.imageMessage.caption || '';
+                type = 'image';
+                mediaUrl = msg.message.imageMessage.url;
+            } else if (msg.message?.videoMessage) {
+                content = msg.message.videoMessage.caption || '';
+                type = 'video';
+                mediaUrl = msg.message.videoMessage.url;
+            } else if (msg.message?.audioMessage) {
+                content = '';
+                type = 'audio';
+                mediaUrl = msg.message.audioMessage.url;
+            } else if (msg.message?.documentMessage) {
+                content = msg.message.documentMessage.title || msg.message.documentMessage.caption || '';
+                type = 'document';
+                mediaUrl = msg.message.documentMessage.url;
+            } else if (msg.message?.buttonsResponseMessage) {
+                content = msg.message.buttonsResponseMessage.selectedButtonId;
+                type = 'text';
+            } else if (msg.message?.listResponseMessage) {
+                content = msg.message.listResponseMessage.title;
+                type = 'text';
+            } else {
+                content = '[Mensagem não suportada]';
+                type = 'text';
+            }
 
             if (remoteJid !== 'status@broadcast') {
-                // 2. Contato
+                // 2. Contato (Sempre força 'open' se for mensagem recebida)
                 logDebug(`📇 Gravando contato: ${remoteJid}`);
-                await pool.query(`INSERT INTO contacts (user_id, remote_jid, name) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name)`,
-                    [userId, remoteJid, pushName]);
+                await pool.query(`
+                    INSERT INTO contacts (user_id, remote_jid, name, status) 
+                    VALUES (?, ?, ?, 'open') 
+                    ON DUPLICATE KEY UPDATE 
+                        name = VALUES(name),
+                        status = IF(? = 0, 'open', status)
+                `, [userId, remoteJid, pushName, fromMe]);
 
                 // 3. ID do Contato
                 const [cRows] = await pool.query("SELECT id FROM contacts WHERE user_id = ? AND remote_jid = ?", [userId, remoteJid]);
                 const contactId = cRows[0]?.id;
 
                 // 4. Mensagem
-                logDebug(`💾 Gravando mensagem (len=${content.length})...`);
+                logDebug(`💾 Gravando mensagem type=${type} (len=${content.length})...`);
                 await pool.query(`
-                    INSERT INTO messages (user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    ON DUPLICATE KEY UPDATE content = VALUES(content)
+                    INSERT INTO messages (user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp, media_url, msg_status)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE 
+                        content = VALUES(content),
+                        media_url = VALUES(media_url),
+                        msg_status = VALUES(msg_status)
                   `, [
-                    userId, contactId, instance, msg.key.id, fromMe, content, 'text', Math.floor(Date.now() / 1000)
+                    userId, contactId, instance, msg.key.id, fromMe, content, type, Math.floor(Date.now() / 1000), mediaUrl, 'sent'
                 ])
                     .then(() => logDebug('🏆 SUCESSO! MENSAGEM NO BANCO.'))
                     .catch(err => logDebug(`🔥 ERRO SQL MENSAGEM: ${err.message}`));

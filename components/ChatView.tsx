@@ -203,43 +203,68 @@ const ChatView: React.FC = () => {
         return matchesSearch && matchesFilter;
     });
 
-    const getStatusIcon = (status?: string) => {
-        switch (status) {
-            case 'read': return <span className="material-icons-round text-blue-400 text-xs">done_all</span>;
-            case 'delivered': return <span className="material-icons-round text-slate-400 text-xs">done_all</span>;
-            default: return <span className="material-icons-round text-slate-400 text-xs">done</span>;
+    const getStatusIcon = (status?: string | number) => {
+        // Garantir que status seja string para o switch
+        const s = String(status || '').toLowerCase();
+        switch (s) {
+            case 'read': case '4': case 'visto':
+                return <span className="material-icons-round text-blue-400 text-[14px]">done_all</span>;
+            case 'delivered': case '3': case 'entregue':
+                return <span className="material-icons-round text-slate-400 text-[14px]">done_all</span>;
+            case 'sent': case '2': case 'enviado':
+                return <span className="material-icons-round text-slate-400 text-[14px]">done</span>;
+            default:
+                // Se for nulo ou vazio não mostra nada pra não poluir
+                if (!status) return null;
+                return <span className="material-icons-round text-slate-400 text-[14px]">done</span>;
         }
     };
 
     const renderMessageContent = (msg: Message) => {
-        if (msg.type === 'image' && msg.media_url) {
+        let content = msg.content;
+        let type = msg.type;
+        let mediaUrl = msg.media_url;
+
+        // Fallback: Se o conteúdo for um JSON de mídia (mensagens antigas ou erro de parse no webhook)
+        if (content && content.startsWith('{') && content.endsWith('}')) {
+            try {
+                const parsed = JSON.parse(content);
+                if (parsed.imageMessage) { type = 'image'; mediaUrl = parsed.imageMessage.url; content = parsed.imageMessage.caption || ''; }
+                else if (parsed.videoMessage) { type = 'video'; mediaUrl = parsed.videoMessage.url; content = parsed.videoMessage.caption || ''; }
+                else if (parsed.audioMessage) { type = 'audio'; mediaUrl = parsed.audioMessage.url; content = ''; }
+                else if (parsed.documentMessage) { type = 'document'; mediaUrl = parsed.documentMessage.url; content = parsed.documentMessage.title || ''; }
+            } catch (e) { /* ignore */ }
+        }
+
+        if (type === 'image' && mediaUrl) {
             return (
-                <div>
-                    <img src={msg.media_url} alt="Imagem" className="max-w-full rounded-lg mb-2" />
-                    {msg.content && <p className="text-sm">{msg.content}</p>}
+                <div className="flex flex-col">
+                    <img src={mediaUrl} alt="Imagem" className="max-w-full rounded-lg mb-1 shadow-sm cursor-pointer hover:opacity-95 transition-opacity" onClick={() => window.open(mediaUrl, '_blank')} />
+                    {content && <p className="text-sm">{content}</p>}
                 </div>
             );
         }
-        if (msg.type === 'video' && msg.media_url) {
+        if (type === 'video' && mediaUrl) {
             return (
-                <div>
-                    <video src={msg.media_url} controls className="max-w-full rounded-lg mb-2" />
-                    {msg.content && <p className="text-sm">{msg.content}</p>}
+                <div className="flex flex-col">
+                    <video src={mediaUrl} controls className="max-w-full rounded-lg mb-1 shadow-sm" />
+                    {content && <p className="text-sm">{content}</p>}
                 </div>
             );
         }
-        if (msg.type === 'audio' && msg.media_url) {
-            return <audio src={msg.media_url} controls className="w-full" />;
+        if (type === 'audio' && mediaUrl) {
+            return <audio src={mediaUrl} controls className="w-full h-8 mt-1" />;
         }
-        if (msg.type === 'document' && msg.media_url) {
+        if (type === 'document' && mediaUrl) {
             return (
-                <a href={msg.media_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm hover:underline">
-                    <span className="material-icons-round">description</span>
-                    {msg.content || 'Documento'}
+                <a href={mediaUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-3 bg-black/5 dark:bg-white/5 rounded-xl text-sm hover:bg-black/10 transition-colors">
+                    <span className="material-icons-round text-2xl">description</span>
+                    <span className="flex-1 truncate font-medium">{content || 'Documento'}</span>
+                    <span className="material-icons-round text-xs">download</span>
                 </a>
             );
         }
-        return <p className="text-sm whitespace-pre-wrap">{msg.content}</p>;
+        return <p className="text-sm whitespace-pre-wrap leading-relaxed">{content}</p>;
     };
 
     useEffect(() => {
@@ -315,14 +340,14 @@ const ChatView: React.FC = () => {
                             <div
                                 key={contact.id}
                                 onClick={() => { setSelectedContact(contact); setShowContactDetails(false); }}
-                                className={`flex items-center gap-3 p-3 rounded-2xl cursor-pointer transition-all mb-1 ${selectedContact?.id === contact.id ? 'bg-primary text-white' : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400'}`}
+                                className={`flex items-center gap-3 ${sidebarCollapsed ? 'p-1 justify-center' : 'p-3'} rounded-2xl cursor-pointer transition-all mb-1 ${selectedContact?.id === contact.id ? 'bg-primary text-white scale-[1.02] shadow-md' : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400'}`}
                             >
-                                <div className="relative">
-                                    <div className="w-12 h-12 rounded-xl bg-slate-200 flex items-center justify-center text-xl font-bold uppercase text-slate-500">
-                                        {contact.profile_pic ? <img src={contact.profile_pic} className="w-full h-full rounded-xl object-cover" /> : contact.name?.charAt(0)}
+                                <div className={`relative ${sidebarCollapsed ? 'mx-auto' : ''}`}>
+                                    <div className="w-12 h-12 rounded-xl bg-slate-200 flex items-center justify-center text-xl font-bold uppercase text-slate-500 overflow-hidden shadow-inner">
+                                        {contact.profile_pic ? <img src={contact.profile_pic} className="w-full h-full object-cover" /> : contact.name?.charAt(0)}
                                     </div>
                                     {/* Status Indicator */}
-                                    <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white dark:border-slate-900 ${contact.status === 'open' ? 'bg-emerald-500' : contact.status === 'pending' ? 'bg-amber-500' : 'bg-slate-400'}`}></div>
+                                    <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white dark:border-slate-900 shadow-sm ${contact.status === 'open' ? 'bg-emerald-500' : contact.status === 'pending' ? 'bg-amber-500' : 'bg-slate-400'}`}></div>
                                 </div>
                                 {!sidebarCollapsed && (
                                     <div className="flex-1 min-w-0">
