@@ -163,6 +163,35 @@ async function setupTables() {
             )
         `);
 
+        // 6. Garantir Tabelas de Chat (Contacts & Messages)
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS contacts (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT,
+                remote_jid VARCHAR(255) NOT NULL,
+                name VARCHAR(255),
+                profile_pic TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                UNIQUE KEY unique_contact (user_id, remote_jid)
+            )
+        `);
+
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS messages (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT,
+                contact_id INT,
+                instance_name VARCHAR(100),
+                uid VARCHAR(255) UNIQUE, 
+                key_from_me BOOLEAN,
+                content TEXT,
+                type VARCHAR(50), 
+                timestamp BIGINT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
         // Inserir planos padrão se a tabela estiver vazia
         const [planRows] = await pool.query("SELECT COUNT(*) as count FROM plans");
         if (planRows[0].count === 0) {
@@ -479,7 +508,64 @@ app.post('/api/stripe/create-checkout-session', authenticateToken, async (req, r
 
 
 
-// --- FLUXOS (COM LOGS EXTREMOS PARA DEBUG) ---
+// --- CHAT / LIVE CHAT ---
+app.get('/api/contacts', authenticateToken, async (req, res) => {
+    try {
+        const [rows] = await pool.query(`
+            SELECT c.*, 
+            (SELECT content FROM messages m WHERE m.contact_id = c.id ORDER BY m.timestamp DESC LIMIT 1) as lastMessage,
+            (SELECT timestamp FROM messages m WHERE m.contact_id = c.id ORDER BY m.timestamp DESC LIMIT 1) as lastTime
+            FROM contacts c 
+            WHERE c.user_id = ?
+            ORDER BY lastTime DESC
+        `, [req.user.id]);
+        res.json(rows);
+    } catch (err) { res.status(500).json({ error: 'Erro ao listar contatos' }); }
+});
+
+app.get('/api/messages/:contactId', authenticateToken, async (req, res) => {
+    try {
+        const [rows] = await pool.query(
+            "SELECT * FROM messages WHERE contact_id = ? AND user_id = ? ORDER BY timestamp ASC",
+            [req.params.contactId, req.user.id]
+        );
+        res.json(rows);
+    } catch (err) { res.status(500).json({ error: 'Erro ao buscar mensagens' }); }
+});
+
+app.post('/api/messages/send', authenticateToken, async (req, res) => {
+    const { contactId, content } = req.body;
+    try {
+        // 1. Achar contato e instância
+        const [contacts] = await pool.query("SELECT remote_jid FROM contacts WHERE id = ? AND user_id = ?", [contactId, req.user.id]);
+        if (contacts.length === 0) return res.status(404).json({ error: 'Contato não encontrado' });
+        const remoteJid = contacts[0].remote_jid;
+
+        // Precisamos saber qual instância usar.
+        // Simplificação: Pegar a primeira instância conectada do usuário.
+        const evo = await getEvolutionService();
+        if (!evo) return res.status(500).json({ error: 'Evolution offline' });
+
+        const [instances] = await pool.query("SELECT business_name FROM whatsapp_accounts WHERE user_id = ?", [req.user.id]);
+        if (instances.length === 0) return res.status(400).json({ error: 'Nenhuma instância conectada' });
+        const instanceName = instances[0].business_name; // Pega a primeira
+
+        // 2. Enviar via Evolution
+        const result = await evo._request(`/message/sendText/${instanceName}`, 'POST', {
+            number: remoteJid.replace('@s.whatsapp.net', ''),
+            text: content,
+            delay: 1200
+        });
+
+        // 3. Salvar no banco (O webhook salvaria, mas para UI ficar rápida salvamos já)
+        // await pool.query(...) // Deixar o webhook cuidar ou salvar com key_from_me=1
+
+        res.json(result);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Erro ao enviar mensagem' });
+    }
+});
 
 app.get('/api/flows', authenticateToken, async (req, res) => {
     try {
@@ -715,9 +801,69 @@ app.get('/api/instances', authenticateToken, async (req, res) => {
 });
 
 app.post('/api/webhook/evolution', async (req, res) => {
-    // console.log('🔔 [WEBHOOK EVOLUTION]', JSON.stringify(req.body, null, 2));
-    // Futuro: Processar mensagens para chatbot/livechat
-    res.status(200).send('OK');
+    try {
+        const { type, instance, data } = req.body;
+        // console.log(`🔔 [WEBHOOK] Tipo: ${type} | Instance: ${instance}`);
+
+        if (type === 'MESSAGES_UPSERT' || type === 'messages.upsert') {
+            const msg = data.data || data; // V2 data structure vary
+            if (!msg || !msg.key) return res.status(200).send('OK');
+
+            // 1. Achar dono da instancia
+            const [rows] = await pool.query("SELECT user_id FROM whatsapp_accounts WHERE business_name = ?", [instance]);
+            if (rows.length === 0) {
+                console.log(`⚠️ Webhook ignorado: Instancia ${instance} não vinculada a nenhum usuário.`);
+                return res.status(200).send('OK');
+            }
+            const userId = rows[0].user_id;
+
+            const remoteJid = msg.key.remoteJid;
+            const fromMe = msg.key.fromMe;
+            const pushName = msg.pushName || (fromMe ? 'Eu' : 'Desconhecido');
+            const messageType = msg.messageType || Object.keys(msg.message || {})[0];
+            const content = typeof msg.message?.conversation === 'string'
+                ? msg.message.conversation
+                : JSON.stringify(msg.message); // Imagens/etc simplificado
+
+            // 2. Upsert Contact
+            // Se for grupo, remoteJid termina em @g.us
+            // Ignorar status broadcast id
+            if (remoteJid === 'status@broadcast') return res.status(200).send('OK');
+
+            await pool.query(`
+                INSERT INTO contacts (user_id, remote_jid, name, updated_at)
+                VALUES (?, ?, ?, NOW())
+                ON DUPLICATE KEY UPDATE name = VALUES(name), updated_at = NOW()
+            `, [userId, remoteJid, pushName]);
+
+            // 3. Pegar ID do contato
+            const [contactRows] = await pool.query("SELECT id FROM contacts WHERE user_id = ? AND remote_jid = ?", [userId, remoteJid]);
+            const contactId = contactRows[0]?.id;
+
+            // 4. Salvar Mensagem
+            await pool.query(`
+                INSERT INTO messages (user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE content = VALUES(content)
+            `, [
+                userId,
+                contactId,
+                instance,
+                msg.key.id,
+                fromMe,
+                content,
+                messageType,
+                msg.messageTimestamp || Math.floor(Date.now() / 1000)
+            ]);
+
+            console.log(`✅ [MSG] Salva para ${instance}: ${remoteJid}`);
+        }
+
+        res.status(200).send('OK');
+    } catch (err) {
+        console.error('❌ Erro Webhook:', err.message);
+        res.status(500).send('Erro');
+    }
 });
 
 app.post('/api/instances/:name/webhook', authenticateToken, async (req, res) => {
