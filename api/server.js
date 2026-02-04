@@ -178,6 +178,10 @@ async function setupTables() {
             )
         `);
 
+        // Garantir que user_id existe (caso a tabela tenha sido criada sem ele antes)
+        await pool.query("ALTER TABLE whatsapp_accounts ADD COLUMN user_id INT NOT NULL AFTER id").catch(() => { });
+        await pool.query("ALTER TABLE whatsapp_accounts MODIFY COLUMN business_name VARCHAR(100) NOT NULL").catch(() => { });
+
         // 6. Garantir Tabelas de Chat (Contacts & Messages)
         await pool.query(`
             CREATE TABLE IF NOT EXISTS contacts (
@@ -768,58 +772,91 @@ async function getEvolutionService() {
 
 app.get('/api/instances', authenticateToken, async (req, res) => {
     try {
+        console.log(`🔒 [SECURITY-CHECK] User Request: ${req.user.id} - ${req.user.email}`);
+
         // 1. Buscar instâncias que pertencem ao usuário no DB local
         const [userAccounts] = await pool.query(
             "SELECT business_name FROM whatsapp_accounts WHERE user_id = ?",
             [req.user.id]
         );
         const ownedInstanceNames = userAccounts.map(acc => acc.business_name.toLowerCase());
-        console.log(`🔍 [SECURITY] User ${req.user.id} (${req.user.email}) owns instances: [${ownedInstanceNames.join(', ')}]`);
+        console.log(`🔍 [SECURITY] User ${req.user.id} whitelist: [${ownedInstanceNames.join(', ')}]`);
+
+        // SE NÃO TEM NADA NO DB, nem tenta buscar da Evolution (Segurança máxima)
+        if (ownedInstanceNames.length === 0) {
+            console.log(`⚠️ [SECURITY] User ${req.user.id} has NO instances in local DB.`);
+            return res.json([]);
+        }
 
         const evo = await getEvolutionService();
         if (evo) {
             try {
                 // Tenta buscar da Evolution
-                const instances = await evo.fetchInstances();
+                const instancesResponse = await evo.fetchInstances();
 
                 // Formatação básica (pode variar conforme a versão da Evolution)
-                const formatted = Array.isArray(instances) ? instances : (instances.instances || []);
+                // Se a Evolution retornar um objeto com a chave "instances"
+                const rawList = Array.isArray(instancesResponse) ? instancesResponse : (instancesResponse.instances || []);
 
-                // 2. Filtrar apenas as instâncias que pertencem ao usuário
-                const mappedInstances = formatted
-                    .filter(i => {
-                        const name = (i.name || i.instanceName || i.instance?.instanceName || i.instance?.name || '').toLowerCase();
-                        return ownedInstanceNames.includes(name);
-                    })
-                    .map(i => {
-                        const status = i.connectionStatus || i.status || i.instance?.status || i.state || 'unknown';
-                        const name = i.name || i.instanceName || i.instance?.instanceName || i.instance?.name;
-                        const owner = i.owner || i.ownerJid || i.instance?.owner || i.instance?.ownerJid || '';
+                // 2. FILTRAGEM STRICTA NO SERVIDOR
+                const filtered = rawList.filter(i => {
+                    // Tenta achar o nome em qualquer propriedade comum da Evolution
+                    const iName = (i.name || i.instanceName || i.instance?.instanceName || i.instance?.name || '').toLowerCase();
+                    const isOwned = ownedInstanceNames.includes(iName);
 
-                        return {
-                            id: name,
-                            business_name: name,
-                            code_verification_status: ['open', 'connected', 'online', 'authenticated'].includes(status) ? 'VERIFIED' : 'NOT_VERIFIED',
-                            status: status,
-                            phone_number: owner
-                        };
-                    });
+                    if (!isOwned && iName) {
+                        // console.log(`🚫 [BLOCK] Instância '${iName}' bloqueada para usuário ${req.user.id}`);
+                    }
+                    return isOwned;
+                });
 
+                const mappedInstances = filtered.map(i => {
+                    const status = i.connectionStatus || i.status || i.instance?.status || i.state || 'unknown';
+                    const name = i.name || i.instanceName || i.instance?.instanceName || i.instance?.name;
+                    const owner = i.owner || i.ownerJid || i.instance?.owner || i.instance?.ownerJid || '';
+
+                    return {
+                        id: name,
+                        business_name: name,
+                        code_verification_status: ['open', 'connected', 'online', 'authenticated'].includes(status) ? 'VERIFIED' : 'NOT_VERIFIED',
+                        status: status,
+                        phone_number: owner
+                    };
+                });
+
+                console.log(`✅ [SECURITY] User ${req.user.id} received ${mappedInstances.length} instances.`);
                 return res.json(mappedInstances);
             } catch (evoErr) {
-                console.warn('⚠️ [EVOLUTION] Falha ao listar instâncias, fallback para DB:', evoErr.message);
+                console.warn('⚠️ [EVOLUTION] Erro na API, usando fallback:', evoErr.message);
             }
         }
 
-        // Fallback para DB local (já filtrado por user_id)
+        // Fallback apenas se a API da Evolution falhar
         const [rows] = await pool.query(
             "SELECT id, business_name, phone_number, code_verification_status, updated_at FROM whatsapp_accounts WHERE user_id = ?",
             [req.user.id]
         );
-        res.json(rows);
+        res.json(rows.map(r => ({ ...r, status: 'offline' })));
     } catch (err) {
         console.error('❌ Erro GET /api/instances:', err);
-        res.status(500).json({ error: 'Erro ao buscar instâncias' });
+        res.status(500).json({ error: 'Erro de segurança ao buscar instâncias' });
+    }
+});
+
+// ENDPOINT DE DEBUG PARA O USUÁRIO TESTAR
+app.get('/api/debug/security-check', authenticateToken, async (req, res) => {
+    try {
+        const [userAccounts] = await pool.query("SELECT * FROM whatsapp_accounts WHERE user_id = ?", [req.user.id]);
+        const [allAccounts] = await pool.query("SELECT COUNT(*) as total FROM whatsapp_accounts");
+
+        res.json({
+            user: req.user,
+            your_instances_in_db: userAccounts,
+            total_instances_in_system_db: allAccounts[0].total,
+            server_time: new Date().toISOString()
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 });
 
