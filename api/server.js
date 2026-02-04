@@ -599,6 +599,53 @@ app.get('/api/messages/:contactId', authenticateToken, async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'Erro ao buscar mensagens' }); }
 });
 
+// --- ANALYTICS DASHBOARD ---
+app.get('/api/analytics/dashboard', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        // 1. Totais Gerais
+        const [totalMsg] = await pool.query("SELECT COUNT(*) as count FROM messages WHERE user_id = ?", [userId]);
+        const [sentMsg] = await pool.query("SELECT COUNT(*) as count FROM messages WHERE user_id = ? AND key_from_me = 1", [userId]);
+        const [contacts] = await pool.query("SELECT COUNT(*) as count FROM contacts WHERE user_id = ?", [userId]);
+
+        // 2. Volume Semanal (Últimos 7 dias)
+        // Agrupa por dia da semana (Dom, Seg, Ter...)
+        const [weekly] = await pool.query(`
+            SELECT 
+                DATE_FORMAT(FROM_UNIXTIME(timestamp), '%a') as name, 
+                COUNT(*) as value 
+            FROM messages 
+            WHERE user_id = ? AND timestamp >= UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL 7 DAY)) 
+            GROUP BY DATE(FROM_UNIXTIME(timestamp)) 
+            ORDER BY timestamp ASC
+        `, [userId]);
+
+        // 3. Status (Enviadas vs Recebidas)
+        // key_from_me = 1 (Enviada), 0 (Recebida)
+        const receivedCount = totalMsg[0].count - sentMsg[0].count;
+        const pieData = [
+            { name: 'Recebidas', value: receivedCount, color: '#6366f1' }, // Indigo
+            { name: 'Enviadas', value: sentMsg[0].count, color: '#22c55e' } // Green
+        ];
+
+        // Normalização simplificada para gráfico de barras (garante 7 dias preenchidos se quiser, mas array simples serve por agora)
+
+        res.json({
+            totalMessages: totalMsg[0].count,
+            sentMessages: sentMsg[0].count,
+            totalContacts: contacts[0].count,
+            weeklyVolume: weekly,
+            pieChart: pieData,
+            avgResponseTime: "2m" // Mock por enquanto, cálculo complexo
+        });
+
+    } catch (err) {
+        console.error('❌ Erro Analytics:', err);
+        res.status(500).json({ error: 'Erro ao gerar análise' });
+    }
+});
+
 app.post('/api/messages/send', authenticateToken, async (req, res) => {
     const { contactId, content } = req.body;
     try {
