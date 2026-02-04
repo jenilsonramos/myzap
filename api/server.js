@@ -260,6 +260,7 @@ async function setupTables() {
 
 async function connectToDB() {
     try {
+        console.log(`📡 [DB] Tentando conexão: Host=${dbConfig.host}, User=${dbConfig.user}`);
         pool = mysql.createPool({
             ...dbConfig,
             waitForConnections: true,
