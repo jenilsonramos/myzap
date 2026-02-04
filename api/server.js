@@ -984,7 +984,11 @@ app.post('/api/webhook/evolution', async (req, res) => {
         res.status(200).send('OK');
     } catch (err) {
         console.error('❌ [WEBHOOK] Erro Fatal:', err);
-        res.status(500).send('Erro');
+        res.status(500).json({
+            error: 'Erro no processamento do webhook',
+            details: err.message,
+            code: err.code
+        });
     }
 });
 
