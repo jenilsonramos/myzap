@@ -920,38 +920,44 @@ app.post('/api/webhook/evolution', async (req, res) => {
         fs.appendFileSync('webhook_debug.log', JSON.stringify({ time: new Date().toISOString(), body: req.body }) + '\n');
 
 
+        // Helper para log
+        const logDebug = (msg) => {
+            const fs = require('fs');
+            const time = new Date().toISOString();
+            fs.appendFileSync('webhook_debug.log', `[${time}] ${msg}\n`);
+        };
+
         if (type === 'MESSAGES_UPSERT' || type === 'messages.upsert' || type === 'SEND_MESSAGE') {
             const msg = data.data || data; // V2 data structure vary
             if (!msg || !msg.key) {
-                console.log('⚠️ [WEBHOOK] Payload inválido ou vazio');
+                logDebug('⚠️ Payload inválido ou vazio');
                 return res.status(200).send('OK');
             }
 
-            console.log(`📨 [WEBHOOK] Processando mensagem de ${msg.key.remoteJid}`);
+            logDebug(`📨 Processando mensagem de ${msg.key.remoteJid} (Instance: ${instance})`);
 
             // 1. Achar dono da instancia
             // Tentativa 1: Nome exato
             let [rows] = await pool.query("SELECT user_id FROM whatsapp_accounts WHERE business_name = ?", [instance]);
 
             if (rows.length === 0) {
-                // Tentativa 2: Case-insensitive
+                logDebug(`🔍 Tentando case-insensitive para ${instance}`);
                 [rows] = await pool.query("SELECT user_id FROM whatsapp_accounts WHERE LOWER(business_name) = LOWER(?)", [instance]);
             }
 
             if (rows.length === 0 && instance.includes('-')) {
-                // Tentativa 3: Se o nome vier com sufixo (comum em algumas versões da Evolution)
                 const simpleName = instance.split('-')[0];
-                console.log(`🔍 [WEBHOOK] Tentando nome simplificado: ${simpleName}`);
+                logDebug(`🔍 Tentando nome simplificado: ${simpleName}`);
                 [rows] = await pool.query("SELECT user_id FROM whatsapp_accounts WHERE LOWER(business_name) = LOWER(?)", [simpleName]);
             }
 
             if (rows.length === 0) {
-                console.log(`❌ [WEBHOOK] Instância '${instance}' não vinculada a nenhum usuário no DB.`);
+                logDebug(`❌ Instância '${instance}' não vinculada a nenhum usuário no DB.`);
                 return res.status(200).send('OK');
             }
 
             const userId = rows[0].user_id;
-            console.log(`👤 [WEBHOOK] Usuário identificado: ${userId}`);
+            logDebug(`👤 Usuário identificado: ${userId}`);
 
             const remoteJid = msg.key.remoteJid;
             const fromMe = msg.key.fromMe;
@@ -973,43 +979,44 @@ app.post('/api/webhook/evolution', async (req, res) => {
             }
 
             // 2. Upsert Contact
-            if (remoteJid === 'status@broadcast') return res.status(200).send('OK');
+            if (remoteJid !== 'status@broadcast') {
+                logDebug(`📇 Upsert contato: ${remoteJid}`);
+                await pool.query(`
+                    INSERT INTO contacts (user_id, remote_jid, name, updated_at)
+                    VALUES (?, ?, ?, NOW())
+                    ON DUPLICATE KEY UPDATE name = VALUES(name), updated_at = NOW()
+                 `, [userId, remoteJid, pushName]).catch(e => logDebug(`⚠️ Erro contato: ${e.message}`));
 
-            console.log(`📇 [WEBHOOK] Upsert contato: ${remoteJid} (${pushName})`);
-            await pool.query(`
-                INSERT INTO contacts (user_id, remote_jid, name, updated_at)
-                VALUES (?, ?, ?, NOW())
-                ON DUPLICATE KEY UPDATE name = VALUES(name), updated_at = NOW()
-            `, [userId, remoteJid, pushName]);
+                // 3. Pegar ID do contato
+                const [contactRows] = await pool.query("SELECT id FROM contacts WHERE user_id = ? AND remote_jid = ?", [userId, remoteJid]);
+                const contactId = contactRows[0]?.id;
 
-            // 3. Pegar ID do contato
-            const [contactRows] = await pool.query("SELECT id FROM contacts WHERE user_id = ? AND remote_jid = ?", [userId, remoteJid]);
-            const contactId = contactRows[0]?.id;
-
-            // 4. Salvar Mensagem
-            console.log(`💾 [WEBHOOK] Salvando mensagem no banco...`);
-            await pool.query(`
-                INSERT INTO messages (user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE content = VALUES(content)
-            `, [
-                userId,
-                contactId,
-                instance,
-                msg.key.id,
-                fromMe ? 1 : 0,
-                content,
-                messageType,
-                msg.messageTimestamp || Math.floor(Date.now() / 1000)
-            ]);
-
-            console.log(`✅ [WEBHOOK] Mensagem salva com sucesso!`);
+                // 4. Salvar Mensagem
+                logDebug(`💾 Salvando mensagem id=${msg.key.id}...`);
+                await pool.query(`
+                    INSERT INTO messages (user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE content = VALUES(content)
+                  `, [
+                    userId,
+                    contactId,
+                    instance,
+                    msg.key.id,
+                    fromMe ? 1 : 0,
+                    content,
+                    messageType,
+                    msg.messageTimestamp || Math.floor(Date.now() / 1000)
+                ]).then(() => logDebug('✅ Mensagem SALVA com sucesso!'))
+                    .catch(e => logDebug(`❌ Erro ao salvar mensagem: ${e.message} | SQL: ${e.sql}`));
+            }
         } else {
-            console.log(`ℹ️ [WEBHOOK] Evento ignorado: ${type}`);
+            // logDebug(`ℹ️ Evento ignorado: ${type}`);
         }
 
         res.status(200).send('OK');
     } catch (err) {
+        const fs = require('fs');
+        fs.appendFileSync('webhook_debug.log', `[FATAL ERROR] ${err.message}\n${err.stack}\n`);
         console.error('❌ [WEBHOOK] Erro Fatal:', err);
         res.status(500).json({
             error: 'Erro no processamento do webhook',
@@ -1018,6 +1025,7 @@ app.post('/api/webhook/evolution', async (req, res) => {
         });
     }
 });
+
 
 app.post('/api/instances/:name/webhook', authenticateToken, async (req, res) => {
     try {
