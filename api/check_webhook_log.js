@@ -10,23 +10,36 @@ if (!fs.existsSync(logFile)) {
 
 const content = fs.readFileSync(logFile, 'utf8');
 const lines = content.split('\n').filter(e => e.trim());
-const lastEntries = lines.slice(-20); // Mostrar mais linhas
+const lastEntries = lines.slice(-200); // Ler ultimas 200 linhas
 
-console.log(`--- ÚLTIMAS ${lastEntries.length} LINHAS DO LOG ---\n`);
+console.log(`--- ANALISANDO ÚLTIMAS 200 LINHAS (Filtrando ruído...) ---\n`);
 
 lastEntries.forEach(line => {
     try {
-        if (line.trim().startsWith('{')) {
-            const json = JSON.parse(line.trim());
+        const trimmed = line.trim();
+        // Ignorar linhas de presença/chats/contatos para limpar a visão
+        if (trimmed.includes('presence.update') || trimmed.includes('contacts.update') || trimmed.includes('chats.update')) {
+            return;
+        }
+
+        if (trimmed.startsWith('{')) {
+            const json = JSON.parse(trimmed);
             console.log(`📌 [PAYLOAD] ${json.time}`);
             console.log(`   Type: ${json.body.type || json.body.event}`);
-            console.log(`   Instance: ${json.body.instance}\n`);
-        } else if (line.trim().startsWith('[')) {
-            console.log(`${line}`); // Logs com timestamp [DATA] ...
+            console.log(`   Instance: ${json.body.instance}`);
+            // Se for message, mostrar chaves
+            if (json.body.data) {
+                console.log(`   Data: ${JSON.stringify(json.body.data).substring(0, 150)}...`);
+            }
+            console.log('');
+        } else if (trimmed.startsWith('[')) {
+            // Logs de debug com data (ex: [2024...] 📨 Processando...)
+            console.log(`📝 ${trimmed}`);
         } else {
-            console.log(`📝 ${line}`);
+            // Outros logs
+            console.log(`❓ ${trimmed}`);
         }
     } catch (e) {
-        console.log(`? ${line.substring(0, 150)}`);
+        // Ignorar erro de parse para focar no que importa
     }
 });
