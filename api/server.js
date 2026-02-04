@@ -623,8 +623,19 @@ app.post('/api/messages/send', authenticateToken, async (req, res) => {
             delay: 1200
         });
 
-        // 3. Salvar no banco (O webhook salvaria, mas para UI ficar rápida salvamos já)
-        // await pool.query(...) // Deixar o webhook cuidar ou salvar com key_from_me=1
+        // 3. Salvar no banco MANUALMENTE (Para garantir que apareça no chat)
+        // O webhook pode demorar ou não vir se a configuração estiver errada.
+        // Tenta pegar o ID da resposta da Evolution, senão gera um timestamp
+        const msgId = result?.key?.id || result?.id || `SEND-${Date.now()}`;
+        const timestamp = Math.floor(Date.now() / 1000);
+
+        await pool.query(`
+            INSERT INTO messages (user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp)
+            VALUES (?, ?, ?, ?, 1, ?, 'text', ?)
+            ON DUPLICATE KEY UPDATE content = VALUES(content)
+        `, [req.user.id, contactId, instanceName, msgId, content, timestamp]);
+
+        console.log(`✅ [SEND] Mensagem enviada e salva: ${msgId}`);
 
         res.json(result);
     } catch (err) {
