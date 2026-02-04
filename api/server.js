@@ -291,8 +291,8 @@ const authenticateToken = (req, res, next) => {
     if (!token) return res.sendStatus(401);
     jwt.verify(token, process.env.JWT_SECRET || 'myzap_secret_key', (err, user) => {
         if (err) {
-            console.log('❌ [AUTH] Token inválido ou expirado');
-            return res.sendStatus(403);
+            console.log(`❌ [AUTH] Token inválido ou expirado: ${err.message}`);
+            return res.status(403).json({ error: 'Sessão expirada ou token inválido. Por favor, faça login novamente.', code: 'TOKEN_INVALID' });
         }
         req.user = user;
         // Log discreto para cada request autenticada
@@ -994,12 +994,17 @@ app.post('/api/instances', authenticateToken, async (req, res) => {
         if (!evo) return res.status(500).json({ error: 'Evolution API não configurada' });
 
         // VERIFICAÇÃO DE DISPONIBILIDADE NO DB LOCAL
-        const [existing] = await pool.query("SELECT user_id FROM whatsapp_accounts WHERE business_name = ?", [instanceName]);
+        const [existing] = await pool.query("SELECT user_id, business_name FROM whatsapp_accounts WHERE business_name = ?", [instanceName]);
+
         if (existing.length > 0) {
             if (existing[0].user_id !== req.user.id) {
-                return res.status(400).json({ error: 'Este nome de instância já está em uso por outro usuário.' });
+                console.warn(`🚫 [SECURITY] Usuário ${req.user.id} tentou criar instância '${instanceName}' que já pertence ao usuário ${existing[0].user_id}`);
+                return res.status(403).json({ error: 'Este nome de instância já está em uso por outro usuário.', code: 'INSTANCE_TAKEN' });
+            } else {
+                console.log(`ℹ️ [INFO] Usuário ${req.user.id} está recriando/atualizando sua própria instância '${instanceName}'`);
+                // Se já for do usuário, removemos a referência antiga para inserir a nova limpa
+                await pool.query("DELETE FROM whatsapp_accounts WHERE business_name = ? AND user_id = ?", [instanceName, req.user.id]);
             }
-            // Se já for do usuário, podemos permitir "sobrescrever" (e o Evolution vai dar erro se estiver ativa)
         }
 
         // Pega token do usuário para usar como API Key da instância (segurança extra)
