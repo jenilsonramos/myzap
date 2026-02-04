@@ -34,8 +34,16 @@ const ChatView: React.FC = () => {
             });
             if (res.ok) {
                 const data = await res.json();
-                setMessages(data);
-                scrollToBottom();
+
+                // MANTÉM MENSAGENS PENDENTES (Que ainda não foram salvas/confirmadas)
+                setMessages(prev => {
+                    const pending = prev.filter(m => m.isPending);
+                    // Combina server + pending
+                    return [...data, ...pending];
+                });
+
+                // Só scrolla se for a primeira carga ou enviado
+                if (messages.length === 0) scrollToBottom();
             }
         } catch (error) {
             console.error('Erro ao buscar mensagens', error);
@@ -45,16 +53,20 @@ const ChatView: React.FC = () => {
     const handleSendMessage = async () => {
         if (!newMessage.trim() || !selectedContact) return;
 
+        const tempId = Date.now();
         try {
             const token = localStorage.getItem('myzap_token');
             // Otimista
             const tempMsg = {
-                id: Date.now(),
+                id: tempId,
                 key_from_me: true,
                 content: newMessage,
                 timestamp: Date.now() / 1000,
-                type: 'text'
+                type: 'text',
+                isPending: true // Flag importante
             };
+
+            // Adiciona e mantém flag
             setMessages(prev => [...prev, tempMsg]);
             setNewMessage('');
             scrollToBottom();
@@ -68,11 +80,16 @@ const ChatView: React.FC = () => {
                 body: JSON.stringify({ contactId: selectedContact.id, content: tempMsg.content })
             });
 
+            // SUCESSO: Remove o temporário antes de recarregar o real para evitar duplicata visual
+            setMessages(prev => prev.filter(m => m.id !== tempId));
+
             // Recarrega para confirmar status/ID real
-            fetchMessages(selectedContact.id);
-            fetchContacts(); // Atualiza ultima msg na lista
+            await fetchMessages(selectedContact.id);
+            fetchContacts();
         } catch (error) {
             console.error('Erro ao enviar', error);
+            // Em caso de erro, talvez manter o pending ou avisar (simplesmente remove por enquanto)
+            setMessages(prev => prev.filter(m => m.id !== tempId));
         }
     };
 
