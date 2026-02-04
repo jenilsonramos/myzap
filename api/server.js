@@ -915,7 +915,7 @@ app.post('/api/webhook/evolution', async (req, res) => {
         // Log do payload para debug
         console.log('📦 [WEBHOOK] Payload recebido:', JSON.stringify(req.body, null, 2));
 
-        if (type === 'MESSAGES_UPSERT' || type === 'messages.upsert') {
+        if (type === 'MESSAGES_UPSERT' || type === 'messages.upsert' || type === 'SEND_MESSAGE') {
             const msg = data.data || data; // V2 data structure vary
             if (!msg || !msg.key) {
                 console.log('⚠️ [WEBHOOK] Payload inválido ou vazio');
