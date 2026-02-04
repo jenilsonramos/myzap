@@ -610,14 +610,23 @@ app.post('/api/stripe/create-checkout-session', authenticateToken, async (req, r
 // --- CHAT / LIVE CHAT ---
 app.get('/api/contacts', authenticateToken, async (req, res) => {
     try {
-        const [rows] = await pool.query(`
+        let query = `
             SELECT c.*, 
             (SELECT content FROM messages m WHERE m.contact_id = c.id ORDER BY m.timestamp DESC LIMIT 1) as lastMessage,
             (SELECT timestamp FROM messages m WHERE m.contact_id = c.id ORDER BY m.timestamp DESC LIMIT 1) as lastTime
             FROM contacts c 
-            WHERE c.user_id = ?
-            ORDER BY lastTime DESC
-        `, [req.user.id]);
+        `;
+
+        const params = [];
+
+        if (req.user.role !== 'admin') {
+            query += ' WHERE c.user_id = ? ';
+            params.push(req.user.id);
+        }
+
+        query += ' ORDER BY lastTime DESC';
+
+        const [rows] = await pool.query(query, params);
         res.json(rows);
     } catch (err) { res.status(500).json({ error: 'Erro ao listar contatos' }); }
 });
@@ -641,10 +650,16 @@ app.patch('/api/contacts/:contactId/status', authenticateToken, async (req, res)
 
 app.get('/api/messages/:contactId', authenticateToken, async (req, res) => {
     try {
-        const [rows] = await pool.query(
-            "SELECT id, user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp, source, media_url, msg_status as status FROM messages WHERE contact_id = ? AND user_id = ? ORDER BY timestamp ASC",
-            [req.params.contactId, req.user.id]
-        );
+        let query = "SELECT id, user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp, source, media_url, msg_status as status FROM messages WHERE contact_id = ? ORDER BY timestamp ASC";
+        let params = [req.params.contactId];
+
+        // Se NÃO for admin, filtra pelo usuário
+        if (req.user.role !== 'admin') {
+            query = "SELECT id, user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp, source, media_url, msg_status as status FROM messages WHERE contact_id = ? AND user_id = ? ORDER BY timestamp ASC";
+            params.push(req.user.id);
+        }
+
+        const [rows] = await pool.query(query, params);
         res.json(rows);
     } catch (err) { res.status(500).json({ error: 'Erro ao buscar mensagens' }); }
 });
