@@ -890,8 +890,8 @@ app.post('/api/webhook/evolution', async (req, res) => {
         const { type, instance, data } = req.body;
         console.log(`🔔 [WEBHOOK] Recebido evento: ${type} | Instância: ${instance}`);
 
-        // Log do payload para debug (apenas em desenvolvimento ou se necessário)
-        // console.log('📦 [WEBHOOK] Payload:', JSON.stringify(req.body, null, 2));
+        // Log do payload para debug
+        console.log('📦 [WEBHOOK] Payload recebido:', JSON.stringify(req.body, null, 2));
 
         if (type === 'MESSAGES_UPSERT' || type === 'messages.upsert') {
             const msg = data.data || data; // V2 data structure vary
