@@ -120,6 +120,11 @@ async function setupTables() {
             { name: 'name', type: 'VARCHAR(255)' },
             { name: 'content', type: 'LONGTEXT' },
             { name: 'status', type: 'VARCHAR(20) DEFAULT "paused"' },
+            { name: 'instance_name', type: 'VARCHAR(100)' },
+            { name: 'schedule_enabled', type: 'BOOLEAN DEFAULT 0' },
+            { name: 'schedule_start', type: 'VARCHAR(5)' },
+            { name: 'schedule_end', type: 'VARCHAR(5)' },
+            { name: 'schedule_days', type: 'JSON' },
             { name: 'created_at', type: 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP' },
             { name: 'updated_at', type: 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP' }
         ];
@@ -769,8 +774,69 @@ app.put('/api/flows/:id', authenticateToken, async (req, res) => {
 app.delete('/api/flows/:id', authenticateToken, async (req, res) => {
     try {
         await pool.query('DELETE FROM flows WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+        res.json({ message: 'OK' });
     } catch (err) {
-        res.status(500).json({ error: 'Erro ao buscar perfil' });
+        res.status(500).json({ error: 'Erro ao excluir fluxo' });
+    }
+});
+
+// Toggle flow status (active/paused)
+app.patch('/api/flows/:id/toggle', authenticateToken, async (req, res) => {
+    try {
+        const [rows] = await pool.query('SELECT status FROM flows WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+        if (rows.length === 0) return res.status(404).json({ error: 'Fluxo não encontrado' });
+
+        const newStatus = rows[0].status === 'active' ? 'paused' : 'active';
+        await pool.query('UPDATE flows SET status = ? WHERE id = ?', [newStatus, req.params.id]);
+        res.json({ status: newStatus });
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao alternar status', details: err.message });
+    }
+});
+
+// Update flow settings (instance, schedule)
+app.patch('/api/flows/:id/settings', authenticateToken, async (req, res) => {
+    const { instance_name, schedule_enabled, schedule_start, schedule_end, schedule_days } = req.body;
+    try {
+        await pool.query(`
+            UPDATE flows SET 
+                instance_name = ?,
+                schedule_enabled = ?,
+                schedule_start = ?,
+                schedule_end = ?,
+                schedule_days = ?
+            WHERE id = ? AND user_id = ?
+        `, [
+            instance_name || null,
+            schedule_enabled ? 1 : 0,
+            schedule_start || null,
+            schedule_end || null,
+            schedule_days ? JSON.stringify(schedule_days) : null,
+            req.params.id,
+            req.user.id
+        ]);
+        res.json({ message: 'OK' });
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao salvar configurações', details: err.message });
+    }
+});
+
+// Debug endpoint for analytics
+app.get('/api/debug/messages', authenticateToken, async (req, res) => {
+    try {
+        const [all] = await pool.query("SELECT COUNT(*) as total FROM messages");
+        const [byUser] = await pool.query("SELECT COUNT(*) as total FROM messages WHERE user_id = ?", [req.user.id]);
+        const [breakdown] = await pool.query("SELECT user_id, instance_name, COUNT(*) as count FROM messages GROUP BY user_id, instance_name LIMIT 20");
+        const [recentMsgs] = await pool.query("SELECT id, user_id, instance_name, content, timestamp FROM messages ORDER BY id DESC LIMIT 5");
+        res.json({
+            totalInSystem: all[0].total,
+            forCurrentUser: byUser[0].total,
+            currentUserId: req.user.id,
+            breakdown,
+            recentMessages: recentMsgs
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 });
 
@@ -903,10 +969,49 @@ async function getActiveFlows(userId) {
     return rows;
 }
 
-// Find flow that matches the trigger
-function findMatchingFlow(flows, message) {
+// Find flow that matches the trigger (with instance and schedule filtering)
+function findMatchingFlow(flows, message, currentInstance) {
+    const now = new Date();
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    const currentTime = currentHour * 60 + currentMinute;
+    const days = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
+    const currentDay = days[now.getDay()];
+
     for (const flow of flows) {
         try {
+            // Check instance filter
+            if (flow.instance_name && flow.instance_name !== currentInstance) {
+                console.log(`💤 [FLOW] Flow "${flow.name}" is for instance "${flow.instance_name}", not "${currentInstance}"`);
+                continue;
+            }
+
+            // Check schedule filter
+            if (flow.schedule_enabled) {
+                // Check days
+                let allowedDays = flow.schedule_days;
+                if (typeof allowedDays === 'string') {
+                    try { allowedDays = JSON.parse(allowedDays); } catch (e) { allowedDays = []; }
+                }
+                if (allowedDays && allowedDays.length > 0 && !allowedDays.includes(currentDay)) {
+                    console.log(`📅 [FLOW] Flow "${flow.name}" not allowed on ${currentDay}`);
+                    continue;
+                }
+
+                // Check time range
+                if (flow.schedule_start && flow.schedule_end) {
+                    const [startH, startM] = flow.schedule_start.split(':').map(Number);
+                    const [endH, endM] = flow.schedule_end.split(':').map(Number);
+                    const startTime = startH * 60 + startM;
+                    const endTime = endH * 60 + endM;
+
+                    if (currentTime < startTime || currentTime > endTime) {
+                        console.log(`⏰ [FLOW] Flow "${flow.name}" outside schedule (${flow.schedule_start}-${flow.schedule_end})`);
+                        continue;
+                    }
+                }
+            }
+
             const content = typeof flow.content === 'string' ? JSON.parse(flow.content) : flow.content;
             if (!content?.nodes) continue;
 
@@ -1591,7 +1696,7 @@ app.post('/api/webhook/evolution', async (req, res) => {
                         const activeFlows = await getActiveFlows(userId);
                         if (activeFlows.length > 0) {
                             logDebug(`🔍 [FLOW] Found ${activeFlows.length} active flows for user ${userId}`);
-                            const matchedFlow = findMatchingFlow(activeFlows, content);
+                            const matchedFlow = findMatchingFlow(activeFlows, content, instance);
 
                             if (matchedFlow) {
                                 logDebug(`✅ [FLOW] Matched flow: ${matchedFlow.flow.name}`);
