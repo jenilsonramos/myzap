@@ -163,6 +163,21 @@ async function setupTables() {
             )
         `);
 
+        // 6. Garantir tabela de instâncias
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS whatsapp_accounts (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                business_name VARCHAR(100) NOT NULL,
+                phone_number VARCHAR(20),
+                phone_number_id VARCHAR(100),
+                code_verification_status VARCHAR(20),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                UNIQUE KEY unique_instance (business_name)
+            )
+        `);
+
         // 6. Garantir Tabelas de Chat (Contacts & Messages)
         await pool.query(`
             CREATE TABLE IF NOT EXISTS contacts (
@@ -759,6 +774,7 @@ app.get('/api/instances', authenticateToken, async (req, res) => {
             [req.user.id]
         );
         const ownedInstanceNames = userAccounts.map(acc => acc.business_name.toLowerCase());
+        console.log(`🔍 [SECURITY] User ${req.user.id} (${req.user.email}) owns instances: [${ownedInstanceNames.join(', ')}]`);
 
         const evo = await getEvolutionService();
         if (evo) {
@@ -934,6 +950,15 @@ app.post('/api/instances', authenticateToken, async (req, res) => {
     try {
         const evo = await getEvolutionService();
         if (!evo) return res.status(500).json({ error: 'Evolution API não configurada' });
+
+        // VERIFICAÇÃO DE DISPONIBILIDADE NO DB LOCAL
+        const [existing] = await pool.query("SELECT user_id FROM whatsapp_accounts WHERE business_name = ?", [instanceName]);
+        if (existing.length > 0) {
+            if (existing[0].user_id !== req.user.id) {
+                return res.status(400).json({ error: 'Este nome de instância já está em uso por outro usuário.' });
+            }
+            // Se já for do usuário, podemos permitir "sobrescrever" (e o Evolution vai dar erro se estiver ativa)
+        }
 
         // Pega token do usuário para usar como API Key da instância (segurança extra)
         // ou gera um aleatório.
