@@ -352,7 +352,14 @@ app.post('/api/auth/login', async (req, res) => {
                 trial_ends_at: user.trial_ends_at
             }
         });
-    } catch (err) { res.status(500).json({ error: 'Erro' }); }
+    } catch (err) {
+        console.error('❌ [AUTH] Erro no login:', err);
+        res.status(500).json({
+            error: 'Erro interno no servidor ao processar o login.',
+            details: err.message,
+            stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+        });
+    }
 });
 
 app.get('/api/auth/me', authenticateToken, async (req, res) => {
