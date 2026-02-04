@@ -16,14 +16,14 @@ async function check() {
         console.table(users);
 
         console.log('\n--- INSTANCES ---');
-        const [instances] = await conn.query('SELECT instance_name, user_id, status FROM whatsapp_accounts');
+        const [instances] = await conn.query('SELECT business_name, user_id FROM whatsapp_accounts');
         console.table(instances);
 
         if (instances.length > 0) {
             console.log('\n--- DIAGNOSIS ---');
             instances.forEach(i => {
                 const owner = users.find(u => u.id === i.user_id);
-                console.log(`Instance '${i.instance_name}' belongs to User ID ${i.user_id} (${owner ? owner.name : 'Unknown'})`);
+                console.log(`Instance '${i.business_name}' belongs to User ID ${i.user_id} (${owner ? owner.name : 'Unknown'})`);
             });
         }
 
