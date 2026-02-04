@@ -290,8 +290,13 @@ const authenticateToken = (req, res, next) => {
     const token = req.headers['authorization']?.split(' ')[1];
     if (!token) return res.sendStatus(401);
     jwt.verify(token, process.env.JWT_SECRET || 'myzap_secret_key', (err, user) => {
-        if (err) return res.sendStatus(403);
+        if (err) {
+            console.log('❌ [AUTH] Token inválido ou expirado');
+            return res.sendStatus(403);
+        }
         req.user = user;
+        // Log discreto para cada request autenticada
+        console.log(`👤 [USER] ${user.id} (${user.email}) -> ${req.method} ${req.url}`);
         next();
     });
 };
@@ -962,7 +967,7 @@ app.post('/api/instances/:name/webhook', authenticateToken, async (req, res) => 
         if (!evo) throw new Error('Evolution API offline');
 
         const [rows] = await pool.query("SELECT setting_value FROM system_settings WHERE setting_key = 'app_url'");
-        const appUrl = rows[0]?.setting_value || 'https://app.ublochat.com.br';
+        const appUrl = rows[0]?.setting_value || 'https://ublochat.com.br';
         const webhookUrl = `${appUrl}/api/webhook/evolution`;
 
         console.log(`🔗 [MANUAL] Configurando Webhook para ${name}: ${webhookUrl}`);
@@ -1006,7 +1011,7 @@ app.post('/api/instances', authenticateToken, async (req, res) => {
         // Configura Webhook automaticamente
         try {
             const [rows] = await pool.query("SELECT setting_value FROM system_settings WHERE setting_key = 'app_url'");
-            const appUrl = rows[0]?.setting_value || 'https://app.ublochat.com.br';
+            const appUrl = rows[0]?.setting_value || 'https://ublochat.com.br';
             const webhookUrl = `${appUrl}/api/webhook/evolution`;
 
             console.log(`🔗 Configurando Webhook para ${instanceName}: ${webhookUrl}`);
@@ -1070,5 +1075,14 @@ app.get('/api/instances/:name/connect', authenticateToken, async (req, res) => {
     }
 });
 
+// VERSION CHECK
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'UP', version: '2.0.2', timestamp: new Date().toISOString() });
+});
+
 const PORT = 5000;
-app.listen(PORT, '0.0.0.0', () => console.log(`🚀 API: ${PORT}`));
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 Servidor rodando na porta ${PORT}`);
+    console.log(`🌍 Domínio: ublochat.com.br`);
+    setupTables();
+});
