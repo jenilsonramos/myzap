@@ -211,6 +211,7 @@ async function setupTables() {
         await pool.query("ALTER TABLE contacts ADD COLUMN remote_jid VARCHAR(255) NOT NULL AFTER user_id").catch(() => { });
         await pool.query("ALTER TABLE contacts ADD COLUMN name VARCHAR(255) AFTER remote_jid").catch(() => { });
         await pool.query("ALTER TABLE contacts ADD COLUMN profile_pic TEXT AFTER name").catch(() => { });
+        await pool.query("ALTER TABLE contacts ADD COLUMN status VARCHAR(20) DEFAULT 'open' AFTER profile_pic").catch(() => { });
         await pool.query("ALTER TABLE contacts ADD UNIQUE KEY unique_contact (user_id, remote_jid)").catch(() => { });
 
         await pool.query(`
@@ -240,6 +241,8 @@ async function setupTables() {
         await pool.query("ALTER TABLE messages MODIFY COLUMN type VARCHAR(50)").catch(() => { });
         await pool.query("ALTER TABLE messages ADD COLUMN timestamp BIGINT AFTER type").catch(() => { });
         await pool.query("ALTER TABLE messages ADD COLUMN source VARCHAR(20) DEFAULT 'user' AFTER timestamp").catch(() => { });
+        await pool.query("ALTER TABLE messages ADD COLUMN media_url TEXT AFTER source").catch(() => { });
+        await pool.query("ALTER TABLE messages ADD COLUMN msg_status VARCHAR(20) DEFAULT 'sent' AFTER media_url").catch(() => { });
         await pool.query("ALTER TABLE messages ADD UNIQUE KEY unique_msg_uid (uid)").catch(() => { });
         await pool.query("ALTER TABLE messages MODIFY COLUMN content TEXT").catch(() => { });
 
@@ -619,14 +622,74 @@ app.get('/api/contacts', authenticateToken, async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'Erro ao listar contatos' }); }
 });
 
+// Update contact status (open, pending, closed)
+app.patch('/api/contacts/:contactId/status', authenticateToken, async (req, res) => {
+    try {
+        const { status } = req.body;
+        if (!['open', 'pending', 'closed'].includes(status)) {
+            return res.status(400).json({ error: 'Status inválido' });
+        }
+        await pool.query(
+            "UPDATE contacts SET status = ? WHERE id = ? AND user_id = ?",
+            [status, req.params.contactId, req.user.id]
+        );
+        res.json({ success: true, status });
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao atualizar status' });
+    }
+});
+
 app.get('/api/messages/:contactId', authenticateToken, async (req, res) => {
     try {
         const [rows] = await pool.query(
-            "SELECT * FROM messages WHERE contact_id = ? AND user_id = ? ORDER BY timestamp ASC",
+            "SELECT id, user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp, source, media_url, msg_status as status FROM messages WHERE contact_id = ? AND user_id = ? ORDER BY timestamp ASC",
             [req.params.contactId, req.user.id]
         );
         res.json(rows);
     } catch (err) { res.status(500).json({ error: 'Erro ao buscar mensagens' }); }
+});
+
+// Send media message
+app.post('/api/messages/send-media', authenticateToken, async (req, res) => {
+    try {
+        // Check if multer is available, otherwise handle base64
+        const { contactId, mediaUrl, mediaType, caption } = req.body;
+
+        const [contacts] = await pool.query("SELECT remote_jid FROM contacts WHERE id = ? AND user_id = ?", [contactId, req.user.id]);
+        if (contacts.length === 0) return res.status(404).json({ error: 'Contato não encontrado' });
+
+        const remoteJid = contacts[0].remote_jid;
+        const [instance] = await pool.query("SELECT business_name FROM whatsapp_accounts WHERE user_id = ? LIMIT 1", [req.user.id]);
+        if (instance.length === 0) return res.status(400).json({ error: 'Nenhuma instância configurada' });
+
+        const instanceName = instance[0].business_name;
+        const evo = await getEvolutionService();
+
+        let result;
+        if (mediaType === 'image') {
+            result = await evo.sendImage(instanceName, remoteJid, mediaUrl, caption);
+        } else if (mediaType === 'video') {
+            result = await evo.sendVideo(instanceName, remoteJid, mediaUrl, caption);
+        } else if (mediaType === 'audio') {
+            result = await evo.sendAudio(instanceName, remoteJid, mediaUrl);
+        } else {
+            result = await evo.sendDocument(instanceName, remoteJid, mediaUrl, caption);
+        }
+
+        const msgId = result?.key?.id || result?.id || `MEDIA-${Date.now()}`;
+        const timestamp = Math.floor(Date.now() / 1000);
+
+        await pool.query(`
+            INSERT INTO messages (user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp, media_url)
+            VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE content = VALUES(content)
+        `, [req.user.id, contactId, instanceName, msgId, caption || '', mediaType, timestamp, mediaUrl]);
+
+        res.json(result);
+    } catch (err) {
+        console.error('Erro ao enviar mídia:', err);
+        res.status(500).json({ error: 'Erro ao enviar mídia', details: err.message });
+    }
 });
 
 // --- ANALYTICS DASHBOARD ---
@@ -676,6 +739,43 @@ app.get('/api/analytics/dashboard', authenticateToken, async (req, res) => {
     } catch (err) {
         console.error('❌ Erro Analytics:', err);
         res.status(500).json({ error: 'Erro ao gerar análise' });
+    }
+});
+
+// Debug endpoint for analytics troubleshooting
+app.get('/api/analytics/debug', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        // Total messages in system
+        const [allMsgs] = await pool.query("SELECT COUNT(*) as total FROM messages");
+
+        // Messages with user_id matching current user
+        const [userMsgs] = await pool.query("SELECT COUNT(*) as total FROM messages WHERE user_id = ?", [userId]);
+
+        // Messages grouped by user_id
+        const [byUser] = await pool.query("SELECT user_id, COUNT(*) as count FROM messages GROUP BY user_id LIMIT 10");
+
+        // Last 5 messages
+        const [recentMsgs] = await pool.query("SELECT id, user_id, contact_id, instance_name, key_from_me, LEFT(content, 50) as preview, timestamp FROM messages ORDER BY id DESC LIMIT 5");
+
+        // Contacts for current user
+        const [userContacts] = await pool.query("SELECT COUNT(*) as total FROM contacts WHERE user_id = ?", [userId]);
+
+        // Instances for current user
+        const [userInstances] = await pool.query("SELECT business_name FROM whatsapp_accounts WHERE user_id = ?", [userId]);
+
+        res.json({
+            currentUserId: userId,
+            totalMessagesInSystem: allMsgs[0].total,
+            messagesForCurrentUser: userMsgs[0].total,
+            contactsForCurrentUser: userContacts[0].total,
+            instancesForUser: userInstances.map(i => i.business_name),
+            messagesByUserId: byUser,
+            recentMessages: recentMsgs
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 });
 
@@ -1815,6 +1915,26 @@ app.post('/api/webhook/evolution', async (req, res) => {
                 } catch (flowErr) {
                     logDebug(`❌ [FLOW] Execution error: ${flowErr.message}`);
                 }
+            }
+        } else if (safeType.includes('MESSAGE_UPDATE') || safeType.includes('MESSAGES.UPDATE')) {
+            // Handle message status updates (delivered, read)
+            const msg = data?.data || data;
+            if (msg?.key?.id) {
+                const msgId = msg.key.id;
+                let newStatus = 'sent';
+
+                const update = msg.update || msg;
+                if (update.status === 3 || update.status === 'DELIVERY_ACK') {
+                    newStatus = 'delivered';
+                } else if (update.status === 4 || update.status === 'READ' || update.status === 'PLAYED') {
+                    newStatus = 'read';
+                }
+
+                logDebug(`📬 [STATUS] Updating message ${msgId} to ${newStatus}`);
+                await pool.query(
+                    "UPDATE messages SET msg_status = ? WHERE uid = ?",
+                    [newStatus, msgId]
+                ).catch(err => logDebug(`❌ Error updating status: ${err.message}`));
             }
         } else {
             logDebug(`💤 Ignorando tipo: ${safeType}`);
