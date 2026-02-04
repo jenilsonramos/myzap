@@ -138,6 +138,11 @@ async function setupTables() {
         await pool.query("ALTER TABLE users ADD COLUMN stripe_subscription_id VARCHAR(255)").catch(() => { });
         await pool.query("ALTER TABLE users ADD COLUMN stripe_customer_id VARCHAR(255)").catch(() => { });
 
+        // 4. Garantir configurações base (Troca de domínio)
+        await pool.query("INSERT INTO system_settings (setting_key, setting_value) VALUES ('app_url', 'https://ublochat.com.br') ON DUPLICATE KEY UPDATE setting_value = 'https://ublochat.com.br'");
+        await pool.query("UPDATE system_settings SET setting_value = 'https://ublochat.com.br' WHERE setting_key = 'app_url' AND setting_value LIKE '%app.ublochat.com.br%'");
+
+
 
         // 4. Garantir tabela de planos
         await pool.query(`
@@ -882,7 +887,10 @@ app.get('/api/debug/security-check', authenticateToken, async (req, res) => {
 app.post('/api/webhook/evolution', async (req, res) => {
     try {
         const { type, instance, data } = req.body;
-        console.log(`🔔 [WEBHOOK] Recebido: ${type} na instância: ${instance}`);
+        console.log(`🔔 [WEBHOOK] Recebido evento: ${type} | Instância: ${instance}`);
+
+        // Log do payload para debug (apenas em desenvolvimento ou se necessário)
+        // console.log('📦 [WEBHOOK] Payload:', JSON.stringify(req.body, null, 2));
 
         if (type === 'MESSAGES_UPSERT' || type === 'messages.upsert') {
             const msg = data.data || data; // V2 data structure vary
@@ -894,17 +902,28 @@ app.post('/api/webhook/evolution', async (req, res) => {
             console.log(`📨 [WEBHOOK] Processando mensagem de ${msg.key.remoteJid}`);
 
             // 1. Achar dono da instancia
+            // Tentativa 1: Nome exato
             let [rows] = await pool.query("SELECT user_id FROM whatsapp_accounts WHERE business_name = ?", [instance]);
+
             if (rows.length === 0) {
-                console.log(`⚠️ [WEBHOOK] Instância '${instance}' não encontrada exatamente. Tentando case-insensitive...`);
+                // Tentativa 2: Case-insensitive
                 [rows] = await pool.query("SELECT user_id FROM whatsapp_accounts WHERE LOWER(business_name) = LOWER(?)", [instance]);
-                if (rows.length === 0) {
-                    console.log(`❌ [WEBHOOK] Instância '${instance}' não vinculada a nenhum usuário.`);
-                    return res.status(200).send('OK');
-                }
             }
+
+            if (rows.length === 0 && instance.includes('-')) {
+                // Tentativa 3: Se o nome vier com sufixo (comum em algumas versões da Evolution)
+                const simpleName = instance.split('-')[0];
+                console.log(`🔍 [WEBHOOK] Tentando nome simplificado: ${simpleName}`);
+                [rows] = await pool.query("SELECT user_id FROM whatsapp_accounts WHERE LOWER(business_name) = LOWER(?)", [simpleName]);
+            }
+
+            if (rows.length === 0) {
+                console.log(`❌ [WEBHOOK] Instância '${instance}' não vinculada a nenhum usuário no DB.`);
+                return res.status(200).send('OK');
+            }
+
             const userId = rows[0].user_id;
-            console.log(`👤 [WEBHOOK] UserID: ${userId}`);
+            console.log(`👤 [WEBHOOK] Usuário identificado: ${userId}`);
 
             const remoteJid = msg.key.remoteJid;
             const fromMe = msg.key.fromMe;
