@@ -1381,6 +1381,12 @@ async function processNode(node, flowContent, context) {
 // ===== NODE PROCESSORS =====
 
 async function processMessageNode(node, context) {
+    // Check if it's a media message
+    if (node.data.messageType === 'media') {
+        console.log(`📎 [FLOW] Delegating MessageNode to MediaNode processor`);
+        return await processMediaNode(node, context);
+    }
+
     const message = replaceVariables(node.data.message || '', context);
     const result = await sendWhatsAppMessage(context.instanceName, context.remoteJid, message);
 
@@ -1388,7 +1394,7 @@ async function processMessageNode(node, context) {
     try {
         const msgId = result?.key?.id || result?.id || `FLOW-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         await pool.query(`
-            INSERT INTO messages (user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp, source)
+            INSERT INTO messages (user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp,source)
             VALUES (?, ?, ?, ?, 1, ?, 'text', ?, 'flow')
             ON DUPLICATE KEY UPDATE content = VALUES(content)
         `, [context.userId, context.contactId, context.instanceName, msgId, message, Math.floor(Date.now() / 1000)]);

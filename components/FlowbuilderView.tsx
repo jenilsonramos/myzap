@@ -643,14 +643,50 @@ const PropertiesPanel = ({ node, onUpdate, onClose, onDelete, onDuplicate }: { n
                 return (
                     <div className="space-y-4">
                         <div>
-                            <label className={labelStyle}>Mensagem</label>
-                            <textarea
-                                className={`${glassInput} h-32 resize-none leading-relaxed`}
-                                value={node.data.message || ''}
-                                onChange={(e) => onUpdate({ message: e.target.value })}
-                                placeholder="Digite sua mensagem de texto..."
-                            />
+                            <label className={labelStyle}>Tipo de Mensagem</label>
+                            <select
+                                className={glassSelect}
+                                value={node.data.messageType || 'text'}
+                                onChange={(e) => onUpdate({ messageType: e.target.value })}
+                            >
+                                <option value="text">Texto</option>
+                                <option value="media">Arquivo / Mídia</option>
+                            </select>
                         </div>
+
+                        {(!node.data.messageType || node.data.messageType === 'text') && (
+                            <div className="animate-in slide-in-from-top-2">
+                                <label className={labelStyle}>Conteúdo do Texto</label>
+                                <textarea
+                                    className={`${glassInput} h-32 resize-none leading-relaxed`}
+                                    value={node.data.message || ''}
+                                    onChange={(e) => onUpdate({ message: e.target.value })}
+                                    placeholder="Digite sua mensagem de texto..."
+                                />
+                            </div>
+                        )}
+
+                        {node.data.messageType === 'media' && (
+                            <div className="space-y-4 animate-in slide-in-from-top-2">
+                                <div>
+                                    <label className={labelStyle}>Tipo de Arquivo</label>
+                                    <select className={glassSelect} value={node.data.mediaType || 'image'} onChange={(e) => onUpdate({ mediaType: e.target.value })}>
+                                        <option value="image">Imagem</option>
+                                        <option value="video">Vídeo</option>
+                                        <option value="audio">Áudio</option>
+                                        <option value="document">Documento (PDF/Doc)</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className={labelStyle}>URL do Arquivo</label>
+                                    <textarea className={`${glassInput} h-20 font-mono text-xs`} value={node.data.url || ''} onChange={(e) => onUpdate({ url: e.target.value })} placeholder="https://..." />
+                                </div>
+                                <div>
+                                    <label className={labelStyle}>Legenda (Opcional)</label>
+                                    <input className={glassInput} value={node.data.caption || ''} onChange={(e) => onUpdate({ caption: e.target.value })} placeholder="Descrição do arquivo..." />
+                                </div>
+                            </div>
+                        )}
                     </div>
                 );
             case 'ai_agent':
