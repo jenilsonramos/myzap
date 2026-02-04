@@ -915,9 +915,9 @@ app.post('/api/webhook/evolution', async (req, res) => {
         // Log do payload para debug
         console.log('📦 [WEBHOOK] Payload recebido:', JSON.stringify(req.body, null, 2));
 
-        // SALVAR EM ARQUIVO PARA DEBUG (Necessário para ver o payload real do usuario)
+        // SALVAR EM ARQUIVO PARA DEBUG (Formato One-Line JSON para facilitar leitura)
         const fs = require('fs');
-        fs.appendFileSync('webhook_debug.log', JSON.stringify({ time: new Date().toISOString(), body: req.body }, null, 2) + ',\n');
+        fs.appendFileSync('webhook_debug.log', JSON.stringify({ time: new Date().toISOString(), body: req.body }) + '\n');
 
 
         if (type === 'MESSAGES_UPSERT' || type === 'messages.upsert' || type === 'SEND_MESSAGE') {
