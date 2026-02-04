@@ -237,6 +237,20 @@ async function setupTables() {
         await pool.query("ALTER TABLE messages ADD UNIQUE KEY unique_msg_uid (uid)").catch(() => { });
         await pool.query("ALTER TABLE messages MODIFY COLUMN content TEXT").catch(() => { });
 
+        // Flow State table (for tracking pending inputs during flow execution)
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS flow_state (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT,
+                remote_jid VARCHAR(255),
+                flow_id VARCHAR(255),
+                current_node_id VARCHAR(255),
+                variable_name VARCHAR(100),
+                variables JSON,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY unique_state (user_id, remote_jid)
+            )
+        `);
 
         // Inserir planos padrão se a tabela estiver vazia
         const [planRows] = await pool.query("SELECT COUNT(*) as count FROM plans");
@@ -603,9 +617,12 @@ app.get('/api/messages/:contactId', authenticateToken, async (req, res) => {
 app.get('/api/analytics/dashboard', authenticateToken, async (req, res) => {
     try {
         const userId = req.user.id;
+        console.log(`📊 [ANALYTICS] Request UserID: ${userId}`);
 
         // 1. Totais Gerais
         const [totalMsg] = await pool.query("SELECT COUNT(*) as count FROM messages WHERE user_id = ?", [userId]);
+        console.log(`   - DB Total: ${totalMsg[0].count}`);
+
         const [sentMsg] = await pool.query("SELECT COUNT(*) as count FROM messages WHERE user_id = ? AND key_from_me = 1", [userId]);
         const [contacts] = await pool.query("SELECT COUNT(*) as count FROM contacts WHERE user_id = ?", [userId]);
 
@@ -873,6 +890,513 @@ async function getEvolutionService() {
     return new EvolutionService(settings.evolution_url, settings.evolution_apikey);
 }
 
+// =================================
+// FLOW EXECUTION ENGINE
+// =================================
+
+// Get user's active flows
+async function getActiveFlows(userId) {
+    const [rows] = await pool.query(
+        "SELECT * FROM flows WHERE user_id = ? AND status = 'active'",
+        [userId]
+    );
+    return rows;
+}
+
+// Find flow that matches the trigger
+function findMatchingFlow(flows, message) {
+    for (const flow of flows) {
+        try {
+            const content = typeof flow.content === 'string' ? JSON.parse(flow.content) : flow.content;
+            if (!content?.nodes) continue;
+
+            const triggerNode = content.nodes.find(n => n.type === 'trigger');
+            if (!triggerNode) continue;
+
+            const triggerType = triggerNode.data?.type || 'all';
+            const keyword = triggerNode.data?.keyword?.toLowerCase() || '';
+
+            if (triggerType === 'all') {
+                return { flow, content, triggerNode };
+            }
+
+            if (triggerType === 'keyword' && keyword) {
+                if (message.toLowerCase().includes(keyword)) {
+                    return { flow, content, triggerNode };
+                }
+            }
+        } catch (e) {
+            console.error('Error parsing flow:', e);
+        }
+    }
+    return null;
+}
+
+// Execute a flow starting from trigger node
+async function executeFlow(flowData, userId, remoteJid, instanceName, messageContent) {
+    const { content, triggerNode } = flowData;
+    const context = {
+        userId,
+        remoteJid,
+        instanceName,
+        variables: {
+            contact: { phone: remoteJid.replace('@s.whatsapp.net', '') },
+            message: messageContent,
+            last_input: messageContent
+        },
+        visitedNodes: new Set()
+    };
+
+    console.log(`🚀 [FLOW] Executing flow for user ${userId}, contact ${remoteJid}`);
+
+    // Find next node after trigger
+    const edges = content.edges || [];
+    const nextEdge = edges.find(e => e.source === triggerNode.id);
+
+    if (nextEdge) {
+        const nextNode = content.nodes.find(n => n.id === nextEdge.target);
+        if (nextNode) {
+            await processNode(nextNode, content, context);
+        }
+    }
+}
+
+// Process a single node
+async function processNode(node, flowContent, context) {
+    if (context.visitedNodes.has(node.id)) {
+        console.log(`⚠️ [FLOW] Loop detected at node ${node.id}, stopping`);
+        return;
+    }
+    context.visitedNodes.add(node.id);
+
+    console.log(`📦 [FLOW] Processing node: ${node.type} (${node.id})`);
+
+    let shouldContinue = true;
+    let nextNodeId = null;
+
+    try {
+        switch (node.type) {
+            case 'message':
+                await processMessageNode(node, context);
+                break;
+
+            case 'delay':
+                await processDelayNode(node, context);
+                break;
+
+            case 'condition':
+                nextNodeId = await processConditionNode(node, flowContent, context);
+                shouldContinue = !!nextNodeId;
+                break;
+
+            case 'input':
+                await processInputNode(node, context);
+                shouldContinue = false; // Wait for user response
+                break;
+
+            case 'set_variable':
+                processSetVariableNode(node, context);
+                break;
+
+            case 'action':
+                await processActionNode(node, context);
+                break;
+
+            case 'handoff':
+                await processHandoffNode(node, context);
+                shouldContinue = false;
+                break;
+
+            case 'ai_agent':
+                await processAiAgentNode(node, context);
+                break;
+
+            case 'api':
+                await processApiNode(node, context);
+                break;
+
+            case 'validator':
+                const valid = await processValidatorNode(node, context);
+                if (!valid) shouldContinue = false;
+                break;
+
+            case 'ab_split':
+                nextNodeId = await processAbSplitNode(node, flowContent, context);
+                break;
+
+            case 'switch':
+                nextNodeId = await processSwitchNode(node, flowContent, context);
+                break;
+
+            case 'schedule':
+                shouldContinue = processScheduleNode(node, context);
+                break;
+
+            case 'end':
+                console.log(`🏁 [FLOW] Flow ended`);
+                shouldContinue = false;
+                break;
+
+            case 'note':
+                // Notes are just for documentation, skip
+                break;
+
+            case 'media':
+                await processMediaNode(node, context);
+                break;
+
+            case 'interactive':
+                await processInteractiveNode(node, context);
+                break;
+
+            default:
+                console.log(`❌ [FLOW] Unknown node type: ${node.type}`);
+        }
+    } catch (err) {
+        console.error(`❌ [FLOW] Error processing node ${node.id}:`, err);
+        shouldContinue = false;
+    }
+
+    // Continue to next node
+    if (shouldContinue) {
+        const edges = flowContent.edges || [];
+        let nextEdge;
+
+        if (nextNodeId) {
+            nextEdge = { target: nextNodeId };
+        } else {
+            nextEdge = edges.find(e => e.source === node.id);
+        }
+
+        if (nextEdge) {
+            const nextNode = flowContent.nodes.find(n => n.id === nextEdge.target);
+            if (nextNode) {
+                await processNode(nextNode, flowContent, context);
+            }
+        }
+    }
+}
+
+// ===== NODE PROCESSORS =====
+
+async function processMessageNode(node, context) {
+    const message = replaceVariables(node.data.message || '', context);
+    await sendWhatsAppMessage(context.instanceName, context.remoteJid, message);
+}
+
+async function processDelayNode(node, context) {
+    const delaySeconds = node.data.delay || 1;
+    console.log(`⏰ [FLOW] Waiting ${delaySeconds} seconds...`);
+    await new Promise(resolve => setTimeout(resolve, delaySeconds * 1000));
+}
+
+async function processConditionNode(node, flowContent, context) {
+    const rule = node.data.rule || '';
+    const result = evaluateCondition(rule, context);
+
+    // Find edges - look for "true" and "false" handles or first/second edge
+    const edges = flowContent.edges.filter(e => e.source === node.id);
+
+    if (result && edges.length > 0) {
+        return edges[0].target; // True path
+    } else if (!result && edges.length > 1) {
+        return edges[1].target; // False path
+    }
+    return null;
+}
+
+async function processInputNode(node, context) {
+    const question = replaceVariables(node.data.question || '', context);
+    await sendWhatsAppMessage(context.instanceName, context.remoteJid, question);
+
+    // Store pending input state
+    await pool.query(`
+        INSERT INTO flow_state (user_id, remote_jid, variable_name, created_at)
+        VALUES (?, ?, ?, NOW())
+        ON DUPLICATE KEY UPDATE variable_name = VALUES(variable_name), created_at = NOW()
+    `, [context.userId, context.remoteJid, node.data.variable || 'user_input']);
+}
+
+function processSetVariableNode(node, context) {
+    const name = node.data.variableName || 'var';
+    const value = replaceVariables(node.data.value || '', context);
+    context.variables[name] = value;
+    console.log(`📝 [FLOW] Set ${name} = ${value}`);
+}
+
+async function processActionNode(node, context) {
+    const actionType = node.data.actionType || '';
+    const tag = node.data.tag || '';
+
+    if (actionType === 'add_tag' && tag) {
+        console.log(`🏷️ [FLOW] Adding tag: ${tag}`);
+        // Store tag in contacts table or separate tags table
+    }
+}
+
+async function processHandoffNode(node, context) {
+    const message = replaceVariables(node.data.message || 'Transferindo para atendimento...', context);
+    await sendWhatsAppMessage(context.instanceName, context.remoteJid, message);
+    console.log(`🤝 [FLOW] Handoff to department: ${node.data.department}`);
+}
+
+async function processAiAgentNode(node, context) {
+    const [rows] = await pool.query("SELECT setting_value FROM system_settings WHERE setting_key = 'gemini_api_key'");
+    const apiKey = rows[0]?.setting_value;
+
+    if (!apiKey) {
+        console.log(`⚠️ [FLOW] AI Agent: No API key configured`);
+        return;
+    }
+
+    const prompt = replaceVariables(node.data.prompt || '', context);
+    const userMessage = context.variables.last_input || '';
+
+    try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/${node.data.model || 'gemini-1.5-flash'}:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [
+                    { role: 'user', parts: [{ text: `${prompt}\n\nUsuário: ${userMessage}` }] }
+                ]
+            })
+        });
+
+        const data = await response.json();
+        const aiResponse = data?.candidates?.[0]?.content?.parts?.[0]?.text || 'Desculpe, não consegui processar.';
+
+        await sendWhatsAppMessage(context.instanceName, context.remoteJid, aiResponse);
+        context.variables.ai_response = aiResponse;
+    } catch (err) {
+        console.error('AI Agent Error:', err);
+    }
+}
+
+async function processApiNode(node, context) {
+    const url = replaceVariables(node.data.url || '', context);
+    const method = node.data.method || 'GET';
+    const body = replaceVariables(node.data.body || '{}', context);
+
+    try {
+        const options = { method, headers: { 'Content-Type': 'application/json' } };
+        if (['POST', 'PUT', 'PATCH'].includes(method)) {
+            options.body = body;
+        }
+
+        const response = await fetch(url, options);
+        const data = await response.json();
+        context.variables.api_response = JSON.stringify(data);
+        console.log(`🌐 [FLOW] API Response:`, data);
+    } catch (err) {
+        console.error('API Node Error:', err);
+    }
+}
+
+async function processValidatorNode(node, context) {
+    const input = context.variables.last_input || '';
+    const type = node.data.validationType || 'text';
+
+    const validators = {
+        email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+        phone: /^\+?[\d\s-]{10,}$/,
+        cpf: /^\d{11}$/,
+        number: /^\d+$/
+    };
+
+    const regex = validators[type];
+    const testValue = type === 'cpf' || type === 'number' ? input.replace(/\D/g, '') : input;
+
+    if (regex && !regex.test(testValue)) {
+        const errorMsg = replaceVariables(node.data.errorMessage || 'Formato inválido!', context);
+        await sendWhatsAppMessage(context.instanceName, context.remoteJid, errorMsg);
+        return false;
+    }
+    return true;
+}
+
+async function processAbSplitNode(node, flowContent, context) {
+    const variantA = parseInt(node.data.variantA) || 50;
+    const random = Math.random() * 100;
+
+    const edges = flowContent.edges.filter(e => e.source === node.id);
+    if (random < variantA && edges.length > 0) {
+        return edges[0].target;
+    } else if (edges.length > 1) {
+        return edges[1].target;
+    }
+    return null;
+}
+
+async function processSwitchNode(node, flowContent, context) {
+    const variable = context.variables[node.data.variable] || context.variables.last_input || '';
+    const cases = node.data.cases || [];
+
+    const edges = flowContent.edges.filter(e => e.source === node.id);
+
+    for (let i = 0; i < cases.length; i++) {
+        if (variable.toLowerCase().includes(cases[i].toLowerCase())) {
+            if (edges[i]) return edges[i].target;
+        }
+    }
+
+    // Default case (last edge)
+    if (edges.length > cases.length) {
+        return edges[edges.length - 1].target;
+    }
+    return null;
+}
+
+function processScheduleNode(node, context) {
+    const now = new Date();
+    const days = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'];
+    const currentDay = days[now.getDay()];
+    const allowedDays = node.data.days || [];
+
+    if (allowedDays.length > 0 && !allowedDays.includes(currentDay)) {
+        console.log(`📅 [FLOW] Schedule: Day ${currentDay} not allowed`);
+        return false;
+    }
+
+    // Check time if specified
+    if (node.data.time) {
+        const [hours, minutes] = node.data.time.split(':').map(Number);
+        const scheduleTime = hours * 60 + minutes;
+        const currentTime = now.getHours() * 60 + now.getMinutes();
+
+        // Allow 30 min window
+        if (Math.abs(currentTime - scheduleTime) > 30) {
+            console.log(`⏰ [FLOW] Schedule: Time ${node.data.time} not matched`);
+            return false;
+        }
+    }
+
+    return true;
+}
+
+async function processMediaNode(node, context) {
+    const mediaUrl = replaceVariables(node.data.url || '', context);
+    const caption = replaceVariables(node.data.caption || '', context);
+    const mediaType = node.data.mediaType || 'image';
+
+    try {
+        const evo = await getEvolutionService();
+        if (!evo) return;
+
+        const number = context.remoteJid.replace('@s.whatsapp.net', '');
+
+        if (mediaType === 'image') {
+            await evo._request(`/message/sendMedia/${context.instanceName}`, 'POST', {
+                number,
+                mediatype: 'image',
+                media: mediaUrl,
+                caption
+            });
+        } else if (mediaType === 'document') {
+            await evo._request(`/message/sendMedia/${context.instanceName}`, 'POST', {
+                number,
+                mediatype: 'document',
+                media: mediaUrl,
+                caption
+            });
+        }
+
+        console.log(`📷 [FLOW] Media sent: ${mediaType}`);
+    } catch (err) {
+        console.error('Media Node Error:', err);
+    }
+}
+
+async function processInteractiveNode(node, context) {
+    // Interactive messages (buttons/lists) for WhatsApp Business
+    const body = replaceVariables(node.data.body || '', context);
+    const options = node.data.options || [];
+
+    try {
+        const evo = await getEvolutionService();
+        if (!evo) return;
+
+        const number = context.remoteJid.replace('@s.whatsapp.net', '');
+
+        if (node.data.type === 'button' && options.length > 0) {
+            await evo._request(`/message/sendButtons/${context.instanceName}`, 'POST', {
+                number,
+                title: 'Escolha uma opção',
+                description: body,
+                buttons: options.slice(0, 3).map((opt, i) => ({ buttonId: `btn_${i}`, buttonText: { displayText: opt } }))
+            });
+        } else {
+            // Fallback to text with numbered options
+            const optionsText = options.map((opt, i) => `${i + 1}. ${opt}`).join('\n');
+            await sendWhatsAppMessage(context.instanceName, context.remoteJid, `${body}\n\n${optionsText}`);
+        }
+
+        console.log(`🎛️ [FLOW] Interactive message sent`);
+    } catch (err) {
+        console.error('Interactive Node Error:', err);
+    }
+}
+
+// ===== HELPER FUNCTIONS =====
+
+function replaceVariables(text, context) {
+    return text.replace(/\{\{(\w+(?:\.\w+)?)\}\}/g, (match, path) => {
+        const parts = path.split('.');
+        let value = context.variables;
+        for (const part of parts) {
+            value = value?.[part];
+        }
+        return value !== undefined ? String(value) : match;
+    });
+}
+
+function evaluateCondition(rule, context) {
+    try {
+        // Simple evaluation - parse "variable == value" style
+        const match = rule.match(/(\w+)\s*(==|!=|>=|<=|>|<|contains)\s*['""]?(.+?)['""]?\s*$/);
+        if (!match) return false;
+
+        const [, varName, operator, expected] = match;
+        const actual = String(context.variables[varName] || '').toLowerCase();
+        const expectedLower = expected.toLowerCase();
+
+        switch (operator) {
+            case '==': return actual === expectedLower;
+            case '!=': return actual !== expectedLower;
+            case '>': return parseFloat(actual) > parseFloat(expected);
+            case '<': return parseFloat(actual) < parseFloat(expected);
+            case '>=': return parseFloat(actual) >= parseFloat(expected);
+            case '<=': return parseFloat(actual) <= parseFloat(expected);
+            case 'contains': return actual.includes(expectedLower);
+            default: return false;
+        }
+    } catch (err) {
+        console.error('Condition evaluation error:', err);
+        return false;
+    }
+}
+
+async function sendWhatsAppMessage(instanceName, remoteJid, text) {
+    try {
+        const evo = await getEvolutionService();
+        if (!evo) {
+            console.error('❌ [FLOW] Evolution API not available');
+            return;
+        }
+
+        const number = remoteJid.replace('@s.whatsapp.net', '');
+        await evo._request(`/message/sendText/${instanceName}`, 'POST', {
+            number,
+            text,
+            delay: 1200
+        });
+
+        console.log(`✉️ [FLOW] Sent message to ${number}`);
+    } catch (err) {
+        console.error('❌ [FLOW] Failed to send message:', err);
+    }
+}
+
 // --- EVOLUTION API ENDPOINTS ---
 
 app.get('/api/instances', authenticateToken, async (req, res) => {
@@ -1058,6 +1582,31 @@ app.post('/api/webhook/evolution', async (req, res) => {
                 ])
                     .then(() => logDebug('🏆 SUCESSO! MENSAGEM NO BANCO.'))
                     .catch(err => logDebug(`🔥 ERRO SQL MENSAGEM: ${err.message}`));
+
+                // ======= FLOW EXECUTION =======
+                // Check if user has active flows and execute matching ones
+                try {
+                    // Only process if it's an incoming message (not from me)
+                    if (!fromMe) {
+                        const activeFlows = await getActiveFlows(userId);
+                        if (activeFlows.length > 0) {
+                            logDebug(`🔍 [FLOW] Found ${activeFlows.length} active flows for user ${userId}`);
+                            const matchedFlow = findMatchingFlow(activeFlows, content);
+
+                            if (matchedFlow) {
+                                logDebug(`✅ [FLOW] Matched flow: ${matchedFlow.flow.name}`);
+                                // Execute flow asynchronously to not block webhook response
+                                executeFlow(matchedFlow, userId, remoteJid, instance, content)
+                                    .then(() => logDebug(`🏁 [FLOW] Flow execution completed`))
+                                    .catch(err => logDebug(`❌ [FLOW] Flow execution error: ${err.message}`));
+                            } else {
+                                logDebug(`💤 [FLOW] No matching trigger found`);
+                            }
+                        }
+                    }
+                } catch (flowErr) {
+                    logDebug(`❌ [FLOW] Execution error: ${flowErr.message}`);
+                }
             }
         } else {
             logDebug(`💤 Ignorando tipo: ${safeType}`);
