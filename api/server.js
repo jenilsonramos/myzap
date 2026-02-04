@@ -231,6 +231,8 @@ async function setupTables() {
         await pool.query("ALTER TABLE messages ADD COLUMN key_from_me BOOLEAN AFTER uid").catch(() => { });
         await pool.query("ALTER TABLE messages ADD COLUMN content TEXT AFTER key_from_me").catch(() => { });
         await pool.query("ALTER TABLE messages ADD COLUMN type VARCHAR(50) AFTER content").catch(() => { });
+        // Forçar mudança de tipo caso tenha sido criado errado (ex: INT)
+        await pool.query("ALTER TABLE messages MODIFY COLUMN type VARCHAR(50)").catch(() => { });
         await pool.query("ALTER TABLE messages ADD COLUMN timestamp BIGINT AFTER type").catch(() => { });
         await pool.query("ALTER TABLE messages ADD UNIQUE KEY unique_msg_uid (uid)").catch(() => { });
         await pool.query("ALTER TABLE messages MODIFY COLUMN content TEXT").catch(() => { });
