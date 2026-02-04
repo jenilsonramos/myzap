@@ -909,8 +909,9 @@ app.get('/api/debug/security-check', authenticateToken, async (req, res) => {
 
 app.post('/api/webhook/evolution', async (req, res) => {
     try {
-        const { type, instance, data } = req.body;
-        console.log(`🔔 [WEBHOOK] Recebido evento: ${type} | Instância: ${instance}`);
+        const { type, event, instance, data } = req.body;
+        const actualType = type || event; // CORREÇÃO CRÍTICA
+        console.log(`🔔 [WEBHOOK] Recebido evento: ${actualType} | Instância: ${instance}`);
 
         // HELPER LOG (Global scope for this handler)
         const logDebug = (msg) => {
@@ -925,11 +926,11 @@ app.post('/api/webhook/evolution', async (req, res) => {
         const fs = require('fs');
         fs.appendFileSync('webhook_debug.log', JSON.stringify({ time: new Date().toISOString(), body: req.body }) + '\n');
 
-        const safeType = String(type || '').toUpperCase().trim();
-        logDebug(`🏁 HANDLER INICIADO: Tipo='${type}' (Safe: ${safeType}) | Instancia='${instance}'`);
+        const safeType = String(actualType || '').toUpperCase().trim();
+        logDebug(`🏁 HANDLER INICIADO: Tipo='${actualType}' (Safe: ${safeType}) | Instancia='${instance}'`);
 
         if (safeType.includes('UPSERT') || safeType.includes('SEND_MESSAGE')) {
-            const msg = data.data || data;
+            const msg = data?.data || data;
             if (!msg || !msg.key) {
                 logDebug('⚠️ Payload sem key (ignorado)');
                 return res.status(200).send('OK');
