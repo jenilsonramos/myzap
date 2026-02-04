@@ -201,6 +201,11 @@ async function setupTables() {
             )
         `);
 
+        // Correções incrementais para a tabela contacts
+        await pool.query("ALTER TABLE contacts ADD COLUMN remote_jid VARCHAR(255) NOT NULL AFTER user_id").catch(() => { });
+        await pool.query("ALTER TABLE contacts ADD COLUMN profile_pic TEXT AFTER name").catch(() => { });
+        await pool.query("ALTER TABLE contacts ADD UNIQUE KEY unique_contact (user_id, remote_jid)").catch(() => { });
+
         await pool.query(`
             CREATE TABLE IF NOT EXISTS messages (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -215,6 +220,14 @@ async function setupTables() {
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
+
+        // Correções incrementais para a tabela messages
+        await pool.query("ALTER TABLE messages ADD COLUMN contact_id INT AFTER user_id").catch(() => { });
+        await pool.query("ALTER TABLE messages ADD COLUMN instance_name VARCHAR(100) AFTER contact_id").catch(() => { });
+        await pool.query("ALTER TABLE messages ADD COLUMN uid VARCHAR(255) AFTER instance_name").catch(() => { });
+        await pool.query("ALTER TABLE messages ADD UNIQUE KEY unique_msg_uid (uid)").catch(() => { });
+        await pool.query("ALTER TABLE messages MODIFY COLUMN content TEXT").catch(() => { });
+
 
         // Inserir planos padrão se a tabela estiver vazia
         const [planRows] = await pool.query("SELECT COUNT(*) as count FROM plans");
