@@ -14,8 +14,10 @@ interface Flow {
 }
 
 interface Instance {
-    name: string;
-    connectionStatus: string;
+    id: string;
+    business_name: string;
+    status: string;
+    code_verification_status: string;
 }
 
 interface FlowsListViewProps {
@@ -360,7 +362,7 @@ const FlowsListView: React.FC<FlowsListViewProps> = ({ onEditFlow }) => {
                             >
                                 <option value="">Todas as instâncias</option>
                                 {instances.map(inst => (
-                                    <option key={inst.name} value={inst.name}>{inst.name}</option>
+                                    <option key={inst.business_name} value={inst.business_name}>{inst.business_name}</option>
                                 ))}
                             </select>
                         </div>

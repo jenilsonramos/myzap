@@ -239,6 +239,7 @@ async function setupTables() {
         // Forçar mudança de tipo caso tenha sido criado errado (ex: INT)
         await pool.query("ALTER TABLE messages MODIFY COLUMN type VARCHAR(50)").catch(() => { });
         await pool.query("ALTER TABLE messages ADD COLUMN timestamp BIGINT AFTER type").catch(() => { });
+        await pool.query("ALTER TABLE messages ADD COLUMN source VARCHAR(20) DEFAULT 'user' AFTER timestamp").catch(() => { });
         await pool.query("ALTER TABLE messages ADD UNIQUE KEY unique_msg_uid (uid)").catch(() => { });
         await pool.query("ALTER TABLE messages MODIFY COLUMN content TEXT").catch(() => { });
 
@@ -254,6 +255,16 @@ async function setupTables() {
                 variables JSON,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE KEY unique_state (user_id, remote_jid)
+            )
+        `);
+
+        // Flow Cooldowns table (for tracking when flow was last triggered per contact)
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS flow_cooldowns (
+                flow_id VARCHAR(255),
+                remote_jid VARCHAR(255),
+                last_triggered TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (flow_id, remote_jid)
             )
         `);
 
@@ -715,7 +726,10 @@ app.post('/api/messages/send', authenticateToken, async (req, res) => {
 
 app.get('/api/flows', authenticateToken, async (req, res) => {
     try {
-        const [rows] = await pool.query('SELECT id, name, status, updated_at FROM flows WHERE user_id = ? ORDER BY updated_at DESC', [req.user.id]);
+        const [rows] = await pool.query(
+            'SELECT id, name, status, instance_name, schedule_enabled, schedule_start, schedule_end, schedule_days, updated_at FROM flows WHERE user_id = ? ORDER BY updated_at DESC',
+            [req.user.id]
+        );
         res.json(rows);
     } catch (err) {
         console.error('❌ Erro GET /api/flows:', err);
@@ -1019,15 +1033,43 @@ function findMatchingFlow(flows, message, currentInstance) {
             if (!triggerNode) continue;
 
             const triggerType = triggerNode.data?.type || 'all';
-            const keyword = triggerNode.data?.keyword?.toLowerCase() || '';
+            const keywordsRaw = triggerNode.data?.keyword?.toLowerCase() || '';
+            const matchType = triggerNode.data?.matchType || 'contains';
+            const cooldownHours = triggerNode.data?.cooldownHours ?? 6;
 
             if (triggerType === 'all') {
-                return { flow, content, triggerNode };
+                return { flow, content, triggerNode, cooldownHours };
             }
 
-            if (triggerType === 'keyword' && keyword) {
-                if (message.toLowerCase().includes(keyword)) {
-                    return { flow, content, triggerNode };
+            if (triggerType === 'keyword' && keywordsRaw) {
+                // Split multiple keywords by comma
+                const keywords = keywordsRaw.split(',').map(k => k.trim()).filter(k => k.length > 0);
+                const msgLower = message.toLowerCase();
+
+                for (const keyword of keywords) {
+                    let matched = false;
+
+                    switch (matchType) {
+                        case 'contains':
+                            matched = msgLower.includes(keyword);
+                            break;
+                        case 'starts':
+                            matched = msgLower.startsWith(keyword);
+                            break;
+                        case 'ends':
+                            matched = msgLower.endsWith(keyword);
+                            break;
+                        case 'exact':
+                            matched = msgLower === keyword;
+                            break;
+                        default:
+                            matched = msgLower.includes(keyword);
+                    }
+
+                    if (matched) {
+                        console.log(`🎯 [FLOW] Matched keyword "${keyword}" with type "${matchType}"`);
+                        return { flow, content, triggerNode, cooldownHours: 0 };
+                    }
                 }
             }
         } catch (e) {
@@ -1037,13 +1079,50 @@ function findMatchingFlow(flows, message, currentInstance) {
     return null;
 }
 
+// Check cooldown for a contact/flow combination
+async function checkFlowCooldown(flowId, remoteJid, cooldownHours) {
+    if (cooldownHours <= 0) return true; // No cooldown, always allow
+
+    try {
+        const [rows] = await pool.query(
+            `SELECT last_triggered FROM flow_cooldowns WHERE flow_id = ? AND remote_jid = ?`,
+            [flowId, remoteJid]
+        );
+
+        if (rows.length === 0) return true; // Never triggered before
+
+        const lastTriggered = new Date(rows[0].last_triggered);
+        const now = new Date();
+        const hoursSince = (now - lastTriggered) / (1000 * 60 * 60);
+
+        return hoursSince >= cooldownHours;
+    } catch (e) {
+        console.error('Error checking cooldown:', e);
+        return true; // Allow on error
+    }
+}
+
+// Update cooldown timestamp
+async function updateFlowCooldown(flowId, remoteJid) {
+    try {
+        await pool.query(`
+            INSERT INTO flow_cooldowns (flow_id, remote_jid, last_triggered)
+            VALUES (?, ?, NOW())
+            ON DUPLICATE KEY UPDATE last_triggered = NOW()
+        `, [flowId, remoteJid]);
+    } catch (e) {
+        console.error('Error updating cooldown:', e);
+    }
+}
+
 // Execute a flow starting from trigger node
-async function executeFlow(flowData, userId, remoteJid, instanceName, messageContent) {
+async function executeFlow(flowData, userId, remoteJid, instanceName, messageContent, contactId = null) {
     const { content, triggerNode } = flowData;
     const context = {
         userId,
         remoteJid,
         instanceName,
+        contactId,
         variables: {
             contact: { phone: remoteJid.replace('@s.whatsapp.net', '') },
             message: messageContent,
@@ -1186,7 +1265,20 @@ async function processNode(node, flowContent, context) {
 
 async function processMessageNode(node, context) {
     const message = replaceVariables(node.data.message || '', context);
-    await sendWhatsAppMessage(context.instanceName, context.remoteJid, message);
+    const result = await sendWhatsAppMessage(context.instanceName, context.remoteJid, message);
+
+    // Save message to database with source='flow'
+    try {
+        const msgId = result?.key?.id || result?.id || `FLOW-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        await pool.query(`
+            INSERT INTO messages (user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp, source)
+            VALUES (?, ?, ?, ?, 1, ?, 'text', ?, 'flow')
+            ON DUPLICATE KEY UPDATE content = VALUES(content)
+        `, [context.userId, context.contactId, context.instanceName, msgId, message, Math.floor(Date.now() / 1000)]);
+        console.log(`💾 [FLOW] Message saved to database with source=flow`);
+    } catch (err) {
+        console.error(`❌ [FLOW] Error saving message to database:`, err.message);
+    }
 }
 
 async function processDelayNode(node, context) {
@@ -1699,11 +1791,22 @@ app.post('/api/webhook/evolution', async (req, res) => {
                             const matchedFlow = findMatchingFlow(activeFlows, content, instance);
 
                             if (matchedFlow) {
-                                logDebug(`✅ [FLOW] Matched flow: ${matchedFlow.flow.name}`);
-                                // Execute flow asynchronously to not block webhook response
-                                executeFlow(matchedFlow, userId, remoteJid, instance, content)
-                                    .then(() => logDebug(`🏁 [FLOW] Flow execution completed`))
-                                    .catch(err => logDebug(`❌ [FLOW] Flow execution error: ${err.message}`));
+                                // Check cooldown (only for "all messages" type triggers)
+                                const cooldownOk = await checkFlowCooldown(matchedFlow.flow.id, remoteJid, matchedFlow.cooldownHours || 0);
+
+                                if (!cooldownOk) {
+                                    logDebug(`⏳ [FLOW] Flow "${matchedFlow.flow.name}" in cooldown for ${remoteJid}`);
+                                } else {
+                                    logDebug(`✅ [FLOW] Matched flow: ${matchedFlow.flow.name}`);
+
+                                    // Update cooldown timestamp
+                                    await updateFlowCooldown(matchedFlow.flow.id, remoteJid);
+
+                                    // Execute flow asynchronously to not block webhook response
+                                    executeFlow(matchedFlow, userId, remoteJid, instance, content, contactId)
+                                        .then(() => logDebug(`🏁 [FLOW] Flow execution completed`))
+                                        .catch(err => logDebug(`❌ [FLOW] Flow execution error: ${err.message}`));
+                                }
                             } else {
                                 logDebug(`💤 [FLOW] No matching trigger found`);
                             }

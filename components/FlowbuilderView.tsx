@@ -690,24 +690,71 @@ const PropertiesPanel = ({ node, onUpdate, onClose, onDelete, onDuplicate }: { n
                             <label className={labelStyle}>Tipo de Gatilho</label>
                             <select
                                 className={glassSelect}
-                                value={node.data.type}
+                                value={node.data.type || 'keyword'}
                                 onChange={(e) => onUpdate({ type: e.target.value })}
                             >
                                 <option value="keyword">Palavra-Chave</option>
                                 <option value="all">Qualquer Mensagem</option>
                             </select>
                         </div>
+
                         {node.data.type === 'keyword' && (
-                            <div className="animate-in slide-in-from-top-2">
-                                <label className={labelStyle}>Palavra-Chave</label>
-                                <div className="relative">
-                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">#</span>
-                                    <input
-                                        className={`${glassInput} pl-8 font-bold`}
-                                        placeholder="promoção"
-                                        value={node.data.keyword}
-                                        onChange={(e) => onUpdate({ keyword: e.target.value })}
-                                    />
+                            <div className="space-y-4 animate-in slide-in-from-top-2">
+                                <div>
+                                    <label className={labelStyle}>Tipo de Correspondência</label>
+                                    <select
+                                        className={glassSelect}
+                                        value={node.data.matchType || 'contains'}
+                                        onChange={(e) => onUpdate({ matchType: e.target.value })}
+                                    >
+                                        <option value="contains">Contém</option>
+                                        <option value="starts">Começa com</option>
+                                        <option value="ends">Termina com</option>
+                                        <option value="exact">Exato</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className={labelStyle}>Palavras-Chave (separadas por vírgula)</label>
+                                    <div className="relative">
+                                        <span className="absolute left-4 top-3 text-slate-400 font-bold">#</span>
+                                        <textarea
+                                            className={`${glassInput} pl-8 font-bold h-24 resize-none`}
+                                            placeholder="oi, olá, bom dia, promoção"
+                                            value={node.data.keyword || ''}
+                                            onChange={(e) => onUpdate({ keyword: e.target.value })}
+                                        />
+                                    </div>
+                                    <p className="text-[10px] text-slate-400 mt-1">Use vírgulas para múltiplas palavras</p>
+                                </div>
+                            </div>
+                        )}
+
+                        {node.data.type === 'all' && (
+                            <div className="space-y-4 animate-in slide-in-from-top-2">
+                                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/30 rounded-xl p-4">
+                                    <div className="flex items-start gap-3">
+                                        <span className="material-icons-round text-amber-500 text-lg">schedule</span>
+                                        <div>
+                                            <p className="text-xs font-bold text-amber-700 dark:text-amber-300 mb-1">Cooldown de Repetição</p>
+                                            <p className="text-[10px] text-amber-600 dark:text-amber-400 leading-relaxed">
+                                                Evita que o mesmo contato dispare o fluxo repetidamente dentro do período definido.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className={labelStyle}>Repetir após (horas)</label>
+                                    <div className="relative">
+                                        <input
+                                            type="number"
+                                            className={`${glassInput} pr-12 font-mono text-lg font-bold`}
+                                            value={node.data.cooldownHours ?? 6}
+                                            onChange={(e) => onUpdate({ cooldownHours: parseInt(e.target.value) || 0 })}
+                                            min={0}
+                                        />
+                                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 uppercase">Horas</span>
+                                    </div>
+                                    <p className="text-[10px] text-slate-400 mt-1">0 = sempre dispara</p>
                                 </div>
                             </div>
                         )}

@@ -192,11 +192,19 @@ const ChatView: React.FC = () => {
                         {/* Messages */}
                         <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50 dark:bg-slate-900/50 custom-scrollbar flex flex-col gap-4">
                             {messages.map((msg: any) => (
-                                <div key={msg.id || msg.uid} className={`self-${msg.key_from_me ? 'end' : 'start'} max-w-[70%] ${msg.key_from_me ? 'bg-primary text-white rounded-tr-none' : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-tl-none'} p-4 rounded-2xl shadow-sm`}>
-                                    <p className="text-sm">{msg.content}</p>
-                                    <span className={`text-[10px] mt-1 block ${msg.key_from_me ? 'text-white/70 text-right' : 'text-slate-400'}`}>
-                                        {new Date(msg.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                    </span>
+                                <div key={msg.id || msg.uid} className={`self-${msg.key_from_me ? 'end' : 'start'} max-w-[70%]`}>
+                                    {msg.source === 'flow' && (
+                                        <div className="flex items-center gap-1 mb-1 justify-end">
+                                            <span className="material-icons-round text-xs text-violet-500">smart_toy</span>
+                                            <span className="text-[9px] font-bold text-violet-500 uppercase tracking-wider">Bot</span>
+                                        </div>
+                                    )}
+                                    <div className={`${msg.key_from_me ? (msg.source === 'flow' ? 'bg-violet-500' : 'bg-primary') + ' text-white rounded-tr-none' : 'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-tl-none'} p-4 rounded-2xl shadow-sm`}>
+                                        <p className="text-sm">{msg.content}</p>
+                                        <span className={`text-[10px] mt-1 block ${msg.key_from_me ? 'text-white/70 text-right' : 'text-slate-400'}`}>
+                                            {new Date(msg.timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                    </div>
                                 </div>
                             ))}
                             <div ref={messagesEndRef} />
