@@ -1905,8 +1905,17 @@ app.post('/api/webhook/evolution', async (req, res) => {
                 const [cRows] = await pool.query("SELECT id FROM contacts WHERE user_id = ? AND remote_jid = ?", [userId, remoteJid]);
                 const contactId = cRows[0]?.id;
 
+                if (!contactId) {
+                    console.error(`❌ [WEBHOOK] CRÍTICO: Contact ID não encontrado para ${remoteJid} (User: ${userId})`);
+                    // Fallback: tentar buscar apenas pelo número se houver falha de sufixo?
+                    // Por enquanto apenas loga erro.
+                }
+
+                // Definir status corretamente
+                const initialStatus = fromMe ? 'sent' : 'received';
+
                 // 4. Mensagem
-                logDebug(`💾 Gravando mensagem type=${type} (len=${content.length})...`);
+                logDebug(`💾 Gravando mensagem [${fromMe ? 'SENT' : 'RX'}] type=${type} contact=${contactId}...`);
                 await pool.query(`
                     INSERT INTO messages (user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp, media_url, msg_status)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -1915,10 +1924,10 @@ app.post('/api/webhook/evolution', async (req, res) => {
                         media_url = VALUES(media_url),
                         msg_status = VALUES(msg_status)
                   `, [
-                    userId, contactId, instance, msg.key.id, fromMe, content, type, Math.floor(Date.now() / 1000), mediaUrl, 'sent'
+                    userId, contactId, instance, msg.key.id, fromMe, content, type, Math.floor(Date.now() / 1000), mediaUrl, initialStatus
                 ])
                     .then(() => logDebug('🏆 SUCESSO! MENSAGEM NO BANCO.'))
-                    .catch(err => logDebug(`🔥 ERRO SQL MENSAGEM: ${err.message}`));
+                    .catch(err => console.error('❌ ERRO AO SALVAR MSG:', err));
 
                 // ======= FLOW EXECUTION =======
                 // Check if user has active flows and execute matching ones
