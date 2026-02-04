@@ -79,6 +79,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onToggleTheme, isDarkMode, onLogout }
         >
           <span className="material-icons-round text-3xl">logout</span>
         </button>
+        <span className="text-[8px] text-white/30 font-bold uppercase tracking-widest mb-2">v2.0.3</span>
       </div>
     </aside>
   );

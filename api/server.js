@@ -2078,7 +2078,7 @@ app.get('/api/instances/:name/connect', authenticateToken, async (req, res) => {
 
 // VERSION CHECK
 app.get('/api/health', (req, res) => {
-    res.json({ status: 'UP', version: '2.0.2', timestamp: new Date().toISOString() });
+    res.json({ status: 'UP', version: '2.0.3', timestamp: new Date().toISOString() });
 });
 
 const PORT = 5000;
