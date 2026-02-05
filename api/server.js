@@ -73,6 +73,56 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
 
             if (result.affectedRows > 0) {
                 console.log(`✅ [STRIPE WEBHOOK] Sucesso! Banco atualizado para ${userEmail}`);
+
+                // 📧 Enviar email de confirmação de pagamento
+                try {
+                    const [settingsRows] = await pool.execute('SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ("smtp_pass", "smtp_from_email", "smtp_from_name")');
+                    const smtpSettings = {};
+                    settingsRows.forEach(row => smtpSettings[row.setting_key] = row.setting_value);
+
+                    if (smtpSettings.smtp_pass) {
+                        const token = (smtpSettings.smtp_pass || '').replace(/zoho-enczapikey\s+/i, '').trim();
+                        const emailHtml = `
+                            <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto;">
+                                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 20px; text-align: center; border-radius: 12px 12px 0 0;">
+                                    <h1 style="color: white; margin: 0; font-size: 28px;">🎉 Pagamento Confirmado!</h1>
+                                </div>
+                                <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 12px 12px;">
+                                    <h2 style="color: #333; margin-bottom: 20px;">Olá!</h2>
+                                    <p style="color: #666; font-size: 16px; line-height: 1.6;">
+                                        Seu pagamento foi processado com sucesso! Seu plano <strong>${planName}</strong> já está ativo.
+                                    </p>
+                                    <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #667eea;">
+                                        <p style="margin: 0; color: #333;"><strong>Plano:</strong> ${planName}</p>
+                                        <p style="margin: 10px 0 0 0; color: #333;"><strong>Status:</strong> Ativo ✅</p>
+                                    </div>
+                                    <p style="color: #666; font-size: 14px;">
+                                        Acesse o painel para aproveitar todos os recursos disponíveis.
+                                    </p>
+                                    <div style="text-align: center; margin-top: 30px;">
+                                        <a href="https://ublochat.com.br" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">Acessar Painel</a>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+
+                        await axios.post('https://api.zeptomail.com/v1.1/email', {
+                            from: { address: smtpSettings.smtp_from_email || 'no-reply@ublochat.com.br', name: smtpSettings.smtp_from_name || 'UbloChat' },
+                            to: [{ email_address: { address: userEmail, name: userEmail.split('@')[0] } }],
+                            subject: '🎉 Pagamento Confirmado - UbloChat',
+                            htmlbody: emailHtml
+                        }, {
+                            headers: {
+                                'Accept': 'application/json',
+                                'Content-Type': 'application/json',
+                                'Authorization': `Zoho-enczapikey ${token}`
+                            }
+                        });
+                        console.log(`📧 [STRIPE WEBHOOK] Email de confirmação enviado para ${userEmail}`);
+                    }
+                } catch (emailErr) {
+                    console.error(`⚠️ [STRIPE WEBHOOK] Falha ao enviar email de confirmação:`, emailErr.message);
+                }
             } else {
                 console.warn(`⚠️ [STRIPE WEBHOOK] Falha: Nenhum usuário encontrado com o email [${userEmail}]`);
                 // Fallback: Tentar buscar por metadata caso o email do Stripe seja diferente do login
@@ -773,6 +823,124 @@ app.post('/api/stripe/create-checkout-session', authenticateToken, async (req, r
 
 
 
+// --- REVENUE INSIGHTS / FINANCIAL STATS ---
+app.get('/api/admin/revenue-stats', authenticateAdmin, async (req, res) => {
+    try {
+        // 1. MRR (Monthly Recurring Revenue) - Soma dos valores dos planos de usuários ativos
+        const [mrrResult] = await pool.query(`
+            SELECT COALESCE(SUM(p.price), 0) as mrr
+            FROM users u
+            LEFT JOIN plans p ON u.plan = p.name
+            WHERE u.status = 'active' AND u.plan != 'Teste Grátis'
+        `);
+        const mrr = parseFloat(mrrResult[0]?.mrr || 0);
+
+        // 2. Novas assinaturas do mês atual
+        const [newSubsResult] = await pool.query(`
+            SELECT COUNT(*) as count
+            FROM users 
+            WHERE status = 'active' 
+            AND plan != 'Teste Grátis'
+            AND created_at >= DATE_FORMAT(NOW(), '%Y-%m-01')
+        `);
+        const newSubscriptions = parseInt(newSubsResult[0]?.count || 0);
+
+        // 3. Total de usuários ativos pagantes
+        const [activeUsersResult] = await pool.query(`
+            SELECT COUNT(*) as count
+            FROM users 
+            WHERE status = 'active' AND plan != 'Teste Grátis'
+        `);
+        const activePayingUsers = parseInt(activeUsersResult[0]?.count || 0);
+
+        // 4. Usuários que cancelaram este mês (Churn)
+        const [churnsResult] = await pool.query(`
+            SELECT COUNT(*) as count
+            FROM users 
+            WHERE status = 'inactive' 
+            AND updated_at >= DATE_FORMAT(NOW(), '%Y-%m-01')
+            AND plan != 'Teste Grátis'
+        `);
+        const churns = parseInt(churnsResult[0]?.count || 0);
+
+        // 5. LTV Estimado (MRR / Churn Rate) ou média simples
+        const churnRate = activePayingUsers > 0 ? (churns / activePayingUsers) * 100 : 0;
+        const avgMonthsRetention = churnRate > 0 ? 100 / churnRate : 12; // Default 12 meses se não houver cancelamentos
+        const avgTicket = activePayingUsers > 0 ? mrr / activePayingUsers : 0;
+        const ltv = avgTicket * avgMonthsRetention;
+
+        // 6. Dados mensais para gráfico (últimos 12 meses)
+        const [monthlyData] = await pool.query(`
+            SELECT 
+                DATE_FORMAT(u.created_at, '%Y-%m') as month,
+                COALESCE(SUM(p.price), 0) as revenue,
+                COUNT(*) as users
+            FROM users u
+            LEFT JOIN plans p ON u.plan = p.name
+            WHERE u.status = 'active' 
+            AND u.plan != 'Teste Grátis'
+            AND u.created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+            GROUP BY DATE_FORMAT(u.created_at, '%Y-%m')
+            ORDER BY month ASC
+        `);
+
+        // 7. Top planos por receita
+        const [topPlans] = await pool.query(`
+            SELECT 
+                u.plan as name,
+                COUNT(*) as subscribers,
+                COALESCE(SUM(p.price), 0) as revenue
+            FROM users u
+            LEFT JOIN plans p ON u.plan = p.name
+            WHERE u.status = 'active' AND u.plan != 'Teste Grátis'
+            GROUP BY u.plan
+            ORDER BY revenue DESC
+            LIMIT 5
+        `);
+
+        // 8. Logs recentes de pagamento (baseado em atualizações de plano)
+        const [recentPayments] = await pool.query(`
+            SELECT 
+                u.name,
+                u.plan,
+                p.price,
+                u.updated_at as date
+            FROM users u
+            LEFT JOIN plans p ON u.plan = p.name
+            WHERE u.status = 'active' 
+            AND u.plan != 'Teste Grátis'
+            AND u.stripe_subscription_id IS NOT NULL
+            ORDER BY u.updated_at DESC
+            LIMIT 10
+        `);
+
+        res.json({
+            mrr,
+            newSubscriptions,
+            activePayingUsers,
+            churnRate: churnRate.toFixed(2),
+            ltv: ltv.toFixed(2),
+            monthlyData,
+            topPlans: topPlans.map(p => ({
+                name: p.name,
+                subscribers: p.subscribers,
+                revenue: p.revenue,
+                percentage: mrr > 0 ? ((p.revenue / mrr) * 100).toFixed(1) : '0'
+            })),
+            recentPayments: recentPayments.map(p => ({
+                name: p.name,
+                plan: p.plan,
+                amount: p.price || 0,
+                date: p.date,
+                status: 'Aprovado'
+            }))
+        });
+    } catch (err) {
+        console.error('❌ [REVENUE] Erro ao buscar estatísticas:', err);
+        res.status(500).json({ error: 'Erro ao buscar estatísticas financeiras', details: err.message });
+    }
+});
+
 // --- CHAT / LIVE CHAT ---
 app.get('/api/contacts', authenticateToken, async (req, res) => {
     try {
@@ -1136,6 +1304,120 @@ app.post('/api/messages/send', authenticateToken, async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Erro ao enviar mensagem' });
+    }
+});
+
+// --- ENVIO DE MÍDIA (Imagem, Vídeo, Documento) ---
+app.post('/api/messages/send-media', authenticateToken, upload.single('file'), async (req, res) => {
+    try {
+        const { contactId } = req.body;
+        const file = req.file;
+
+        if (!contactId || !file) {
+            return res.status(400).json({ error: 'contactId e arquivo são obrigatórios' });
+        }
+
+        console.log(`📸 [MEDIA] Enviando arquivo: ${file.originalname} (${file.mimetype})`);
+
+        // Buscar contato e instância
+        const [contacts] = await pool.query('SELECT remote_jid, instance_name FROM contacts WHERE id = ? AND user_id = ?', [contactId, req.user.id]);
+        if (contacts.length === 0) return res.status(404).json({ error: 'Contato não encontrado' });
+
+        const { remote_jid: remoteJid, instance_name: instanceName } = contacts[0];
+        if (!instanceName) return res.status(400).json({ error: 'Nenhuma instância configurada para este contato' });
+
+        const evo = await getEvolutionService();
+        if (!evo) return res.status(500).json({ error: 'Evolution offline' });
+
+        // Detectar tipo de mídia
+        const mimeType = file.mimetype;
+        let mediaType = 'document';
+        if (mimeType.startsWith('image/')) mediaType = 'image';
+        else if (mimeType.startsWith('video/')) mediaType = 'video';
+        else if (mimeType.startsWith('audio/')) mediaType = 'audio';
+
+        // URL pública do arquivo
+        const fileUrl = `${process.env.API_URL || 'http://localhost:3001'}/uploads/${file.filename}`;
+
+        // Enviar via Evolution API
+        const result = await evo._request(`/message/sendMedia/${instanceName}`, 'POST', {
+            number: remoteJid.replace('@s.whatsapp.net', ''),
+            mediatype: mediaType,
+            media: fileUrl,
+            caption: '',
+            fileName: file.originalname
+        });
+
+        // Salvar mensagem no banco
+        const msgId = result?.key?.id || result?.id || `MEDIA-${Date.now()}`;
+        const timestamp = Math.floor(Date.now() / 1000);
+
+        await pool.query(`
+            INSERT INTO messages (user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp, media_url)
+            VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE content = VALUES(content)
+        `, [req.user.id, contactId, instanceName, msgId, file.originalname, mediaType, timestamp, fileUrl]);
+
+        console.log(`✅ [MEDIA] Enviado com sucesso: ${msgId}`);
+        res.json({ success: true, messageId: msgId, mediaUrl: fileUrl });
+    } catch (err) {
+        console.error('❌ [MEDIA] Erro ao enviar mídia:', err);
+        res.status(500).json({ error: 'Erro ao enviar mídia', details: err.message });
+    }
+});
+
+// --- ENVIO DE ÁUDIO (Gravação do microfone) ---
+app.post('/api/messages/send-audio', authenticateToken, async (req, res) => {
+    try {
+        const { contactId, audioBase64 } = req.body;
+
+        if (!contactId || !audioBase64) {
+            return res.status(400).json({ error: 'contactId e audioBase64 são obrigatórios' });
+        }
+
+        console.log(`🎤 [AUDIO] Processando gravação de áudio para contato ${contactId}`);
+
+        // Buscar contato e instância
+        const [contacts] = await pool.query('SELECT remote_jid, instance_name FROM contacts WHERE id = ? AND user_id = ?', [contactId, req.user.id]);
+        if (contacts.length === 0) return res.status(404).json({ error: 'Contato não encontrado' });
+
+        const { remote_jid: remoteJid, instance_name: instanceName } = contacts[0];
+        if (!instanceName) return res.status(400).json({ error: 'Nenhuma instância configurada para este contato' });
+
+        const evo = await getEvolutionService();
+        if (!evo) return res.status(500).json({ error: 'Evolution offline' });
+
+        // Salvar áudio como arquivo temporário
+        const audioBuffer = Buffer.from(audioBase64.split(',')[1] || audioBase64, 'base64');
+        const audioFilename = `audio-${Date.now()}.webm`;
+        const audioPath = path.join(uploadDir, audioFilename);
+        fs.writeFileSync(audioPath, audioBuffer);
+
+        // URL pública do áudio
+        const audioUrl = `${process.env.API_URL || 'http://localhost:3001'}/uploads/${audioFilename}`;
+
+        // Enviar como mensagem de áudio PTT (Push-to-Talk)
+        const result = await evo._request(`/message/sendWhatsAppAudio/${instanceName}`, 'POST', {
+            number: remoteJid.replace('@s.whatsapp.net', ''),
+            audio: audioUrl,
+            delay: 1200
+        });
+
+        // Salvar mensagem no banco
+        const msgId = result?.key?.id || result?.id || `AUDIO-${Date.now()}`;
+        const timestamp = Math.floor(Date.now() / 1000);
+
+        await pool.query(`
+            INSERT INTO messages (user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp, media_url)
+            VALUES (?, ?, ?, ?, 1, 'Áudio', 'audio', ?, ?)
+            ON DUPLICATE KEY UPDATE content = VALUES(content)
+        `, [req.user.id, contactId, instanceName, msgId, timestamp, audioUrl]);
+
+        console.log(`✅ [AUDIO] Enviado com sucesso: ${msgId}`);
+        res.json({ success: true, messageId: msgId, audioUrl });
+    } catch (err) {
+        console.error('❌ [AUDIO] Erro ao enviar áudio:', err);
+        res.status(500).json({ error: 'Erro ao enviar áudio', details: err.message });
     }
 });
 

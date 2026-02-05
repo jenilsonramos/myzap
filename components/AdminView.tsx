@@ -26,6 +26,19 @@ const AdminView: React.FC = () => {
     });
     const [loadingSettings, setLoadingSettings] = useState(true);
 
+    // Revenue Stats State
+    const [revenueStats, setRevenueStats] = useState({
+        mrr: 0,
+        newSubscriptions: 0,
+        activePayingUsers: 0,
+        churnRate: '0',
+        ltv: '0',
+        monthlyData: [] as { month: string; revenue: number; users: number }[],
+        topPlans: [] as { name: string; subscribers: number; revenue: number; percentage: string }[],
+        recentPayments: [] as { name: string; plan: string; amount: number; date: string; status: string }[]
+    });
+    const [loadingRevenue, setLoadingRevenue] = useState(true);
+
     const fetchSettings = async () => {
         try {
             const response = await fetch('/api/admin/settings', {
@@ -53,8 +66,26 @@ const AdminView: React.FC = () => {
         }
     };
 
+    const fetchRevenueStats = async () => {
+        try {
+            setLoadingRevenue(true);
+            const response = await fetch('/api/admin/revenue-stats', {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('myzap_token')}` }
+            });
+            const data = await response.json();
+            if (response.ok) {
+                setRevenueStats(data);
+            }
+        } catch (err) {
+            console.error('Error fetching revenue stats:', err);
+        } finally {
+            setLoadingRevenue(false);
+        }
+    };
+
     useEffect(() => {
         fetchSettings();
+        fetchRevenueStats();
     }, []);
 
     const saveSettings = async () => {
@@ -345,11 +376,13 @@ const AdminView: React.FC = () => {
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                            {[
-                                { label: 'MRR Atual', val: 'R$ 0', sub: 'Média de R$ 0/mês', color: 'text-indigo-600' },
-                                { label: 'Novas Assinaturas', val: '0', sub: 'Nenhum novo registro', color: 'text-emerald-500' },
-                                { label: 'LTV Estimado', val: 'R$ 0', sub: 'Baseado em dados reais', color: 'text-primary' },
-                                { label: 'Taxa de Churn', val: '0%', sub: 'Sem cancelamentos', color: 'text-rose-500' },
+                            {loadingRevenue ? (
+                                <div className="col-span-4 py-10 text-center text-slate-400 font-bold uppercase tracking-widest animate-pulse">Carregando estatísticas...</div>
+                            ) : [
+                                { label: 'MRR Atual', val: `R$ ${revenueStats.mrr.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, sub: `${revenueStats.activePayingUsers} assinantes ativos`, color: 'text-indigo-600' },
+                                { label: 'Novas Assinaturas', val: String(revenueStats.newSubscriptions), sub: revenueStats.newSubscriptions > 0 ? 'Este mês' : 'Nenhum novo registro', color: 'text-emerald-500' },
+                                { label: 'LTV Estimado', val: `R$ ${parseFloat(revenueStats.ltv).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, sub: 'Baseado em dados reais', color: 'text-primary' },
+                                { label: 'Taxa de Churn', val: `${revenueStats.churnRate}%`, sub: parseFloat(revenueStats.churnRate) > 0 ? 'Atenção requerida' : 'Sem cancelamentos', color: 'text-rose-500' },
                             ].map((stat, i) => (
                                 <div key={i} className="p-6 bg-slate-50 dark:bg-white/5 rounded-3xl border border-slate-100 dark:border-white/5">
                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{stat.label}</p>
@@ -383,16 +416,24 @@ const AdminView: React.FC = () => {
                             <div className="bg-white dark:bg-card-dark p-8 rounded-huge border border-slate-100 dark:border-white/5 shadow-xl">
                                 <h4 className="text-sm font-black dark:text-white uppercase tracking-widest mb-6">Top Planos por Receita</h4>
                                 <div className="space-y-6">
-                                    {[
-                                        { n: 'Nenhum dado', p: '0%', c: 'bg-slate-200' },
-                                    ].map((p, i) => (
-                                        <div key={i} className="space-y-2">
+                                    {revenueStats.topPlans.length === 0 ? (
+                                        <div className="space-y-2">
                                             <div className="flex justify-between text-[11px] font-black uppercase">
-                                                <span className="dark:text-white">{p.n}</span>
-                                                <span className="text-slate-400">{p.p}</span>
+                                                <span className="dark:text-white">Nenhum dado</span>
+                                                <span className="text-slate-400">0%</span>
                                             </div>
                                             <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                                                <div className={`h-full ${p.c}`} style={{ width: p.p }}></div>
+                                                <div className="h-full bg-slate-200" style={{ width: '0%' }}></div>
+                                            </div>
+                                        </div>
+                                    ) : revenueStats.topPlans.map((p, i) => (
+                                        <div key={i} className="space-y-2">
+                                            <div className="flex justify-between text-[11px] font-black uppercase">
+                                                <span className="dark:text-white">{p.name}</span>
+                                                <span className="text-slate-400">{p.percentage}%</span>
+                                            </div>
+                                            <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                                <div className={`h-full ${i === 0 ? 'bg-indigo-600' : i === 1 ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${p.percentage}%` }}></div>
                                             </div>
                                         </div>
                                     ))}
@@ -401,20 +442,17 @@ const AdminView: React.FC = () => {
                             <div className="bg-white dark:bg-card-dark p-8 rounded-huge border border-slate-100 dark:border-white/5 shadow-xl">
                                 <h4 className="text-sm font-black dark:text-white uppercase tracking-widest mb-6">Logs Recentes de Pagamento</h4>
                                 <div className="space-y-4">
-                                    {[
-                                        { d: 'Hoje, 14:20', u: 'Luiz Silva', a: 'R$ 299,00', s: 'Aprovado' },
-                                        { d: 'Hoje, 12:45', u: 'Ana Clara', a: 'R$ 99,00', s: 'Aprovado' },
-                                        { d: 'Ontem, 23:10', u: 'Roberto M.', a: 'R$ 499,00', s: 'Aprovado' },
-                                        { d: 'Ontem, 19:00', u: 'Carlos V.', a: 'R$ 299,00', s: 'Pendente' },
-                                    ].map((l, i) => (
+                                    {revenueStats.recentPayments.length === 0 ? (
+                                        <p className="text-xs text-slate-400 text-center py-4">Nenhum pagamento registrado</p>
+                                    ) : revenueStats.recentPayments.map((l, i) => (
                                         <div key={i} className="flex justify-between items-center py-2 border-b border-slate-50 dark:border-white/5 last:border-0">
                                             <div>
-                                                <p className="text-xs font-black dark:text-white uppercase tracking-tight">{l.u}</p>
-                                                <p className="text-[10px] font-bold text-slate-400 uppercase">{l.d}</p>
+                                                <p className="text-xs font-black dark:text-white uppercase tracking-tight">{l.name}</p>
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase">{new Date(l.date).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</p>
                                             </div>
                                             <div className="text-right">
-                                                <p className="text-xs font-black dark:text-white uppercase">{l.a}</p>
-                                                <p className={`text-[9px] font-black uppercase ${l.s === 'Aprovado' ? 'text-emerald-500' : 'text-amber-500'}`}>{l.s}</p>
+                                                <p className="text-xs font-black dark:text-white uppercase">R$ {l.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                                                <p className={`text-[9px] font-black uppercase ${l.status === 'Aprovado' ? 'text-emerald-500' : 'text-amber-500'}`}>{l.status}</p>
                                             </div>
                                         </div>
                                     ))}
