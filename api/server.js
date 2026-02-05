@@ -273,6 +273,75 @@ async function setupTables() {
             )
         `);
 
+        // ========== NOVAS TABELAS ==========
+
+        // Tabela para controle de CRONs
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS cron_logs (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                cron_name VARCHAR(100) NOT NULL,
+                last_execution DATETIME,
+                next_execution DATETIME,
+                status VARCHAR(50),
+                details TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Tabela para Chatbot por palavras-chave
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS keyword_chatbot (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
+                instance_name VARCHAR(100),
+                is_active BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Tabela para mensagens do Chatbot
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS keyword_chatbot_rules (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                chatbot_id INT NOT NULL,
+                match_type ENUM('starts', 'contains', 'ends', 'any') DEFAULT 'contains',
+                keyword VARCHAR(255),
+                response_order INT DEFAULT 0,
+                message_content TEXT,
+                delay_seconds INT DEFAULT 0
+            )
+        `);
+
+        // Tabela para métricas de saúde do servidor
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS server_health_logs (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                cpu_usage DECIMAL(5,2),
+                ram_usage DECIMAL(5,2),
+                ram_used_mb INT,
+                ram_total_mb INT,
+                classification ENUM('boa', 'estavel', 'ruim', 'pessima'),
+                is_peak BOOLEAN DEFAULT FALSE
+            )
+        `);
+
+        // Adicionar coluna unread_count aos contatos
+        await pool.query("ALTER TABLE contacts ADD COLUMN unread_count INT DEFAULT 0").catch(() => { });
+
+        // Adicionar coluna instance_name aos contatos
+        await pool.query("ALTER TABLE contacts ADD COLUMN instance_name VARCHAR(100)").catch(() => { });
+
+        // Adicionar coluna is_blocked aos usuários (para bloqueio por assinatura)
+        await pool.query("ALTER TABLE users ADD COLUMN is_blocked BOOLEAN DEFAULT FALSE").catch(() => { });
+
+        // Adicionar colunas ao flow_state para persistência de variáveis
+        await pool.query("ALTER TABLE flow_state ADD COLUMN flow_id VARCHAR(255)").catch(() => { });
+        await pool.query("ALTER TABLE flow_state ADD COLUMN current_node_id VARCHAR(255)").catch(() => { });
+
+        // ========== FIM NOVAS TABELAS ==========
+
         // Inserir planos padrão se a tabela estiver vazia
         const [planRows] = await pool.query("SELECT COUNT(*) as count FROM plans");
         if (planRows[0].count === 0) {
@@ -1917,12 +1986,14 @@ app.post('/api/webhook/evolution', async (req, res) => {
                 // 2. Contato (Sempre força 'open' se for mensagem recebida)
                 logDebug(`📇 Gravando contato: ${remoteJid}`);
                 await pool.query(`
-                    INSERT INTO contacts (user_id, remote_jid, name, status) 
-                    VALUES (?, ?, ?, 'open') 
+                    INSERT INTO contacts (user_id, remote_jid, name, instance_name, status, unread_count) 
+                    VALUES (?, ?, ?, ?, 'open', IF(? = 0, 1, 0)) 
                     ON DUPLICATE KEY UPDATE 
                         name = VALUES(name),
-                        status = IF(? = 0, 'open', status)
-                `, [userId, remoteJid, pushName, fromMe]);
+                        instance_name = COALESCE(instance_name, VALUES(instance_name)),
+                        status = IF(? = 0, 'open', status),
+                        unread_count = IF(? = 0, unread_count + 1, unread_count)
+                `, [userId, remoteJid, pushName, instance, fromMe, fromMe, fromMe]);
 
                 // 3. ID do Contato
                 const [cRows] = await pool.query("SELECT id FROM contacts WHERE user_id = ? AND remote_jid = ?", [userId, remoteJid]);
@@ -1951,6 +2022,81 @@ app.post('/api/webhook/evolution', async (req, res) => {
                 ])
                     .then(() => logDebug('🏆 SUCESSO! MENSAGEM NO BANCO.'))
                     .catch(err => console.error('❌ ERRO AO SALVAR MSG:', err));
+
+                // ======= CHATBOT POR PALAVRAS-CHAVE =======
+                // Verifica se há chatbot ativo antes do FlowBuild
+                if (!fromMe) {
+                    try {
+                        const [chatbotRows] = await pool.query(
+                            "SELECT kc.id, kc.is_active FROM keyword_chatbot kc WHERE kc.user_id = ? AND (kc.instance_name IS NULL OR kc.instance_name = ?)",
+                            [userId, instance]
+                        );
+
+                        if (chatbotRows.length > 0 && chatbotRows[0].is_active) {
+                            const chatbotId = chatbotRows[0].id;
+                            logDebug(`🤖 [CHATBOT] Chatbot ativo encontrado (ID: ${chatbotId})`);
+
+                            // Buscar regras do chatbot
+                            const [rules] = await pool.query(
+                                "SELECT * FROM keyword_chatbot_rules WHERE chatbot_id = ? ORDER BY response_order ASC",
+                                [chatbotId]
+                            );
+
+                            let matched = false;
+                            const msgLower = content.toLowerCase();
+
+                            for (const rule of rules) {
+                                if (matched) break;
+
+                                const keyword = (rule.keyword || '').toLowerCase();
+
+                                switch (rule.match_type) {
+                                    case 'starts':
+                                        matched = msgLower.startsWith(keyword);
+                                        break;
+                                    case 'ends':
+                                        matched = msgLower.endsWith(keyword);
+                                        break;
+                                    case 'contains':
+                                        matched = msgLower.includes(keyword);
+                                        break;
+                                    case 'any':
+                                        matched = true;
+                                        break;
+                                }
+
+                                if (matched && rule.message_content) {
+                                    logDebug(`🤖 [CHATBOT] Regra encontrada: ${rule.match_type} "${keyword}"`);
+
+                                    // Aplicar delay se configurado
+                                    if (rule.delay_seconds > 0) {
+                                        await new Promise(r => setTimeout(r, rule.delay_seconds * 1000));
+                                    }
+
+                                    // Enviar resposta
+                                    await sendWhatsAppMessage(instance, remoteJid, rule.message_content);
+
+                                    // Salvar mensagem no banco
+                                    const chatbotMsgId = `CHATBOT-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                                    await pool.query(`
+                                        INSERT INTO messages (user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp, source)
+                                        VALUES (?, ?, ?, ?, 1, ?, 'text', ?, 'chatbot')
+                                    `, [userId, contactId, instance, chatbotMsgId, rule.message_content, Math.floor(Date.now() / 1000)]);
+
+                                    logDebug(`🤖 [CHATBOT] Resposta enviada: "${rule.message_content.substring(0, 50)}..."`);
+                                }
+                            }
+
+                            // Se chatbot respondeu, não processar FlowBuild
+                            if (matched) {
+                                logDebug(`🤖 [CHATBOT] FlowBuild ignorado (chatbot ativo e respondeu)`);
+                                return res.status(200).send('OK');
+                            }
+                        }
+                    } catch (chatbotErr) {
+                        logDebug(`❌ [CHATBOT] Erro: ${chatbotErr.message}`);
+                    }
+                }
 
                 // ======= FLOW EXECUTION =======
                 // Check if user has active flows and execute matching ones
@@ -2150,8 +2296,519 @@ app.get('/api/instances/:name/connect', authenticateToken, async (req, res) => {
 
 // VERSION CHECK
 app.get('/api/health', (req, res) => {
-    res.json({ status: 'UP', version: '2.0.3', timestamp: new Date().toISOString() });
+    res.json({ status: 'UP', version: '2.1.0', timestamp: new Date().toISOString() });
 });
+
+// ========== NOVAS FUNCIONALIDADES ==========
+
+// --- CONTADOR DE MENSAGENS NÃO LIDAS ---
+app.post('/api/contacts/:id/read', authenticateToken, async (req, res) => {
+    try {
+        await pool.query("UPDATE contacts SET unread_count = 0 WHERE id = ? AND user_id = ?", [req.params.id, req.user.id]);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao marcar como lido' });
+    }
+});
+
+// --- ENCAMINHAMENTO DE CONVERSA ---
+app.get('/api/admin/agents', authenticateToken, async (req, res) => {
+    try {
+        const [rows] = await pool.query("SELECT id, name, email FROM users WHERE status = 'active' AND id != ?", [req.user.id]);
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao listar atendentes' });
+    }
+});
+
+app.post('/api/contacts/:id/transfer', authenticateToken, async (req, res) => {
+    try {
+        const { target_user_id } = req.body;
+        if (!target_user_id) return res.status(400).json({ error: 'ID do atendente destino obrigatório' });
+
+        await pool.query("UPDATE contacts SET user_id = ? WHERE id = ? AND user_id = ?", [target_user_id, req.params.id, req.user.id]);
+        res.json({ success: true, message: 'Conversa transferida com sucesso' });
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao transferir conversa' });
+    }
+});
+
+// --- PESQUISA DE MENSAGENS ---
+app.get('/api/messages/:contactId/search', authenticateToken, async (req, res) => {
+    try {
+        const { q } = req.query;
+        if (!q) return res.json([]);
+
+        const [rows] = await pool.query(
+            "SELECT * FROM messages WHERE contact_id = ? AND user_id = ? AND content LIKE ? ORDER BY timestamp DESC LIMIT 50",
+            [req.params.contactId, req.user.id, `%${q}%`]
+        );
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: 'Erro na pesquisa' });
+    }
+});
+
+// --- ENVIO DE ÁUDIO ---
+app.post('/api/messages/send-audio', authenticateToken, async (req, res) => {
+    try {
+        const { contactId, audioBase64, audioUrl } = req.body;
+
+        const [contacts] = await pool.query("SELECT remote_jid FROM contacts WHERE id = ? AND user_id = ?", [contactId, req.user.id]);
+        if (contacts.length === 0) return res.status(404).json({ error: 'Contato não encontrado' });
+
+        const remoteJid = contacts[0].remote_jid;
+        const [instance] = await pool.query("SELECT business_name FROM whatsapp_accounts WHERE user_id = ? LIMIT 1", [req.user.id]);
+        if (instance.length === 0) return res.status(400).json({ error: 'Nenhuma instância configurada' });
+
+        const instanceName = instance[0].business_name;
+        const evo = await getEvolutionService();
+        if (!evo) return res.status(500).json({ error: 'Evolution API offline' });
+
+        const number = remoteJid.replace('@s.whatsapp.net', '');
+        const mediaSource = audioUrl || audioBase64;
+
+        const result = await evo._request(`/message/sendMedia/${instanceName}`, 'POST', {
+            number,
+            mediatype: 'audio',
+            media: mediaSource,
+            mimetype: 'audio/ogg; codecs=opus'
+        });
+
+        const msgId = result?.key?.id || `AUDIO-${Date.now()}`;
+        const timestamp = Math.floor(Date.now() / 1000);
+
+        await pool.query(`
+            INSERT INTO messages (user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp, media_url)
+            VALUES (?, ?, ?, ?, 1, '', 'audio', ?, ?)
+            ON DUPLICATE KEY UPDATE content = VALUES(content)
+        `, [req.user.id, contactId, instanceName, msgId, timestamp, mediaSource]);
+
+        res.json(result);
+    } catch (err) {
+        console.error('Erro ao enviar áudio:', err);
+        res.status(500).json({ error: 'Erro ao enviar áudio', details: err.message });
+    }
+});
+
+// --- ASSISTENTE DE IA PARA TEXTO ---
+app.post('/api/ai/improve-text', authenticateToken, async (req, res) => {
+    try {
+        const { text, tone } = req.body;
+        if (!text) return res.status(400).json({ error: 'Texto obrigatório' });
+
+        const [rows] = await pool.query("SELECT setting_value FROM system_settings WHERE setting_key = 'gemini_api_key'");
+        const apiKey = rows[0]?.setting_value;
+
+        if (!apiKey) {
+            return res.status(400).json({
+                error: 'IA não configurada',
+                message: 'Configure sua API Key do Gemini nas Integrações de IA.',
+                code: 'AI_NOT_CONFIGURED'
+            });
+        }
+
+        const tonePrompts = {
+            serio: 'Reescreva o texto abaixo com um tom sério e formal:',
+            educado: 'Reescreva o texto abaixo de forma educada e cortês:',
+            bravo: 'Reescreva o texto abaixo com um tom mais firme e assertivo:',
+            engracado: 'Reescreva o texto abaixo de forma divertida e bem-humorada:',
+            profissional: 'Reescreva o texto abaixo de forma profissional e corporativa:',
+            ortografia: 'Corrija a ortografia e gramática do texto abaixo, mantendo o sentido original:'
+        };
+
+        const prompt = tonePrompts[tone] || tonePrompts.profissional;
+
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                contents: [{ role: 'user', parts: [{ text: `${prompt}\n\n"${text}"\n\nRetorne APENAS o texto reescrito, sem explicações.` }] }]
+            })
+        });
+
+        const data = await response.json();
+        const improvedText = data?.candidates?.[0]?.content?.parts?.[0]?.text || text;
+
+        res.json({ original: text, improved: improvedText.trim() });
+    } catch (err) {
+        console.error('Erro AI:', err);
+        res.status(500).json({ error: 'Erro ao processar IA' });
+    }
+});
+
+// --- CHATBOT POR PALAVRAS-CHAVE ---
+app.get('/api/chatbot/keywords', authenticateToken, async (req, res) => {
+    try {
+        const [chatbots] = await pool.query("SELECT * FROM keyword_chatbot WHERE user_id = ?", [req.user.id]);
+        const chatbot = chatbots[0];
+
+        if (!chatbot) {
+            return res.json({ chatbot: null, rules: [] });
+        }
+
+        const [rules] = await pool.query("SELECT * FROM keyword_chatbot_rules WHERE chatbot_id = ? ORDER BY response_order ASC", [chatbot.id]);
+        res.json({ chatbot, rules });
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao buscar chatbot' });
+    }
+});
+
+app.post('/api/chatbot/keywords', authenticateToken, async (req, res) => {
+    try {
+        const { instance_name, rules } = req.body;
+
+        // Criar ou atualizar chatbot
+        const [existing] = await pool.query("SELECT id FROM keyword_chatbot WHERE user_id = ?", [req.user.id]);
+        let chatbotId;
+
+        if (existing.length > 0) {
+            chatbotId = existing[0].id;
+            await pool.query("UPDATE keyword_chatbot SET instance_name = ?, updated_at = NOW() WHERE id = ?", [instance_name, chatbotId]);
+            await pool.query("DELETE FROM keyword_chatbot_rules WHERE chatbot_id = ?", [chatbotId]);
+        } else {
+            const [result] = await pool.query("INSERT INTO keyword_chatbot (user_id, instance_name) VALUES (?, ?)", [req.user.id, instance_name]);
+            chatbotId = result.insertId;
+        }
+
+        // Inserir regras
+        if (rules && rules.length > 0) {
+            for (const rule of rules) {
+                await pool.query(
+                    "INSERT INTO keyword_chatbot_rules (chatbot_id, match_type, keyword, response_order, message_content, delay_seconds) VALUES (?, ?, ?, ?, ?, ?)",
+                    [chatbotId, rule.match_type, rule.keyword, rule.response_order || 0, rule.message_content, rule.delay_seconds || 0]
+                );
+            }
+        }
+
+        res.json({ success: true, chatbot_id: chatbotId });
+    } catch (err) {
+        console.error('Erro ao salvar chatbot:', err);
+        res.status(500).json({ error: 'Erro ao salvar chatbot' });
+    }
+});
+
+app.patch('/api/chatbot/keywords/toggle', authenticateToken, async (req, res) => {
+    try {
+        const { is_active } = req.body;
+
+        // Atualizar status do chatbot
+        await pool.query("UPDATE keyword_chatbot SET is_active = ? WHERE user_id = ?", [is_active ? 1 : 0, req.user.id]);
+
+        // Se ativando chatbot, pausar todos os FlowBuilds do usuário
+        if (is_active) {
+            await pool.query("UPDATE flows SET status = 'paused' WHERE user_id = ? AND status = 'active'", [req.user.id]);
+        }
+
+        res.json({ success: true, is_active, flowsDisabled: is_active });
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao alternar chatbot' });
+    }
+});
+
+// --- SAÚDE DO SERVIDOR ---
+const os = require('os');
+
+app.get('/api/admin/server-health', authenticateAdmin, async (req, res) => {
+    try {
+        // Métricas atuais
+        const totalMem = os.totalmem();
+        const freeMem = os.freemem();
+        const usedMem = totalMem - freeMem;
+        const ramUsage = ((usedMem / totalMem) * 100).toFixed(2);
+
+        const cpus = os.cpus();
+        let cpuUsage = 0;
+        for (const cpu of cpus) {
+            const total = Object.values(cpu.times).reduce((a, b) => a + b, 0);
+            const idle = cpu.times.idle;
+            cpuUsage += ((total - idle) / total) * 100;
+        }
+        cpuUsage = (cpuUsage / cpus.length).toFixed(2);
+
+        // Classificação
+        let classification = 'boa';
+        if (ramUsage > 90 || cpuUsage > 90) classification = 'pessima';
+        else if (ramUsage > 75 || cpuUsage > 75) classification = 'ruim';
+        else if (ramUsage > 50 || cpuUsage > 50) classification = 'estavel';
+
+        // Salvar log
+        await pool.query(`
+            INSERT INTO server_health_logs (cpu_usage, ram_usage, ram_used_mb, ram_total_mb, classification)
+            VALUES (?, ?, ?, ?, ?)
+        `, [cpuUsage, ramUsage, Math.round(usedMem / 1024 / 1024), Math.round(totalMem / 1024 / 1024), classification]);
+
+        // Buscar pico
+        const [peak] = await pool.query(`
+            SELECT timestamp, cpu_usage, ram_usage FROM server_health_logs 
+            WHERE ram_usage = (SELECT MAX(ram_usage) FROM server_health_logs)
+            ORDER BY timestamp DESC LIMIT 1
+        `);
+
+        // Buscar logs dos CRONs
+        const [cronLogs] = await pool.query("SELECT * FROM cron_logs ORDER BY cron_name");
+
+        res.json({
+            current: {
+                cpu_usage: parseFloat(cpuUsage),
+                ram_usage: parseFloat(ramUsage),
+                ram_used_mb: Math.round(usedMem / 1024 / 1024),
+                ram_total_mb: Math.round(totalMem / 1024 / 1024),
+                classification
+            },
+            peak: peak[0] || null,
+            uptime: os.uptime(),
+            cronLogs
+        });
+    } catch (err) {
+        console.error('Erro health:', err);
+        res.status(500).json({ error: 'Erro ao buscar saúde do servidor' });
+    }
+});
+
+// ========== CRONS DO SISTEMA ==========
+const nodemailer = require('nodemailer');
+
+// Configuração do ZeptoMail
+const emailTransport = nodemailer.createTransport({
+    host: "smtp.zeptomail.com",
+    port: 587,
+    auth: {
+        user: "emailapikey",
+        pass: "wSsVR61x+Rb5W/sozjP4Irw7zFtTVVv2EEh13lP363L5T/uXocdqkRKaDAbyT6NKQmM6RjYRp756nk8I0mFYj4wszQ0DXiiF9mqRe1U4J3x17qnvhDzJXmhcmhWPK44IwwVukmlmEcsm+g=="
+    }
+});
+
+async function sendEmail(to, subject, html) {
+    try {
+        await emailTransport.sendMail({
+            from: '"UbloChat" <noreply@ublochat.com.br>',
+            to,
+            subject,
+            html
+        });
+        console.log(`📧 Email enviado para ${to}`);
+        return true;
+    } catch (err) {
+        console.error(`❌ Erro ao enviar email:`, err.message);
+        return false;
+    }
+}
+
+async function logCronExecution(cronName, status, details = '') {
+    try {
+        const nextExecution = new Date();
+
+        // Calcular próxima execução baseado no CRON
+        if (cronName === 'check_subscriptions') {
+            nextExecution.setDate(nextExecution.getDate() + 1);
+            nextExecution.setHours(1, 0, 0, 0);
+        } else if (cronName === 'send_expired_email') {
+            nextExecution.setDate(nextExecution.getDate() + 1);
+            nextExecution.setHours(9, 0, 0, 0);
+        } else if (cronName === 'notify_expiring_plans') {
+            nextExecution.setDate(nextExecution.getDate() + 1);
+            nextExecution.setHours(14, 0, 0, 0);
+        } else if (cronName === 'update_trial_days') {
+            nextExecution.setDate(nextExecution.getDate() + 1);
+            nextExecution.setHours(0, 0, 0, 0);
+        }
+
+        await pool.query(`
+            INSERT INTO cron_logs (cron_name, last_execution, next_execution, status, details)
+            VALUES (?, NOW(), ?, ?, ?)
+            ON DUPLICATE KEY UPDATE last_execution = NOW(), next_execution = VALUES(next_execution), status = VALUES(status), details = VALUES(details)
+        `, [cronName, nextExecution, status, details]);
+    } catch (err) {
+        console.error('Erro ao logar CRON:', err.message);
+    }
+}
+
+// CRON 01:00 - Verificar assinaturas vencidas e bloquear
+async function cronCheckSubscriptions() {
+    console.log('🔄 [CRON 01:00] Verificando assinaturas...');
+    try {
+        // Usuários com trial expirado ou assinatura vencida
+        const [expired] = await pool.query(`
+            SELECT id, email, name, plan FROM users 
+            WHERE (plan = 'Teste Grátis' AND trial_ends_at < NOW()) 
+            OR (status = 'inactive')
+        `);
+
+        let blocked = 0;
+        for (const user of expired) {
+            await pool.query("UPDATE users SET is_blocked = TRUE WHERE id = ?", [user.id]);
+            blocked++;
+        }
+
+        await logCronExecution('check_subscriptions', 'success', `${blocked} usuários bloqueados`);
+        console.log(`✅ [CRON 01:00] ${blocked} usuários bloqueados por assinatura vencida`);
+    } catch (err) {
+        await logCronExecution('check_subscriptions', 'error', err.message);
+        console.error('❌ [CRON 01:00] Erro:', err.message);
+    }
+}
+
+// CRON 09:00 - Enviar email de assinatura vencida
+async function cronSendExpiredEmail() {
+    console.log('🔄 [CRON 09:00] Enviando emails de assinatura vencida...');
+    try {
+        const [blocked] = await pool.query(`
+            SELECT id, email, name FROM users 
+            WHERE is_blocked = TRUE AND email IS NOT NULL
+        `);
+
+        let sent = 0;
+        for (const user of blocked) {
+            const emailHtml = `
+                <h2>Olá ${user.name},</h2>
+                <p>Sua assinatura do <strong>UbloChat</strong> expirou.</p>
+                <p>Os seguintes recursos foram bloqueados:</p>
+                <ul>
+                    <li>Chat ao vivo</li>
+                    <li>Respostas do FlowBuild</li>
+                    <li>Chatbot automático</li>
+                </ul>
+                <p>Para reativar sua conta, acesse o painel e escolha um plano:</p>
+                <p><a href="https://ublochat.com.br/#/planos" style="background:#22c55e;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;">Escolher Plano</a></p>
+                <p>Equipe UbloChat</p>
+            `;
+
+            const success = await sendEmail(user.email, '⚠️ Sua assinatura UbloChat expirou', emailHtml);
+            if (success) sent++;
+        }
+
+        await logCronExecution('send_expired_email', 'success', `${sent} emails enviados`);
+        console.log(`✅ [CRON 09:00] ${sent} emails enviados`);
+    } catch (err) {
+        await logCronExecution('send_expired_email', 'error', err.message);
+        console.error('❌ [CRON 09:00] Erro:', err.message);
+    }
+}
+
+// CRON 14:00 - Notificar planos prestes a vencer
+async function cronNotifyExpiringPlans() {
+    console.log('🔄 [CRON 14:00] Verificando planos prestes a vencer...');
+    try {
+        // Planos que vencem em 3, 2 ou 1 dia
+        const [expiring] = await pool.query(`
+            SELECT id, email, name, trial_ends_at,
+                DATEDIFF(trial_ends_at, NOW()) as days_left
+            FROM users 
+            WHERE plan = 'Teste Grátis' 
+            AND trial_ends_at IS NOT NULL
+            AND DATEDIFF(trial_ends_at, NOW()) IN (3, 2, 1, 0)
+            AND is_blocked = FALSE
+        `);
+
+        let notified = 0;
+        for (const user of expiring) {
+            let subject, message;
+
+            if (user.days_left === 0) {
+                subject = '🚨 Seu teste grátis termina HOJE!';
+                message = 'Seu período de teste grátis termina <strong>hoje</strong>! Assine agora para não perder acesso.';
+            } else if (user.days_left === 1) {
+                subject = '⏰ Seu teste grátis termina amanhã!';
+                message = 'Seu período de teste grátis termina <strong>amanhã</strong>! Não perca tempo.';
+            } else {
+                subject = `⏰ Seu teste grátis termina em ${user.days_left} dias`;
+                message = `Seu período de teste grátis termina em <strong>${user.days_left} dias</strong>.`;
+            }
+
+            const emailHtml = `
+                <h2>Olá ${user.name},</h2>
+                <p>${message}</p>
+                <p>Assine um plano e continue usando todos os recursos do UbloChat:</p>
+                <p><a href="https://ublochat.com.br/#/planos" style="background:#6366f1;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;">Ver Planos</a></p>
+                <p>Equipe UbloChat</p>
+            `;
+
+            const success = await sendEmail(user.email, subject, emailHtml);
+            if (success) notified++;
+        }
+
+        await logCronExecution('notify_expiring_plans', 'success', `${notified} notificações enviadas`);
+        console.log(`✅ [CRON 14:00] ${notified} notificações enviadas`);
+    } catch (err) {
+        await logCronExecution('notify_expiring_plans', 'error', err.message);
+        console.error('❌ [CRON 14:00] Erro:', err.message);
+    }
+}
+
+// CRON 00:00 - Atualizar dias de teste grátis
+async function cronUpdateTrialDays() {
+    console.log('🔄 [CRON 00:00] Atualizando dias de teste...');
+    try {
+        // O trial_ends_at já é uma data, então não precisa decrementar
+        // Apenas verificamos e bloqueamos os expirados
+        const [expired] = await pool.query(`
+            SELECT COUNT(*) as count FROM users 
+            WHERE plan = 'Teste Grátis' 
+            AND trial_ends_at < NOW() 
+            AND is_blocked = FALSE
+        `);
+
+        if (expired[0].count > 0) {
+            await pool.query(`
+                UPDATE users SET is_blocked = TRUE 
+                WHERE plan = 'Teste Grátis' 
+                AND trial_ends_at < NOW() 
+                AND is_blocked = FALSE
+            `);
+        }
+
+        await logCronExecution('update_trial_days', 'success', `${expired[0].count} trials expirados`);
+        console.log(`✅ [CRON 00:00] ${expired[0].count} trials expirados verificados`);
+    } catch (err) {
+        await logCronExecution('update_trial_days', 'error', err.message);
+        console.error('❌ [CRON 00:00] Erro:', err.message);
+    }
+}
+
+// Agendar CRONs (usando setInterval simples, pode ser substituído por node-cron depois)
+function scheduleCrons() {
+    const now = new Date();
+
+    // Calcular tempo até próxima execução de cada CRON
+    function msUntil(hour) {
+        const target = new Date();
+        target.setHours(hour, 0, 0, 0);
+        if (target <= now) target.setDate(target.getDate() + 1);
+        return target - now;
+    }
+
+    // CRON 01:00
+    setTimeout(() => {
+        cronCheckSubscriptions();
+        setInterval(cronCheckSubscriptions, 24 * 60 * 60 * 1000);
+    }, msUntil(1));
+
+    // CRON 09:00
+    setTimeout(() => {
+        cronSendExpiredEmail();
+        setInterval(cronSendExpiredEmail, 24 * 60 * 60 * 1000);
+    }, msUntil(9));
+
+    // CRON 14:00
+    setTimeout(() => {
+        cronNotifyExpiringPlans();
+        setInterval(cronNotifyExpiringPlans, 24 * 60 * 60 * 1000);
+    }, msUntil(14));
+
+    // CRON 00:00
+    setTimeout(() => {
+        cronUpdateTrialDays();
+        setInterval(cronUpdateTrialDays, 24 * 60 * 60 * 1000);
+    }, msUntil(0));
+
+    console.log('⏰ [CRON] Tarefas agendadas');
+}
+
+// Inicializar CRONs após conexão com banco
+setTimeout(scheduleCrons, 5000);
+
+// ========== FIM NOVAS FUNCIONALIDADES ==========
 
 const PORT = 5000;
 app.listen(PORT, '0.0.0.0', () => {

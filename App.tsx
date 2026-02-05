@@ -16,6 +16,8 @@ import FlowsListView from './components/FlowsListView';
 import Modal from './components/Modal';
 import SubscriptionView from './components/SubscriptionView';
 import AuthView from './components/AuthView';
+import ChatbotView from './components/ChatbotView';
+import ServerHealthView from './components/ServerHealthView';
 import { AppView } from './types';
 import { ToastProvider } from './components/ToastContext';
 
@@ -99,6 +101,8 @@ const AppContent: React.FC = () => {
     if (path === 'FLOWS' || path === 'FLOWS/BUILDER') return AppView.FLOWS_LIST;
     if (path === 'MY-PLAN') return AppView.MY_PLAN;
     if (path === 'AI-INTEGRATION') return AppView.AI_INTEGRATION;
+    if (path === 'CHATBOT') return AppView.CHATBOT;
+    if (path === 'SERVER-HEALTH') return AppView.SERVER_HEALTH;
     return AppView.ANALYTICS;
   };
 
@@ -186,6 +190,12 @@ const AppContent: React.FC = () => {
                 isDarkMode={isDarkMode}
                 toggleTheme={toggleTheme}
               />
+            } />
+            <Route path="/chatbot" element={<ChatbotView />} />
+            <Route path="/server-health" element={
+              localStorage.getItem('myzap_user') && JSON.parse(localStorage.getItem('myzap_user') || '{}').role === 'admin'
+                ? <ServerHealthView />
+                : <Navigate to="/analytics" replace />
             } />
             <Route path="/" element={<Navigate to="/analytics" replace />} />
             <Route path="*" element={<Navigate to="/analytics" replace />} />

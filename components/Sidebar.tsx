@@ -23,12 +23,14 @@ const Sidebar: React.FC<SidebarProps> = ({ onToggleTheme, isDarkMode, onLogout }
 
   const menuItems = [
     { view: AppView.ADMIN, icon: 'admin_panel_settings', path: '/admin', title: 'Admin', adminOnly: true },
+    { view: AppView.SERVER_HEALTH, icon: 'monitor_heart', path: '/server-health', title: 'Saúde do Servidor', adminOnly: true },
     { view: AppView.ANALYTICS, icon: 'analytics', path: '/analytics', title: 'Analytics' },
     { view: AppView.INSTANCES, icon: 'grid_view', path: '/instances', title: 'Instâncias' },
     { view: AppView.CHAT, icon: 'chat', path: '/chat', title: 'Chat' },
     { view: AppView.CONTACTS, icon: 'groups', path: '/contacts', title: 'Contatos' },
     { view: AppView.CAMPAIGNS, icon: 'campaign', path: '/campaigns', title: 'Campanhas' },
     { view: AppView.FLOWS_LIST, icon: 'account_tree', path: '/flows', title: 'Flowbuilder' },
+    { view: AppView.CHATBOT, icon: 'smart_toy', path: '/chatbot', title: 'Chatbot' },
     { view: AppView.AI_INTEGRATION, icon: 'psychology', path: '/ai-integration', title: 'Integração IA' },
     { view: AppView.MY_PLAN, icon: 'workspace_premium', path: '/my-plan', title: 'Meu Plano' },
     { view: AppView.SETTINGS, icon: 'settings', path: '/settings', title: 'Configurações' },

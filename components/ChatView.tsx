@@ -26,6 +26,26 @@ interface Message {
     isPending?: boolean;
 }
 
+// Som de notificação
+const NOTIFICATION_SOUND = 'https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3';
+
+// Função para formatar data amigável
+const formatFriendlyDate = (timestamp: number): string => {
+    const date = new Date(timestamp * 1000);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (date.toDateString() === today.toDateString()) return 'Hoje';
+    if (date.toDateString() === yesterday.toDateString()) return 'Ontem';
+
+    const daysOfWeek = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+    const daysDiff = Math.floor((today.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+    if (daysDiff < 7) return daysOfWeek[date.getDay()];
+
+    return date.toLocaleDateString('pt-BR');
+};
+
 const ChatView: React.FC = () => {
     const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
     const [contacts, setContacts] = useState<Contact[]>([]);
@@ -38,8 +58,20 @@ const ChatView: React.FC = () => {
     const [showContactDetails, setShowContactDetails] = useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const [showAttachMenu, setShowAttachMenu] = useState(false);
+    const [isRecording, setIsRecording] = useState(false);
+    const [recordingTime, setRecordingTime] = useState(0);
+    const [showAIMenu, setShowAIMenu] = useState(false);
+    const [showTransferModal, setShowTransferModal] = useState(false);
+    const [agents, setAgents] = useState<{ id: number; name: string; email: string }[]>([]);
+    const [messageSearch, setMessageSearch] = useState('');
+    const [showMessageSearch, setShowMessageSearch] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const audioChunksRef = useRef<Blob[]>([]);
+    const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+    const audioRef = useRef<HTMLAudioElement | null>(null);
+    const previousUnreadRef = useRef<number>(0);
 
     // Carregar Contatos
     const fetchContacts = async () => {
@@ -60,6 +92,173 @@ const ChatView: React.FC = () => {
         } catch (error) {
             console.error('Erro ao buscar contatos', error);
         }
+    };
+
+    // Marcar como lido ao selecionar contato
+    const markAsRead = async (contactId: number) => {
+        try {
+            const token = localStorage.getItem('myzap_token');
+            await fetch(`/api/contacts/${contactId}/read`, {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setContacts(prev => prev.map(c => c.id === contactId ? { ...c, unread_count: 0 } : c));
+        } catch (error) {
+            console.error('Erro ao marcar como lido', error);
+        }
+    };
+
+    // Pesquisar mensagens
+    const searchMessages = async () => {
+        if (!selectedContact || !messageSearch.trim()) return;
+        try {
+            const token = localStorage.getItem('myzap_token');
+            const res = await fetch(`/api/messages/${selectedContact.id}/search?q=${encodeURIComponent(messageSearch)}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setMessages(data);
+            }
+        } catch (error) {
+            console.error('Erro na pesquisa', error);
+        }
+    };
+
+    // Gravação de áudio
+    const startRecording = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+            mediaRecorderRef.current = mediaRecorder;
+            audioChunksRef.current = [];
+
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data.size > 0) audioChunksRef.current.push(e.data);
+            };
+
+            mediaRecorder.start();
+            setIsRecording(true);
+            setRecordingTime(0);
+            recordingIntervalRef.current = setInterval(() => {
+                setRecordingTime(prev => prev + 1);
+            }, 1000);
+        } catch (err) {
+            console.error('Erro ao iniciar gravação:', err);
+            alert('Não foi possível acessar o microfone.');
+        }
+    };
+
+    const stopRecording = async (send: boolean) => {
+        if (!mediaRecorderRef.current) return;
+
+        return new Promise<void>((resolve) => {
+            mediaRecorderRef.current!.onstop = async () => {
+                if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
+                setIsRecording(false);
+                setRecordingTime(0);
+
+                if (send && selectedContact && audioChunksRef.current.length > 0) {
+                    const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                    const reader = new FileReader();
+                    reader.readAsDataURL(audioBlob);
+                    reader.onloadend = async () => {
+                        const base64 = reader.result as string;
+                        try {
+                            const token = localStorage.getItem('myzap_token');
+                            await fetch('/api/messages/send-audio', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    Authorization: `Bearer ${token}`
+                                },
+                                body: JSON.stringify({ contactId: selectedContact.id, audioBase64: base64 })
+                            });
+                            await fetchMessages(selectedContact.id);
+                        } catch (err) {
+                            console.error('Erro ao enviar áudio:', err);
+                        }
+                    };
+                }
+
+                // Parar todas as tracks
+                mediaRecorderRef.current?.stream.getTracks().forEach(t => t.stop());
+                resolve();
+            };
+            mediaRecorderRef.current!.stop();
+        });
+    };
+
+    // Assistente IA
+    const improveTextWithAI = async (tone: string) => {
+        if (!newMessage.trim()) return;
+        try {
+            const token = localStorage.getItem('myzap_token');
+            const res = await fetch('/api/ai/improve-text', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ text: newMessage, tone })
+            });
+            const data = await res.json();
+            if (data.error) {
+                if (data.code === 'AI_NOT_CONFIGURED') {
+                    alert('Configure sua API Key do Gemini em Integrações de IA.');
+                } else {
+                    alert(data.message || data.error);
+                }
+            } else {
+                setNewMessage(data.improved);
+            }
+        } catch (err) {
+            console.error('Erro IA:', err);
+        }
+        setShowAIMenu(false);
+    };
+
+    // Encaminhamento
+    const fetchAgents = async () => {
+        try {
+            const token = localStorage.getItem('myzap_token');
+            const res = await fetch('/api/admin/agents', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) setAgents(await res.json());
+        } catch (err) {
+            console.error('Erro ao buscar atendentes:', err);
+        }
+    };
+
+    const transferConversation = async (targetUserId: number) => {
+        if (!selectedContact) return;
+        try {
+            const token = localStorage.getItem('myzap_token');
+            await fetch(`/api/contacts/${selectedContact.id}/transfer`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ target_user_id: targetUserId })
+            });
+            setShowTransferModal(false);
+            setSelectedContact(null);
+            fetchContacts();
+            alert('Conversa transferida com sucesso!');
+        } catch (err) {
+            console.error('Erro ao transferir:', err);
+        }
+    };
+
+    // Notificação sonora
+    const playNotificationSound = () => {
+        if (!audioRef.current) {
+            audioRef.current = new Audio(NOTIFICATION_SOUND);
+            audioRef.current.volume = 0.5;
+        }
+        audioRef.current.play().catch(() => { });
     };
 
     // Carregar Mensagens
@@ -269,12 +468,22 @@ const ChatView: React.FC = () => {
 
     useEffect(() => {
         fetchContacts();
-        const interval = setInterval(fetchContacts, 10000);
+        const interval = setInterval(() => {
+            fetchContacts().then(() => {
+                // Verificar se há novas mensagens não lidas
+                const totalUnread = contacts.reduce((sum, c) => sum + (c.unread_count || 0), 0);
+                if (totalUnread > previousUnreadRef.current && previousUnreadRef.current > 0) {
+                    playNotificationSound();
+                }
+                previousUnreadRef.current = totalUnread;
+            });
+        }, 10000);
         return () => clearInterval(interval);
-    }, []);
+    }, [contacts]);
 
     useEffect(() => {
         if (selectedContact) {
+            markAsRead(selectedContact.id);
             fetchMessages(selectedContact.id);
             const interval = setInterval(() => fetchMessages(selectedContact.id), 3000);
             return () => clearInterval(interval);
@@ -348,14 +557,27 @@ const ChatView: React.FC = () => {
                                     </div>
                                     {/* Status Indicator */}
                                     <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white dark:border-slate-900 shadow-sm ${contact.status === 'open' ? 'bg-emerald-500' : contact.status === 'pending' ? 'bg-amber-500' : 'bg-slate-400'}`}></div>
+                                    {/* Unread Badge */}
+                                    {(contact.unread_count || 0) > 0 && (
+                                        <div className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center px-1 shadow-md">
+                                            {contact.unread_count! > 99 ? '99+' : contact.unread_count}
+                                        </div>
+                                    )}
                                 </div>
                                 {!sidebarCollapsed && (
                                     <div className="flex-1 min-w-0">
                                         <div className="flex justify-between items-center mb-0.5">
                                             <h4 className={`font-bold truncate ${selectedContact?.id === contact.id ? 'text-white' : 'text-slate-800 dark:text-slate-200'}`}>{contact.name || contact.remote_jid}</h4>
-                                            <span className={`text-[10px] ${selectedContact?.id === contact.id ? 'text-white/70' : 'text-slate-400'}`}>
-                                                {contact.lastTime ? new Date(contact.lastTime * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
-                                            </span>
+                                            <div className="flex items-center gap-1">
+                                                {(contact.unread_count || 0) > 0 && !sidebarCollapsed && (
+                                                    <span className="bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[16px] text-center">
+                                                        {contact.unread_count! > 99 ? '99+' : contact.unread_count}
+                                                    </span>
+                                                )}
+                                                <span className={`text-[10px] ${selectedContact?.id === contact.id ? 'text-white/70' : 'text-slate-400'}`}>
+                                                    {contact.lastTime ? formatFriendlyDate(contact.lastTime) : ''}
+                                                </span>
+                                            </div>
                                         </div>
                                         <p className={`text-xs truncate ${selectedContact?.id === contact.id ? 'text-white/80' : 'text-slate-500'}`}>{contact.lastMessage}</p>
                                     </div>
@@ -395,6 +617,14 @@ const ChatView: React.FC = () => {
                                 </div>
                             </div>
                             <div className="flex items-center gap-2">
+                                {/* Search Messages */}
+                                <button onClick={() => setShowMessageSearch(!showMessageSearch)} className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${showMessageSearch ? 'bg-primary text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200'}`} title="Pesquisar mensagens">
+                                    <span className="material-icons-round text-sm">search</span>
+                                </button>
+                                {/* Transfer */}
+                                <button onClick={() => { fetchAgents(); setShowTransferModal(true); }} className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-violet-100 hover:text-violet-500 flex items-center justify-center transition-all" title="Encaminhar conversa">
+                                    <span className="material-icons-round text-sm">forward_to_inbox</span>
+                                </button>
                                 {/* Status Buttons */}
                                 <div className="flex gap-1 mr-2">
                                     <button onClick={() => updateContactStatus(selectedContact.id, 'open')} className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${selectedContact.status === 'open' ? 'bg-emerald-500 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-emerald-100'}`} title="Marcar como Aberto">
@@ -413,6 +643,62 @@ const ChatView: React.FC = () => {
                                 </button>
                             </div>
                         </div>
+
+                        {/* Message Search Bar */}
+                        {showMessageSearch && (
+                            <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 flex items-center gap-2">
+                                <input
+                                    type="text"
+                                    value={messageSearch}
+                                    onChange={(e) => setMessageSearch(e.target.value)}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') searchMessages(); }}
+                                    placeholder="Pesquisar nesta conversa..."
+                                    className="flex-1 bg-white dark:bg-slate-800 rounded-xl px-4 py-2 text-sm border-none focus:ring-2 focus:ring-primary outline-none"
+                                />
+                                <button onClick={searchMessages} className="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center">
+                                    <span className="material-icons-round text-sm">search</span>
+                                </button>
+                                <button onClick={() => { setShowMessageSearch(false); setMessageSearch(''); if (selectedContact) fetchMessages(selectedContact.id); }} className="w-8 h-8 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-600 flex items-center justify-center">
+                                    <span className="material-icons-round text-sm">close</span>
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Transfer Modal */}
+                        {showTransferModal && (
+                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-50">
+                                <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 w-96 shadow-2xl">
+                                    <h3 className="text-lg font-bold mb-4 dark:text-white">Encaminhar conversa</h3>
+                                    {agents.length === 0 ? (
+                                        <p className="text-slate-500 text-sm">Nenhum outro atendente disponível.</p>
+                                    ) : (
+                                        <div className="space-y-2 max-h-64 overflow-y-auto">
+                                            {agents.map(agent => (
+                                                <button
+                                                    key={agent.id}
+                                                    onClick={() => transferConversation(agent.id)}
+                                                    className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-all text-left"
+                                                >
+                                                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                                                        {agent.name?.charAt(0) || '?'}
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-medium dark:text-white">{agent.name}</p>
+                                                        <p className="text-xs text-slate-500">{agent.email}</p>
+                                                    </div>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                    <button
+                                        onClick={() => setShowTransferModal(false)}
+                                        className="mt-4 w-full py-2 bg-slate-100 dark:bg-slate-700 rounded-xl text-sm font-medium dark:text-white"
+                                    >
+                                        Cancelar
+                                    </button>
+                                </div>
+                            </div>
+                        )}
 
                         <div className="flex-1 flex overflow-hidden">
                             {/* Messages */}
@@ -513,30 +799,84 @@ const ChatView: React.FC = () => {
                                 onChange={handleFileSelect}
                             />
 
+                            {/* AI Menu */}
+                            {showAIMenu && (
+                                <div className="absolute bottom-full right-4 mb-2 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 p-3 z-50 min-w-[200px]">
+                                    <p className="text-xs font-bold text-slate-400 mb-2 uppercase">Melhorar com IA</p>
+                                    <div className="flex flex-col gap-1">
+                                        {[
+                                            { key: 'profissional', label: 'Profissional', icon: 'business' },
+                                            { key: 'educado', label: 'Educado', icon: 'emoji_emotions' },
+                                            { key: 'serio', label: 'Sério', icon: 'sentiment_neutral' },
+                                            { key: 'engracado', label: 'Engraçado', icon: 'mood' },
+                                            { key: 'bravo', label: 'Firme', icon: 'priority_high' },
+                                            { key: 'ortografia', label: 'Corrigir ortografia', icon: 'spellcheck' }
+                                        ].map(opt => (
+                                            <button
+                                                key={opt.key}
+                                                onClick={() => improveTextWithAI(opt.key)}
+                                                className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-sm text-left transition-all"
+                                            >
+                                                <span className="material-icons-round text-primary text-sm">{opt.icon}</span>
+                                                <span className="dark:text-white">{opt.label}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="flex items-center gap-3">
-                                <button onClick={() => { setShowAttachMenu(!showAttachMenu); setShowEmojiPicker(false); }} className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-primary transition-all flex items-center justify-center">
+                                <button onClick={() => { setShowAttachMenu(!showAttachMenu); setShowEmojiPicker(false); setShowAIMenu(false); }} className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-primary transition-all flex items-center justify-center">
                                     <span className="material-icons-round">add</span>
                                 </button>
-                                <button onClick={() => { setShowEmojiPicker(!showEmojiPicker); setShowAttachMenu(false); }} className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-primary transition-all flex items-center justify-center">
+                                <button onClick={() => { setShowEmojiPicker(!showEmojiPicker); setShowAttachMenu(false); setShowAIMenu(false); }} className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-primary transition-all flex items-center justify-center">
                                     <span className="material-icons-round">sentiment_satisfied</span>
                                 </button>
-                                <div className="flex-1 relative">
-                                    <input
-                                        type="text"
-                                        value={newMessage}
-                                        onChange={(e) => setNewMessage(e.target.value)}
-                                        onKeyDown={(e) => { if (e.key === 'Enter') handleSendMessage(); }}
-                                        onFocus={() => { setShowEmojiPicker(false); setShowAttachMenu(false); }}
-                                        placeholder="Escreva sua mensagem..."
-                                        className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-2xl py-3 pl-4 pr-12 focus:ring-2 focus:ring-primary outline-none transition-all text-sm"
-                                    />
-                                    <button
-                                        onClick={handleSendMessage}
-                                        className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-xl bg-primary text-white flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all"
-                                    >
-                                        <span className="material-icons-round text-sm">send</span>
-                                    </button>
-                                </div>
+                                {/* AI Button */}
+                                <button onClick={() => { setShowAIMenu(!showAIMenu); setShowEmojiPicker(false); setShowAttachMenu(false); }} className={`w-10 h-10 rounded-full ${showAIMenu ? 'bg-violet-500 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-violet-500'} transition-all flex items-center justify-center`} title="Assistente IA">
+                                    <span className="material-icons-round">auto_awesome</span>
+                                </button>
+
+                                {/* Input or Recording */}
+                                {isRecording ? (
+                                    <div className="flex-1 flex items-center gap-3 bg-red-50 dark:bg-red-900/30 rounded-2xl py-3 px-4">
+                                        <span className="w-3 h-3 rounded-full bg-red-500 animate-pulse"></span>
+                                        <span className="text-red-600 dark:text-red-400 font-medium">
+                                            {Math.floor(recordingTime / 60)}:{String(recordingTime % 60).padStart(2, '0')}
+                                        </span>
+                                        <div className="flex-1"></div>
+                                        <button onClick={() => stopRecording(false)} className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 flex items-center justify-center hover:bg-slate-300">
+                                            <span className="material-icons-round text-sm">delete</span>
+                                        </button>
+                                        <button onClick={() => stopRecording(true)} className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center hover:scale-110 transition-all">
+                                            <span className="material-icons-round text-sm">send</span>
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="flex-1 relative">
+                                            <input
+                                                type="text"
+                                                value={newMessage}
+                                                onChange={(e) => setNewMessage(e.target.value)}
+                                                onKeyDown={(e) => { if (e.key === 'Enter') handleSendMessage(); }}
+                                                onFocus={() => { setShowEmojiPicker(false); setShowAttachMenu(false); setShowAIMenu(false); }}
+                                                placeholder="Escreva sua mensagem..."
+                                                className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-2xl py-3 pl-4 pr-12 focus:ring-2 focus:ring-primary outline-none transition-all text-sm"
+                                            />
+                                            <button
+                                                onClick={handleSendMessage}
+                                                className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-xl bg-primary text-white flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all"
+                                            >
+                                                <span className="material-icons-round text-sm">send</span>
+                                            </button>
+                                        </div>
+                                        {/* Mic Button */}
+                                        <button onClick={startRecording} className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-red-500 hover:bg-red-50 transition-all flex items-center justify-center" title="Gravar áudio">
+                                            <span className="material-icons-round">mic</span>
+                                        </button>
+                                    </>
+                                )}
                             </div>
                         </div>
                     </>
