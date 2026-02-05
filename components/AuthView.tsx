@@ -6,21 +6,21 @@ interface AuthViewProps {
     onLogin: (data: any) => void;
     onSignup: (data: any) => void;
     onRecover: (email: string) => void;
-    initialView?: 'login' | 'signup' | 'recover';
     onToggleTheme: () => void;
     isDarkMode: boolean;
+    initialView?: 'login' | 'signup' | 'recover' | 'activate' | 'reset-password';
 }
 
 const AuthView: React.FC<AuthViewProps> = ({
     onLogin,
     onSignup,
     onRecover,
-    initialView: propsInitialView = 'login',
     onToggleTheme,
-    isDarkMode
+    isDarkMode,
+    initialView = 'login'
 }) => {
     const navigate = useNavigate();
-    const [view, setView] = useState<'login' | 'signup' | 'recover' | 'activate'>(propsInitialView);
+    const [view, setView] = useState<'login' | 'signup' | 'recover' | 'activate' | 'reset-password'>(initialView);
     const { showToast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
     const [errorStatus, setErrorStatus] = useState<string | null>(null);
@@ -118,6 +118,25 @@ const AuthView: React.FC<AuthViewProps> = ({
                 } else {
                     setView('login');
                 }
+            } else if (view === 'recover') {
+                showToast('Link de recuperação enviado! Verifique seu e-mail.', 'success');
+                setView('login');
+            } else if (view === 'reset-password') {
+                const searchParams = new URLSearchParams(window.location.search);
+                const token = searchParams.get('token');
+
+                if (!token) throw new Error('Token de redefinição não encontrado.');
+
+                const response = await fetch(`${API_URL}/reset-password`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token, newPassword: formData.password })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Erro ao redefinir senha.');
+
+                showToast('Senha redefinida com sucesso!', 'success');
+                setView('login');
             }
         } catch (err: any) {
             setErrorStatus(err.message);
@@ -214,7 +233,7 @@ const AuthView: React.FC<AuthViewProps> = ({
                     <input type="checkbox" className="w-3.5 h-3.5 md:w-4 md:h-4 rounded border-slate-300 text-[#10B981] focus:ring-[#10B981]" />
                     <span className="text-[9px] md:text-[10px] font-bold text-slate-400 group-hover:text-slate-600">Lembrar-me</span>
                 </label>
-                <button type="button" onClick={() => navigate('/recuperar')} className="text-slate-500 text-[10px] md:text-xs font-bold hover:text-[#10B981] underline transition-colors">Esqueceu a senha?</button>
+                <button type="button" onClick={() => setView('recover')} className="text-slate-500 text-[10px] md:text-xs font-bold hover:text-[#10B981] underline transition-colors">Esqueceu a senha?</button>
             </div>
 
             <button
@@ -288,8 +307,10 @@ const AuthView: React.FC<AuthViewProps> = ({
                 <input
                     type="email"
                     required
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     placeholder="Seu melhor email"
-                    className="w-full bg-[#f4f8f7] border-none focus:ring-2 focus:ring-[#10B981]/20 rounded-xl py-3 md:py-4 px-6 text-sm text-slate-900 outline-none transition-all"
+                    className="w-full bg-[#f4f8f7] border-none focus:ring-2 focus:ring-[#10B981]/20 rounded-xl py-3 md:py-4 px-6 text-sm text-slate-900 outline-none transition-all placeholder:text-slate-400 placeholder:text-xs"
                 />
             </div>
 
@@ -301,37 +322,59 @@ const AuthView: React.FC<AuthViewProps> = ({
                 Enviar link
             </button>
 
-            <button type="button" onClick={() => navigate('/login')} className="text-[#10B981] font-bold text-[10px] md:text-xs mt-6 uppercase tracking-widest hover:underline transition-all flex items-center gap-2">
+            <button type="button" onClick={() => setView('login')} className="text-[#10B981] font-bold text-[10px] md:text-xs mt-6 uppercase tracking-widest hover:underline transition-all flex items-center gap-2">
                 <span className="material-icons-round text-sm">west</span> Voltar
+            </button>
+        </div>
+    );
+
+    const renderResetPasswordForm = () => (
+        <div className="flex flex-col items-center justify-center min-h-full p-6 md:p-12 animate-in fade-in duration-700">
+            <h2 className="text-2xl md:text-3xl font-black text-[#EF4444] mb-4 md:mb-6">Nova Senha</h2>
+            <div className="w-10 h-1 bg-[#EF4444] mb-6 md:mb-8 rounded-full"></div>
+            <p className="text-slate-400 text-center text-[10px] md:text-xs font-semibold mb-6 md:mb-8 uppercase tracking-widest px-4">Digite sua nova senha de acesso</p>
+
+            <div className="w-full max-w-sm space-y-4">
+                <div className="relative group">
+                    <span className="material-icons-round absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#EF4444] transition-colors">lock</span>
+                    <input
+                        type="password"
+                        required
+                        value={formData.password}
+                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                        placeholder="NOVA SENHA"
+                        className="w-full bg-[#f4f8f7] border-none focus:ring-2 focus:ring-[#EF4444]/20 rounded-xl py-4 pl-12 pr-6 font-bold text-slate-900 outline-none transition-all placeholder:text-slate-400 placeholder:text-xs"
+                    />
+                </div>
+            </div>
+
+            <button
+                type="submit"
+                disabled={isLoading}
+                className="bg-[#EF4444] hover:bg-red-600 text-white font-black px-10 md:px-12 py-3 md:py-4 rounded-full mt-8 md:mt-10 shadow-lg shadow-red-500/20 transition-all active:scale-95 uppercase tracking-widest text-[10px] md:text-xs min-w-[160px]"
+            >
+                Redefinir Senha
             </button>
         </div>
     );
 
     return (
         <div className="min-h-screen w-full flex items-center justify-center p-4 bg-[#f0f4f3] relative overflow-hidden">
-            {/* Background shapes */}
-            <div className="absolute top-10 left-10 w-64 h-64 bg-emerald-100 rounded-full blur-[80px] opacity-60"></div>
-            <div className="absolute bottom-10 right-10 w-80 h-80 bg-emerald-200 rounded-full blur-[100px] opacity-40"></div>
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] pointer-events-none hidden md:block">
-                <div className="absolute top-10 right-20 w-8 h-8 bg-slate-200 rotate-45 opacity-50"></div>
-                <div className="absolute bottom-20 left-10 w-12 h-12 bg-slate-300 rounded-full opacity-30"></div>
-                <div className="absolute top-40 left-1/4 w-4 h-4 bg-[#10B981] opacity-20"></div>
-            </div>
-
+            {/* ... */}
             <div className="w-full max-w-5xl md:h-auto bg-white rounded-[2rem] md:rounded-[2.5rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] overflow-hidden flex flex-col md:flex-row relative z-10 border border-white">
-
-                {/* Main Content Area (Form) */}
-                <div className={`flex-1 overflow-y-auto bg-white order-2 ${!isLogin && view !== 'recover' && view !== 'activate' ? 'md:order-2' : 'md:order-1'}`}>
+                <div className={`flex-1 overflow-y-auto bg-white order-2 ${!isLogin && view !== 'recover' && view !== 'activate' && view !== 'reset-password' ? 'md:order-2' : 'md:order-1'}`}>
                     <form onSubmit={handleSubmit} className="h-full">
                         {view === 'login' && renderLoginForm()}
                         {view === 'signup' && renderSignupForm()}
                         {view === 'recover' && renderRecoverForm()}
                         {view === 'activate' && renderActivateForm()}
+                        {view === 'reset-password' && renderResetPasswordForm()}
                     </form>
                 </div>
 
                 {/* Transition Panel (The Green Side) */}
-                <div className={`w-full md:w-[40%] bg-[#10B981] flex flex-col items-center justify-center p-8 md:p-12 text-white text-center relative overflow-hidden order-1 ${!isLogin && view !== 'recover' && view !== 'activate' ? 'md:order-1' : 'md:order-2'}`}>
+                <div className={`w-full md:w-[40%] bg-[#10B981] flex flex-col items-center justify-center p-8 md:p-12 text-white text-center relative overflow-hidden order-1 ${!isLogin && view !== 'recover' && view !== 'activate' && view !== 'reset-password' ? 'md:order-1' : 'md:order-2'}`}>
+                    {/* ... existing content ... */}
                     <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 -translate-y-1/2 translate-x-1/2 rounded-full"></div>
                     <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 translate-y-1/4 -translate-x-1/4 rotate-45"></div>
 

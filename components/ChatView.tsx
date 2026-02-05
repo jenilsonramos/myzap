@@ -46,6 +46,8 @@ const formatFriendlyDate = (timestamp: number): string => {
     return date.toLocaleDateString('pt-BR');
 };
 
+const API_URL = '/api';
+
 const ChatView: React.FC = () => {
     const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
     const [contacts, setContacts] = useState<Contact[]>([]);
@@ -79,7 +81,7 @@ const ChatView: React.FC = () => {
     const fetchContacts = async () => {
         try {
             const token = localStorage.getItem('myzap_token');
-            const res = await fetch('/api/contacts', {
+            const res = await fetch(`${API_URL}/contacts`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (res.ok) {
@@ -99,7 +101,7 @@ const ChatView: React.FC = () => {
     const fetchBlockedContacts = async () => {
         try {
             const token = localStorage.getItem('myzap_token');
-            const res = await fetch('/api/contacts/blocked', {
+            const res = await fetch(`${API_URL}/contacts/blocked`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (res.ok) {
@@ -115,7 +117,7 @@ const ChatView: React.FC = () => {
     const markAsRead = async (contactId: number) => {
         try {
             const token = localStorage.getItem('myzap_token');
-            await fetch(`/api/contacts/${contactId}/read`, {
+            await fetch(`${API_URL}/contacts/${contactId}/read`, {
                 method: 'POST',
                 headers: { Authorization: `Bearer ${token}` }
             });
@@ -130,7 +132,7 @@ const ChatView: React.FC = () => {
         if (!selectedContact || !messageSearch.trim()) return;
         try {
             const token = localStorage.getItem('myzap_token');
-            const res = await fetch(`/api/messages/${selectedContact.id}/search?q=${encodeURIComponent(messageSearch)}`, {
+            const res = await fetch(`${API_URL}/messages/${selectedContact.id}/search?q=${encodeURIComponent(messageSearch)}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (res.ok) {
@@ -176,14 +178,16 @@ const ChatView: React.FC = () => {
                 setRecordingTime(0);
 
                 if (send && selectedContact && audioChunksRef.current.length > 0) {
+                    console.log(`[AUDIO] Enviando áudio. Chunks: ${audioChunksRef.current.length}`);
                     const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/ogg; codecs=opus' });
+                    console.log(`[AUDIO] Blob criado: ${audioBlob.size} bytes. Tipo: ${audioBlob.type}`);
                     const reader = new FileReader();
                     reader.readAsDataURL(audioBlob);
                     reader.onloadend = async () => {
                         const base64 = reader.result as string;
                         try {
                             const token = localStorage.getItem('myzap_token');
-                            const resp = await fetch('/api/messages/send-audio', {
+                            const resp = await fetch(`${API_URL}/messages/send-audio`, {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',
@@ -378,7 +382,7 @@ const ChatView: React.FC = () => {
             setShowEmojiPicker(false);
             scrollToBottom();
 
-            await fetch('/api/messages/send', {
+            await fetch(`${API_URL}/messages/send`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -425,7 +429,7 @@ const ChatView: React.FC = () => {
             setShowAttachMenu(false);
             scrollToBottom();
 
-            await fetch('/api/messages/send-media', {
+            await fetch(`${API_URL}/messages/send-media`, {
                 method: 'POST',
                 headers: { Authorization: `Bearer ${token}` },
                 body: formData
@@ -501,37 +505,54 @@ const ChatView: React.FC = () => {
         let mediaUrl = msg.media_url;
 
         // Parser Aprimorado para Evolution API v2
-        if (content && (content.includes('{') || content.includes('message'))) {
+        if (content && (content.includes('{') || content.includes('Message'))) {
             try {
                 const jsonMatch = content.match(/\{.*\}/s);
                 const data = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
                 const m = data?.message || data;
 
+                console.log('[PARSER] Tentando parsear:', m);
+
                 if (m) {
-                    if (m.imageMessage) {
-                        type = 'image';
-                        mediaUrl = m.imageMessage.url || m.imageMessage.directPath;
-                        content = m.imageMessage.caption || '';
-                    } else if (m.audioMessage) {
-                        type = 'audio';
-                        mediaUrl = m.audioMessage.url || m.audioMessage.directPath;
-                        content = '';
-                    } else if (m.videoMessage) {
-                        type = 'video';
-                        mediaUrl = m.videoMessage.url || m.videoMessage.directPath;
-                        content = m.videoMessage.caption || '';
-                    } else if (m.documentMessage) {
-                        type = 'document';
-                        mediaUrl = m.documentMessage.url || m.documentMessage.directPath;
-                        content = m.documentMessage.title || m.documentMessage.fileName || '';
+                    // Tenta encontrar mídias em qualquer profundidade
+                    const findMedia = (obj: any) => {
+                        if (!obj) return null;
+                        if (obj.imageMessage) return { type: 'image', msg: obj.imageMessage };
+                        if (obj.audioMessage) return { type: 'audio', msg: obj.audioMessage };
+                        if (obj.videoMessage) return { type: 'video', msg: obj.videoMessage };
+                        if (obj.documentMessage) return { type: 'document', msg: obj.documentMessage };
+                        return null;
+                    };
+
+                    const media = findMedia(m);
+                    if (media) {
+                        type = media.type;
+                        mediaUrl = media.msg.url || media.msg.directPath;
+                        content = media.msg.caption || media.msg.title || media.msg.fileName || '';
+                        console.log(`[PARSER] Mídia encontrada: ${type}, URL: ${mediaUrl}`);
                     }
                 }
-            } catch (e) { }
+            } catch (e) {
+                console.error('[PARSER] Erro:', e);
+            }
         }
 
         // Se mediaUrl for apenas um path relativo (Evolution API às vezes manda assim)
         if (mediaUrl && !mediaUrl.startsWith('http')) {
-            // Tenta reconstruir a URL se for necessário, mas geralmente os endpoints acima já dão a URL completa
+            if (mediaUrl.startsWith('data:')) {
+                // base64, ok
+            } else {
+                try {
+                    const settings = JSON.parse(localStorage.getItem('myzap_settings') || '{}');
+                    const baseUrl = settings.app_url || window.location.origin;
+                    if (mediaUrl.startsWith('/')) {
+                        mediaUrl = `${baseUrl.replace(/\/$/, '')}${mediaUrl}`;
+                    } else {
+                        mediaUrl = `${baseUrl.replace(/\/$/, '')}/api/uploads/${mediaUrl}`;
+                    }
+                    console.log(`[PARSER] URL Reconstruída: ${mediaUrl}`);
+                } catch (e) { }
+            }
         }
 
         if (type === 'image' && mediaUrl) {
@@ -556,7 +577,12 @@ const ChatView: React.FC = () => {
             );
         }
         if (type === 'audio' && mediaUrl) {
-            return <audio src={mediaUrl} controls className="w-full h-8 mt-1" />;
+            return (
+                <div className="flex flex-col min-w-[200px]">
+                    <audio src={mediaUrl} controls className="w-full h-8 mt-1" onLoadedData={() => console.log('[AUDIO] Carregado com sucesso')} onError={(e) => console.error('[AUDIO] Erro ao carregar:', mediaUrl, e)} />
+                    <span className="text-[10px] text-slate-400 mt-1 px-1">Mensagem de voz</span>
+                </div>
+            );
         }
         if (type === 'document' && mediaUrl) {
             return (

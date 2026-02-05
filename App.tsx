@@ -179,6 +179,16 @@ const AppContent: React.FC = () => {
             isDarkMode={isDarkMode}
           />
         } />
+        <Route path="/reset-password" element={
+          <AuthView
+            initialView="reset-password"
+            onLogin={handleLogin}
+            onSignup={handleSignup}
+            onRecover={(email) => console.log('Recover:', email)}
+            onToggleTheme={toggleTheme}
+            isDarkMode={isDarkMode}
+          />
+        } />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     );

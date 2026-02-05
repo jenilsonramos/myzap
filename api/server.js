@@ -569,36 +569,80 @@ app.post('/api/auth/register', async (req, res) => {
                 let emailHtml, subject;
 
                 if (requireActivation) {
-                    subject = '🔑 Ative sua conta MyZap';
+                    subject = '🔑 Ative sua Experiência MyZap';
                     emailHtml = `
-                        <div style="font-family: 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto;">
-                            <div style="background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%); padding: 40px 20px; text-align: center; border-radius: 12px 12px 0 0;">
-                                <h1 style="color: white; margin: 0;">🔑 Ative sua conta</h1>
+                        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f9f9f9; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.05);">
+                            <div style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); padding: 40px 20px; text-align: center;">
+                                <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.5px;">Ative sua Conta</h1>
                             </div>
-                            <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 12px 12px;">
-                                <h2 style="color: #333 text-transform: capitalize;">Olá, ${name}!</h2>
-                                <p style="color: #666;">Use o código abaixo para ativar sua conta:</p>
-                                <div style="background: white; padding: 24px; border-radius: 12px; text-align: center; margin: 20px 0; border: 2px dashed #6366f1;">
-                                    <span style="font-size: 32px; font-weight: 900; letter-spacing: 8px; color: #6366f1;">${activationCode}</span>
+                            <div style="padding: 40px; background-color: white;">
+                                <h2 style="color: #1f2937; margin-top: 0; font-size: 20px;">Olá, <span style="text-transform: capitalize;">${name}</span>! 👋</h2>
+                                <p style="color: #4b5563; line-height: 1.6; font-size: 16px;">Estamos empolgados em ter você conosco! Para começar a automatizar seu WhatsApp com o MyZap, por favor, use o código de ativação abaixo:</p>
+                                
+                                <div style="background-color: #f0fdf4; border: 2px dashed #10B981; border-radius: 12px; padding: 24px; text-align: center; margin: 30px 0;">
+                                    <span style="font-size: 36px; font-weight: 900; letter-spacing: 10px; color: #065f46; font-family: monospace;">${activationCode}</span>
                                 </div>
-                                <p style="color: #999; font-size: 12px;">Se você não solicitou este registro, ignore este e-mail.</p>
+
+                                <div style="background-color: #fffbeb; border-left: 4px solid #f59e0b; padding: 16px; margin-bottom: 30px; border-radius: 4px;">
+                                    <p style="color: #92400e; margin: 0; font-size: 14px;"><strong>Importante:</strong> Este código é válido por 24 horas. Se você não solicitou este registro, pode ignorar este e-mail com segurança.</p>
+                                </div>
+
+                                <p style="color: #4b5563; line-height: 1.6; font-size: 16px;">Após a ativação, você terá acesso imediato a:</p>
+                                <ul style="color: #4b5563; line-height: 1.8; font-size: 14px; padding-left: 20px;">
+                                    <li>Gestão multinstâncias de WhatsApp</li>
+                                    <li>Dashboard de métricas em tempo real</li>
+                                    <li>Construtor de fluxos (Flowbuilder)</li>
+                                    <li>Campanhas de transmissão em massa</li>
+                                </ul>
+                            </div>
+                            <div style="background-color: #f3f4f6; padding: 20px; text-align: center; color: #9ca3af; font-size: 12px;">
+                                <p style="margin: 0;">&copy; ${new Date().getFullYear()} MyZap - Sua plataforma de automação inteligente.</p>
                             </div>
                         </div>
                     `;
                 } else {
-                    // Para registro direto (sem ativação), envia boas-vindas agora
-                    subject = '🚀 Bem-vindo ao MyZap!';
+                    subject = '🚀 Bem-vindo ao Futuro da Automação - MyZap';
                     emailHtml = `
-                        <div style="font-family: 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto;">
-                            <div style="background: linear-gradient(135deg, #4f46e5 0%, #10b981 100%); padding: 40px 20px; text-align: center; border-radius: 12px 12px 0 0;">
-                                <h1 style="color: white; margin: 0;">🚀 Bem-vindo!</h1>
+                        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f9f9f9; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.05);">
+                            <div style="background: linear-gradient(135deg, #4F46E5 0%, #10B981 100%); padding: 40px 20px; text-align: center;">
+                                <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 800;">Registro Concluído!</h1>
                             </div>
-                            <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 12px 12px;">
-                                <h2 style="color: #333;">Olá, ${name}!</h2>
-                                <p style="color: #666;">Sua conta no MyZap foi criada com sucesso. Você já pode acessar o painel e começar a usar nossa plataforma.</p>
-                                <div style="text-align: center; margin-top: 30px;">
-                                    <a href="https://ublochat.com.br" style="background: #4f46e5; color: white; padding: 14px 32px; text-decoration: none; border-radius: 25px; font-weight: bold;">Acessar Painel</a>
+                            <div style="padding: 40px; background-color: white;">
+                                <h2 style="color: #1f2937; margin-top: 0; font-size: 22px;">Seja muito bem vindo, ${name}! 🚀</h2>
+                                <p style="color: #4b5563; line-height: 1.6; font-size: 16px;">Sua jornada para uma comunicação imparável começa agora. Sua conta MyZap está pronta para uso imediato.</p>
+                                
+                                <div style="text-align: center; margin: 40px 0;">
+                                    <a href="https://ublochat.com.br" style="background-color: #10B981; color: white; padding: 16px 32px; text-decoration: none; border-radius: 50px; font-weight: 800; font-size: 16px; display: inline-block; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);">ACESSAR MEU PAINEL</a>
                                 </div>
+
+                                <h3 style="color: #111827; font-size: 18px;">Próximos passos sugeridos:</h3>
+                                <table style="width: 100%; border-collapse: collapse;">
+                                    <tr>
+                                        <td style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;">
+                                            <strong style="color: #10B981;">1. Conecte seu WhatsApp</strong><br>
+                                            <small style="color: #6b7280;">Vá em "Instâncias" e escaneie o QR Code.</small>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;">
+                                            <strong style="color: #10B981;">2. Crie sua primeira Campanha</strong><br>
+                                            <small style="color: #6b7280;">Alcance centenas de clientes em minutos.</small>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding: 10px 0;">
+                                            <strong style="color: #10B981;">3. Explore o Flowbuilder</strong><br>
+                                            <small style="color: #6b7280;">Automatize conversas complexas visualmente.</small>
+                                        </td>
+                                    </tr>
+                                </table>
+
+                                <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #f3f4f6; text-align: center;">
+                                    <p style="color: #6b7280; font-size: 14px;">Precisa de ajuda? <a href="https://wa.me/5511999999999" style="color: #10B981; font-weight: bold;">Fale com nosso suporte</a></p>
+                                </div>
+                            </div>
+                            <div style="background-color: #f3f4f6; padding: 20px; text-align: center; color: #9ca3af; font-size: 12px;">
+                                <p style="margin: 0;">&copy; ${new Date().getFullYear()} MyZap - Automação que Conecta.</p>
                             </div>
                         </div>
                     `;
@@ -705,16 +749,24 @@ app.post('/api/auth/activate', async (req, res) => {
             const [rows] = await pool.execute('SELECT name FROM users WHERE id = ?', [user.id]);
             const name = rows[0]?.name || 'Amigo';
             const welcomeEmailHtml = `
-                <div style="font-family: 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto;">
-                    <div style="background: linear-gradient(135deg, #4f46e5 0%, #10b981 100%); padding: 40px 20px; text-align: center; border-radius: 12px 12px 0 0;">
-                        <h1 style="color: white; margin: 0;">🚀 Conta Ativada!</h1>
+                <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f9f9f9; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.05);">
+                    <div style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); padding: 40px 20px; text-align: center;">
+                        <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 800;">Sua Conta está Ativa!</h1>
                     </div>
-                    <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 12px 12px;">
-                        <h2 style="color: #333;">Seja bem-vindo, ${name}!</h2>
-                        <p style="color: #666;">Sua conta no MyZap foi ativada com sucesso. Agora você tem acesso total ao nosso painel.</p>
-                        <div style="text-align: center; margin-top: 30px;">
-                            <a href="https://ublochat.com.br" style="background: #4f46e5; color: white; padding: 14px 32px; text-decoration: none; border-radius: 25px; font-weight: bold;">Explorar Painel</a>
+                    <div style="padding: 40px; background-color: white;">
+                        <h2 style="color: #1f2937; margin-top: 0; font-size: 22px;">Pronto para decolar, ${name}! 🚀</h2>
+                        <p style="color: #4b5563; line-height: 1.6; font-size: 16px;">Sua conta no MyZap foi ativada com sucesso. Você agora tem acesso total a todas as ferramentas de automação e escala para o seu negócio.</p>
+                        
+                        <div style="background-color: #f0fdf4; border-radius: 12px; padding: 20px; margin: 30px 0; border-left: 5px solid #10B981;">
+                            <p style="color: #065f46; margin: 0; font-size: 15px;"><strong>Dica:</strong> Comece conectando seu primeiro número de WhatsApp em "Instâncias".</p>
                         </div>
+
+                        <div style="text-align: center; margin-top: 40px;">
+                            <a href="https://ublochat.com.br" style="background-color: #10B981; color: white; padding: 16px 32px; text-decoration: none; border-radius: 50px; font-weight: 800; font-size: 16px; display: inline-block;">ENTRAR NO PAINEL AGORA</a>
+                        </div>
+                    </div>
+                    <div style="background-color: #f3f4f6; padding: 20px; text-align: center; color: #9ca3af; font-size: 12px;">
+                        <p style="margin: 0;">&copy; ${new Date().getFullYear()} MyZap - Sua conexão inteligente.</p>
                     </div>
                 </div>
             `;
@@ -741,6 +793,82 @@ app.post('/api/auth/activate', async (req, res) => {
     } catch (err) {
         console.error('❌ [ACTIVATION] Erro:', err);
         res.status(500).json({ error: 'Erro ao ativar conta' });
+    }
+});
+
+// Endpoint de recuperação de senha
+app.post('/api/auth/recover', async (req, res) => {
+    const { email } = req.body;
+    try {
+        const [users] = await pool.execute('SELECT id, name FROM users WHERE email = ?', [email]);
+        if (users.length === 0) {
+            // Por segurança, retornamos OK mesmo que não encontre, ou erro simples
+            return res.json({ message: 'Se o email existir, um link de recuperação será enviado.' });
+        }
+
+        const user = users[0];
+        // Gerar token de reset (JWT) válido por 1 hora
+        const resetToken = jwt.sign(
+            { id: user.id, email: user.email, purpose: 'reset-password' },
+            process.env.JWT_SECRET || 'myzap_secret_key',
+            { expiresIn: '1h' }
+        );
+
+        const [appUrlRow] = await pool.query("SELECT setting_value FROM system_settings WHERE setting_key = 'app_url'");
+        const baseUrl = appUrlRow[0]?.setting_value || 'https://ublochat.com.br';
+        const resetLink = `${baseUrl.replace(/\/$/, '')}/reset-password?token=${resetToken}`;
+
+        const emailHtml = `
+            <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f9f9f9; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.05);">
+                <div style="background: linear-gradient(135deg, #EF4444 0%, #B91C1C 100%); padding: 40px 20px; text-align: center;">
+                    <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 800;">Recuperação de Senha</h1>
+                </div>
+                <div style="padding: 40px; background-color: white;">
+                    <h2 style="color: #1f2937; margin-top: 0; font-size: 20px;">Olá, ${user.name}! 🔐</h2>
+                    <p style="color: #4b5563; line-height: 1.6; font-size: 16px;">Recebemos uma solicitação para redefinir a senha da sua conta MyZap. Se você não solicitou isso, pode ignorar este e-mail.</p>
+                    
+                    <div style="text-align: center; margin: 40px 0;">
+                        <a href="${resetLink}" style="background-color: #EF4444; color: white; padding: 16px 32px; text-decoration: none; border-radius: 50px; font-weight: 800; font-size: 16px; display: inline-block; box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);">REDEFINIR MINHA SENHA</a>
+                    </div>
+
+                    <div style="background-color: #fffbeb; border-left: 4px solid #f59e0b; padding: 16px; margin-bottom: 30px; border-radius: 4px;">
+                        <p style="color: #92400e; margin: 0; font-size: 14px;"><strong>Nota:</strong> Este link expirará em 60 minutos por motivos de segurança.</p>
+                    </div>
+
+                    <p style="color: #9ca3af; font-size: 12px; margin-top: 20px;">Se o botão não funcionar, copie e cole o link abaixo no seu navegador:<br>
+                    <span style="word-break: break-all; color: #6366f1;">${resetLink}</span></p>
+                </div>
+                <div style="background-color: #f3f4f6; padding: 20px; text-align: center; color: #9ca3af; font-size: 12px;">
+                    <p style="margin: 0;">&copy; ${new Date().getFullYear()} MyZap - Segurança em primeiro lugar.</p>
+                </div>
+            </div>
+        `;
+
+        await sendZeptoEmail(email, '🔐 Redefinição de Senha - MyZap', emailHtml);
+        res.json({ message: 'Link de recuperação enviado com sucesso!' });
+
+    } catch (err) {
+        console.error('❌ [RECOVER] Erro:', err);
+        res.status(500).json({ error: 'Erro ao processar recuperação de senha' });
+    }
+});
+
+// Endpoint para resetar a senha com o token
+app.post('/api/auth/reset-password', async (req, res) => {
+    const { token, newPassword } = req.body;
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'myzap_secret_key');
+        if (decoded.purpose !== 'reset-password') {
+            return res.status(400).json({ error: 'Token inválido para esta operação' });
+        }
+
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        await pool.execute('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, decoded.id]);
+
+        res.json({ message: 'Senha redefinida com sucesso!' });
+    } catch (err) {
+        console.error('❌ [RESET-PASSWORD] Erro:', err);
+        res.status(400).json({ error: 'Link de redefinição expirado ou inválido.' });
     }
 });
 
@@ -1351,9 +1479,13 @@ app.post('/api/messages/send-audio', authenticateToken, async (req, res) => {
         const baseUrl = appUrlRow[0]?.setting_value || 'https://ublochat.com.br';
         const publicUrl = `${baseUrl.replace(/\/$/, '')}/api/uploads/${audioFilename}`;
 
+        console.log(`[AUDIO BACKEND] URL Pública: ${publicUrl}`);
+
         // Enviar via Evolution API
+        console.log(`[AUDIO BACKEND] Enviando para Evolution API. Instância: ${instanceName}`);
         const evo = await getEvolutionService();
         const result = await evo.sendAudio(instanceName, remoteJid, publicUrl);
+        console.log(`[AUDIO BACKEND] Resultado Evolution:`, JSON.stringify(result));
 
         const msgId = result?.key?.id || result?.id || `AUDIO-${Date.now()}`;
         await pool.query(`
