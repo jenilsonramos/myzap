@@ -189,7 +189,60 @@ const ChatView: React.FC = () => {
         });
     };
 
-    // Assistente IA
+    // Excluir Conversa
+    const deleteConversation = async () => {
+        if (!selectedContact) return;
+        if (!window.confirm(`Tem certeza que deseja excluir a conversa com ${selectedContact.name || selectedContact.remote_jid}? Todas as mensagens serão removidas.`)) return;
+
+        try {
+            const token = localStorage.getItem('myzap_token');
+            const res = await fetch(`/api/contacts/${selectedContact.id}`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) {
+                setSelectedContact(null);
+                setMessages([]);
+                fetchContacts();
+                alert('Conversa excluída com sucesso!');
+            } else {
+                alert('Erro ao excluir conversa');
+            }
+        } catch (error) {
+            console.error('Erro ao excluir conversa:', error);
+            alert('Erro ao excluir conversa');
+        }
+    };
+
+    // Bloquear/Desbloquear Contato
+    const toggleBlockContact = async () => {
+        if (!selectedContact) return;
+        const isBlocked = (selectedContact as any).is_blocked;
+        const action = isBlocked ? 'desbloquear' : 'bloquear';
+
+        if (!window.confirm(`Tem certeza que deseja ${action} ${selectedContact.name || selectedContact.remote_jid}?`)) return;
+
+        try {
+            const token = localStorage.getItem('myzap_token');
+            const res = await fetch(`/api/contacts/${selectedContact.id}/block`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({ block: !isBlocked })
+            });
+            if (res.ok) {
+                fetchContacts();
+                alert(`Contato ${isBlocked ? 'desbloqueado' : 'bloqueado'} com sucesso!`);
+            } else {
+                alert(`Erro ao ${action} contato`);
+            }
+        } catch (error) {
+            console.error(`Erro ao ${action} contato:`, error);
+            alert(`Erro ao ${action} contato`);
+        }
+    };
     const improveTextWithAI = async (tone: string) => {
         if (!newMessage.trim()) return;
         try {
@@ -468,19 +521,9 @@ const ChatView: React.FC = () => {
 
     useEffect(() => {
         fetchContacts();
-        const interval = setInterval(() => {
-            fetchContacts().then(() => {
-                // Verificar se há novas mensagens não lidas
-                const totalUnread = contacts.reduce((sum, c) => sum + (c.unread_count || 0), 0);
-                // Toca notificação se aumentou (exceto na primeira carga quando previousUnreadRef é -1)
-                if (totalUnread > previousUnreadRef.current && previousUnreadRef.current >= 0) {
-                    playNotificationSound();
-                }
-                previousUnreadRef.current = totalUnread;
-            });
-        }, 10000);
+        const interval = setInterval(fetchContacts, 10000);
         return () => clearInterval(interval);
-    }, [contacts]);
+    }, []);
 
     useEffect(() => {
         if (selectedContact) {
@@ -638,6 +681,21 @@ const ChatView: React.FC = () => {
                                         <span className="material-icons-round text-sm">check_circle</span>
                                     </button>
                                 </div>
+                                {/* Block & Delete Buttons */}
+                                <button
+                                    onClick={toggleBlockContact}
+                                    className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${(selectedContact as any).is_blocked ? 'bg-rose-500 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-rose-100 hover:text-rose-500'}`}
+                                    title={(selectedContact as any).is_blocked ? 'Desbloquear Contato' : 'Bloquear Contato'}
+                                >
+                                    <span className="material-icons-round text-sm">{(selectedContact as any).is_blocked ? 'lock_open' : 'block'}</span>
+                                </button>
+                                <button
+                                    onClick={deleteConversation}
+                                    className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-rose-100 hover:text-rose-500 flex items-center justify-center transition-all"
+                                    title="Excluir Conversa"
+                                >
+                                    <span className="material-icons-round text-sm">delete_outline</span>
+                                </button>
                                 {/* Contact Details Toggle */}
                                 <button onClick={() => setShowContactDetails(!showContactDetails)} className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-primary transition-all flex items-center justify-center">
                                     <span className="material-icons-round">person</span>

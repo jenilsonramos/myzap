@@ -45,6 +45,46 @@ const AppContent: React.FC = () => {
     return localStorage.getItem('myzap_auth') === 'true';
   });
 
+  // --- LÓGICA DE NOTIFICAÇÃO GLOBAL ---
+  const previousUnreadRef = React.useRef<number>(-1);
+  const audioRef = React.useRef<HTMLAudioElement | null>(null);
+
+  const playNotificationSound = React.useCallback(() => {
+    if (!audioRef.current) {
+      audioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3');
+      audioRef.current.volume = 0.5;
+    }
+    audioRef.current.play().catch(() => { });
+  }, []);
+
+  React.useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const checkUnread = async () => {
+      try {
+        const token = localStorage.getItem('myzap_token');
+        const res = await fetch('/api/contacts', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const totalUnread = data.reduce((sum: number, c: any) => sum + (c.unread_count || 0), 0);
+
+          if (previousUnreadRef.current !== -1 && totalUnread > previousUnreadRef.current) {
+            playNotificationSound();
+          }
+          previousUnreadRef.current = totalUnread;
+        }
+      } catch (err) {
+        console.error('Erro ao verificar notificações:', err);
+      }
+    };
+
+    const interval = setInterval(checkUnread, 10000);
+    checkUnread(); // Primeira execução
+    return () => clearInterval(interval);
+  }, [isAuthenticated, playNotificationSound]);
+
   const [selectedFlowId, setSelectedFlowId] = useState<string | null>(null);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 

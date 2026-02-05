@@ -10,6 +10,31 @@ const EvolutionService = require('./EvolutionService');
 const app = express();
 app.use(cors());
 
+// --- CONFIGURAÇÃO DE UPLOADS (MULTER) ---
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir);
+}
+
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, uniqueSuffix + path.extname(file.originalname));
+    }
+});
+
+const upload = multer({ storage: storage });
+
+// Servir arquivos estáticos da pasta uploads
+app.use('/uploads', express.static(uploadDir));
+
 // --- STRIPE WEBHOOK (Deve vir ANTES do express.json() para pegar o body raw) ---
 app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
     const sig = req.headers['stripe-signature'];
@@ -214,6 +239,7 @@ async function setupTables() {
         await pool.query("ALTER TABLE contacts ADD COLUMN profile_pic TEXT AFTER name").catch(() => { });
         await pool.query("ALTER TABLE contacts ADD COLUMN status VARCHAR(20) DEFAULT 'open' AFTER profile_pic").catch(() => { });
         await pool.query("ALTER TABLE contacts MODIFY COLUMN status VARCHAR(20) DEFAULT 'open'").catch(() => { });
+        await pool.query("ALTER TABLE contacts ADD COLUMN is_blocked BOOLEAN DEFAULT FALSE").catch(() => { });
         await pool.query("ALTER TABLE contacts ADD UNIQUE KEY unique_contact (user_id, remote_jid)").catch(() => { });
 
         await pool.query(`
@@ -719,6 +745,94 @@ app.patch('/api/contacts/:contactId/status', authenticateToken, async (req, res)
     }
 });
 
+// Delete contact/conversation
+app.delete('/api/contacts/:contactId', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const contactId = req.params.contactId;
+
+        // Delete messages first
+        await pool.query("DELETE FROM messages WHERE contact_id = ? AND user_id = ?", [contactId, userId]);
+
+        // Delete contact
+        await pool.query("DELETE FROM contacts WHERE id = ? AND user_id = ?", [contactId, userId]);
+
+        res.json({ success: true, message: 'Conversa excluída com sucesso' });
+    } catch (err) {
+        console.error('Erro ao excluir contato:', err);
+        res.status(500).json({ error: 'Erro ao excluir contato' });
+    }
+});
+
+// Block/Unblock contact
+app.post('/api/contacts/:contactId/block', authenticateToken, async (req, res) => {
+    try {
+        const { block } = req.body;
+        const userId = req.user.id;
+        const contactId = req.params.contactId;
+
+        await pool.query(
+            "UPDATE contacts SET is_blocked = ? WHERE id = ? AND user_id = ?",
+            [block ? 1 : 0, contactId, userId]
+        );
+
+        res.json({ success: true, is_blocked: block });
+    } catch (err) {
+        console.error('Erro ao bloquear contato:', err);
+        res.status(500).json({ error: 'Erro ao bloquear contato' });
+    }
+});
+
+// Send audio message (Base64 from panel)
+app.post('/api/messages/send-audio', authenticateToken, async (req, res) => {
+    try {
+        const { contactId, audioBase64 } = req.body;
+        const userId = req.user.id;
+
+        const [contacts] = await pool.query("SELECT remote_jid, instance_name FROM contacts WHERE id = ? AND user_id = ?", [contactId, userId]);
+        if (contacts.length === 0) return res.status(404).json({ error: 'Contato não encontrado' });
+
+        const remoteJid = contacts[0].remote_jid;
+        let instanceName = contacts[0].instance_name;
+
+        // Se contato não tem instance_name, pegar da whitelist do usuário
+        if (!instanceName) {
+            const [user] = await pool.query("SELECT instance_whitelist FROM users WHERE id = ?", [userId]);
+            if (user.length > 0 && user[0].instance_whitelist) {
+                const whitelist = JSON.parse(user[0].instance_whitelist || '[]');
+                if (whitelist.length > 0) instanceName = whitelist[0];
+            }
+        }
+
+        if (!instanceName) return res.status(400).json({ error: 'Instância não configurada' });
+
+        // Salvar áudio temporário para gerar URL ou enviar base64 direto se Evolution suportar
+        // Evolution v2 suporta base64? O serviço atual usa URL.
+        // Vou salvar como arquivo e pegar URL pública.
+        const base64Data = audioBase64.replace(/^data:audio\/\w+;base64,/, "");
+        const fileName = `audio-${Date.now()}.mp3`;
+        const filePath = path.join(uploadDir, fileName);
+        fs.writeFileSync(filePath, base64Data, 'base64');
+
+        const publicUrl = `https://ublochat.com.br/api/uploads/${fileName}`;
+
+        const evo = await getEvolutionService();
+        const result = await evo.sendAudio(instanceName, remoteJid, publicUrl);
+
+        // Salvar no banco
+        const msgId = result?.key?.id || result?.id || `AUDIO-${Date.now()}`;
+        await pool.query(`
+            INSERT INTO messages (user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp, media_url, msg_status)
+            VALUES (?, ?, ?, ?, 1, '', 'audio', ?, ?, 'sent')
+        `, [userId, contactId, instanceName, msgId, Math.floor(Date.now() / 1000), publicUrl]);
+
+        res.json({ success: true, result });
+    } catch (err) {
+        console.error('Erro ao enviar áudio:', err);
+        res.status(500).json({ error: 'Erro ao enviar áudio' });
+    }
+});
+
 app.get('/api/messages/:contactId', authenticateToken, async (req, res) => {
     try {
         let query = "SELECT id, user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp, source, media_url, msg_status as status FROM messages WHERE contact_id = ? ORDER BY timestamp ASC";
@@ -735,60 +849,55 @@ app.get('/api/messages/:contactId', authenticateToken, async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'Erro ao buscar mensagens' }); }
 });
 
-// Send media message
-app.post('/api/messages/send-media', authenticateToken, async (req, res) => {
+// Send media message (FormData from panel)
+app.post('/api/messages/send-media', authenticateToken, upload.single('file'), async (req, res) => {
     try {
-        const { contactId, mediaUrl, mediaType, caption } = req.body;
+        const { contactId } = req.body;
+        const file = req.file;
+        if (!file) return res.status(400).json({ error: 'Arquivo não enviado' });
 
-        const [contacts] = await pool.query("SELECT remote_jid, instance_name FROM contacts WHERE id = ? AND user_id = ?", [contactId, req.user.id]);
+        const userId = req.user.id;
+        const [contacts] = await pool.query("SELECT remote_jid, instance_name FROM contacts WHERE id = ? AND user_id = ?", [contactId, userId]);
         if (contacts.length === 0) return res.status(404).json({ error: 'Contato não encontrado' });
 
         const remoteJid = contacts[0].remote_jid;
         let instanceName = contacts[0].instance_name;
 
-        // Se contato não tem instance_name, pegar da whitelist do usuário
         if (!instanceName) {
-            const [user] = await pool.query("SELECT instance_whitelist FROM users WHERE id = ?", [req.user.id]);
+            const [user] = await pool.query("SELECT instance_whitelist FROM users WHERE id = ?", [userId]);
             if (user.length > 0 && user[0].instance_whitelist) {
                 const whitelist = JSON.parse(user[0].instance_whitelist || '[]');
-                if (whitelist.length > 0) {
-                    instanceName = whitelist[0];
-                }
+                if (whitelist.length > 0) instanceName = whitelist[0];
             }
         }
 
-        if (!instanceName) {
-            return res.status(400).json({ error: 'Nenhuma instância configurada para este contato' });
-        }
+        if (!instanceName) return res.status(400).json({ error: 'Instância não configurada' });
+
+        const publicUrl = `https://ublochat.com.br/api/uploads/${file.filename}`;
+        const mediaType = file.mimetype.startsWith('image/') ? 'image' :
+            file.mimetype.startsWith('video/') ? 'video' :
+                file.mimetype.startsWith('audio/') ? 'audio' : 'document';
 
         const evo = await getEvolutionService();
-
         let result;
-        if (mediaType === 'image') {
-            result = await evo.sendImage(instanceName, remoteJid, mediaUrl, caption);
-        } else if (mediaType === 'video') {
-            result = await evo.sendVideo(instanceName, remoteJid, mediaUrl, caption);
-        } else if (mediaType === 'audio') {
-            result = await evo.sendAudio(instanceName, remoteJid, mediaUrl);
-        } else {
-            result = await evo.sendDocument(instanceName, remoteJid, mediaUrl, caption);
-        }
+        if (mediaType === 'image') result = await evo.sendImage(instanceName, remoteJid, publicUrl);
+        else if (mediaType === 'video') result = await evo.sendVideo(instanceName, remoteJid, publicUrl);
+        else if (mediaType === 'audio') result = await evo.sendAudio(instanceName, remoteJid, publicUrl);
+        else result = await evo.sendDocument(instanceName, remoteJid, publicUrl, file.originalname);
 
         const msgId = result?.key?.id || result?.id || `MEDIA-${Date.now()}`;
-        const timestamp = Math.floor(Date.now() / 1000);
-
         await pool.query(`
-            INSERT INTO messages (user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp, media_url)
-            VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE content = VALUES(content)
-        `, [req.user.id, contactId, instanceName, msgId, caption || '', mediaType, timestamp, mediaUrl]);
+            INSERT INTO messages (user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp, media_url, msg_status)
+            VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, 'sent')
+        `, [userId, contactId, instanceName, msgId, file.originalname, mediaType, Math.floor(Date.now() / 1000), publicUrl]);
 
-        res.json(result);
+        res.json({ success: true, result });
     } catch (err) {
         console.error('Erro ao enviar mídia:', err);
-        res.status(500).json({ error: 'Erro ao enviar mídia', details: err.message });
+        res.status(500).json({ error: 'Erro ao enviar mídia' });
     }
 });
+
 
 // --- ANALYTICS DASHBOARD ---
 app.get('/api/analytics/dashboard', authenticateToken, async (req, res) => {

@@ -33,7 +33,7 @@ const ChatbotView: React.FC = () => {
             });
             if (instRes.ok) {
                 const data = await instRes.json();
-                setInstances(data.map((i: any) => i.name || i.instanceName));
+                setInstances(data.map((i: any) => i.business_name));
             }
 
             // Buscar chatbot
