@@ -58,7 +58,8 @@ const AdminView: React.FC = () => {
                 smtp_pass: data.smtp_pass || '',
                 smtp_from_email: data.smtp_from_email || '',
                 smtp_from_name: data.smtp_from_name || '',
-                smtp_test_email: ''
+                smtp_test_email: '',
+                require_email_activation: data.require_email_activation || 'false'
             });
         } catch (err) {
             console.error('Error fetching settings:', err);
