@@ -796,6 +796,10 @@ app.post('/api/auth/activate', async (req, res) => {
     }
 });
 
+// Parsers globais (Movidos para depois do Stripe Webhook por causa do raw body)
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
+
 // Endpoint de recuperação de senha
 app.post('/api/auth/recover', async (req, res) => {
     const { email } = req.body;

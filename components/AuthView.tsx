@@ -99,7 +99,7 @@ const AuthView: React.FC<AuthViewProps> = ({
                 showToast(`Bem-vindo de volta, ${data.user.name}!`, 'success');
                 onLogin(data);
             } else if (view === 'activate') {
-                const response = await fetch(`${API_URL}/activate`, {
+                const response = await fetch(`${API_URL}/auth/activate`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email: activationEmail, code: activationCode })
@@ -119,6 +119,13 @@ const AuthView: React.FC<AuthViewProps> = ({
                     setView('login');
                 }
             } else if (view === 'recover') {
+                const response = await fetch(`${API_URL}/auth/recover`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: formData.email })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Erro ao processar recuperação.');
                 showToast('Link de recuperação enviado! Verifique seu e-mail.', 'success');
                 setView('login');
             } else if (view === 'reset-password') {
@@ -127,7 +134,7 @@ const AuthView: React.FC<AuthViewProps> = ({
 
                 if (!token) throw new Error('Token de redefinição não encontrado.');
 
-                const response = await fetch(`${API_URL}/reset-password`, {
+                const response = await fetch(`${API_URL}/auth/reset-password`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ token, newPassword: formData.password })

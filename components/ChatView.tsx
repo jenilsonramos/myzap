@@ -528,8 +528,16 @@ const ChatView: React.FC = () => {
                     if (media) {
                         type = media.type;
                         mediaUrl = media.msg.url || media.msg.directPath;
+                        // Prioridade para base64 se disponível (v2 manda às vezes)
+                        if (m.base64 || media.msg.base64) {
+                            mediaUrl = m.base64 || media.msg.base64;
+                            if (!mediaUrl.startsWith('data:')) {
+                                const mime = type === 'audio' ? 'audio/ogg' : type === 'image' ? 'image/jpeg' : 'application/octet-stream';
+                                mediaUrl = `data:${mime};base64,${mediaUrl}`;
+                            }
+                        }
                         content = media.msg.caption || media.msg.title || media.msg.fileName || '';
-                        console.log(`[PARSER] Mídia encontrada: ${type}, URL: ${mediaUrl}`);
+                        console.log(`[PARSER] Mídia encontrada: ${type}, URL: ${mediaUrl ? mediaUrl.substring(0, 50) + '...' : 'null'}`);
                     }
                 }
             } catch (e) {
@@ -555,6 +563,11 @@ const ChatView: React.FC = () => {
             }
         }
 
+        // Se ainda for .enc ou url do whatsapp direta (muitas vezes bloqueada por CORS ou precisa de decriptação)
+        if (mediaUrl && mediaUrl.includes('.enc')) {
+            console.warn('[PARSER] Detectada URL .enc - Mídia pode não carregar sem decriptação');
+        }
+
         if (type === 'image' && mediaUrl) {
             return (
                 <div className="flex flex-col max-w-[280px]">
@@ -577,9 +590,17 @@ const ChatView: React.FC = () => {
             );
         }
         if (type === 'audio' && mediaUrl) {
+            const isEncrypted = mediaUrl.includes('.enc');
             return (
                 <div className="flex flex-col min-w-[200px]">
-                    <audio src={mediaUrl} controls className="w-full h-8 mt-1" onLoadedData={() => console.log('[AUDIO] Carregado com sucesso')} onError={(e) => console.error('[AUDIO] Erro ao carregar:', mediaUrl, e)} />
+                    {isEncrypted ? (
+                        <div className="flex items-center gap-2 p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/30 rounded-xl mb-1">
+                            <span className="material-icons-round text-amber-500 text-lg">lock</span>
+                            <span className="text-[10px] text-amber-700 dark:text-amber-400 font-medium leading-tight">Mídia criptografada. Aguarde o download automático.</span>
+                        </div>
+                    ) : (
+                        <audio src={mediaUrl} controls className="w-full h-8 mt-1" onLoadedData={() => console.log('[AUDIO] Carregado com sucesso')} onError={(e) => console.error('[AUDIO] Erro ao carregar:', mediaUrl, e)} />
+                    )}
                     <span className="text-[10px] text-slate-400 mt-1 px-1">Mensagem de voz</span>
                 </div>
             );
