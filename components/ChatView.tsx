@@ -545,11 +545,11 @@ const ChatView: React.FC = () => {
             }
         }
 
-        // Se mediaUrl for apenas um path relativo (Evolution API às vezes manda assim)
-        if (mediaUrl && !mediaUrl.startsWith('http')) {
+        // Se mediaUrl for apenas um path relativo ou URL externa complexa
+        if (mediaUrl) {
             if (mediaUrl.startsWith('data:')) {
                 // base64, ok
-            } else {
+            } else if (!mediaUrl.startsWith('http')) {
                 try {
                     const settings = JSON.parse(localStorage.getItem('myzap_settings') || '{}');
                     const baseUrl = settings.app_url || window.location.origin;
@@ -558,8 +558,10 @@ const ChatView: React.FC = () => {
                     } else {
                         mediaUrl = `${baseUrl.replace(/\/$/, '')}/api/uploads/${mediaUrl}`;
                     }
-                    console.log(`[PARSER] URL Reconstruída: ${mediaUrl}`);
                 } catch (e) { }
+            } else if (mediaUrl.includes('whatsapp.net') || mediaUrl.includes('.enc')) {
+                // Usar proxy para mídias externas do WhatsApp ou criptografadas
+                mediaUrl = `/api/media/proxy?url=${encodeURIComponent(mediaUrl)}`;
             }
         }
 
@@ -576,6 +578,7 @@ const ChatView: React.FC = () => {
                         alt="Imagem"
                         className="w-full aspect-square object-cover rounded-2xl mb-1 shadow-sm cursor-pointer hover:opacity-95 transition-opacity border border-slate-100 dark:border-white/5"
                         onClick={() => window.open(mediaUrl, '_blank')}
+                        onError={() => console.warn('[CHAT] Erro ao carregar imagem:', mediaUrl)}
                     />
                     {content && <p className="text-xs px-1 text-slate-600 dark:text-slate-300">{content}</p>}
                 </div>
@@ -590,17 +593,10 @@ const ChatView: React.FC = () => {
             );
         }
         if (type === 'audio' && mediaUrl) {
-            const isEncrypted = mediaUrl.includes('.enc');
             return (
                 <div className="flex flex-col min-w-[200px]">
-                    {isEncrypted ? (
-                        <div className="flex items-center gap-2 p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/30 rounded-xl mb-1">
-                            <span className="material-icons-round text-amber-500 text-lg">lock</span>
-                            <span className="text-[10px] text-amber-700 dark:text-amber-400 font-medium leading-tight">Mídia criptografada. Aguarde o download automático.</span>
-                        </div>
-                    ) : (
-                        <audio src={mediaUrl} controls className="w-full h-8 mt-1" onLoadedData={() => console.log('[AUDIO] Carregado com sucesso')} onError={(e) => console.error('[AUDIO] Erro ao carregar:', mediaUrl, e)} />
-                    )}
+                    <audio src={mediaUrl} controls className="w-full h-8 mb-1" />
+                    {content && <p className="text-xs px-1 text-slate-600 dark:text-slate-300">{content}</p>}
                     <span className="text-[10px] text-slate-400 mt-1 px-1">Mensagem de voz</span>
                 </div>
             );

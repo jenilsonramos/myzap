@@ -12,6 +12,56 @@ const EvolutionService = require('./EvolutionService');
 const app = express();
 app.use(cors());
 
+const MASTER_TEMPLATE = (title, content, ctaText = null, ctaUrl = null) => `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${title}</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
+        .wrapper { width: 100%; table-layout: fixed; background-color: #f8fafc; padding-bottom: 40px; }
+        .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 24px; overflow: hidden; margin-top: 40px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); border: 1px solid #e2e8f0; }
+        .header { background: linear-gradient(135deg, #4f46e5 0%, #10b981 100%); padding: 40px; text-align: center; }
+        .logo { font-size: 28px; font-weight: 900; color: #ffffff; letter-spacing: -1px; text-transform: uppercase; }
+        .content { padding: 40px; color: #334155; line-height: 1.6; }
+        .title { font-size: 24px; font-weight: 800; color: #1e293b; margin-bottom: 20px; letter-spacing: -0.5px; }
+        .text { font-size: 16px; margin-bottom: 24px; }
+        .btn-container { text-align: center; margin-top: 32px; }
+        .btn { background: #4f46e5; color: #ffffff !important; padding: 16px 32px; text-decoration: none; border-radius: 14px; font-weight: 700; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; display: inline-block; box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.3); }
+        .footer { padding: 32px; text-align: center; color: #94a3b8; font-size: 12px; }
+        .divider { height: 1px; background-color: #f1f5f9; margin: 32px 0; }
+        .badge { display: inline-block; padding: 4px 12px; background: #f1f5f9; border-radius: 99px; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <div class="container">
+            <div class="header">
+                <div class="logo">MyZap</div>
+            </div>
+            <div class="content">
+                ${content}
+                ${ctaText && ctaUrl ? `
+                <div class="btn-container">
+                    <a href="${ctaUrl}" class="btn">${ctaText}</a>
+                </div>
+                ` : ''}
+                <div class="divider"></div>
+                <p class="text" style="font-size: 14px; color: #64748b;">
+                    Qualquer dúvida, responda este e-mail ou chame nosso suporte no WhatsApp.
+                </p>
+            </div>
+            <div class="footer">
+                <p>&copy; 2026 MyZap Enterprise. Todos os direitos reservados.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+`;
+
 // --- CONFIGURAÇÃO DE UPLOADS (MULTER) ---
 const multer = require('multer');
 const path = require('path');
@@ -35,8 +85,33 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 // Servir arquivos estáticos da pasta uploads
-app.use('/api/uploads', express.static(uploadDir));
-app.use('/uploads', express.static(uploadDir)); // Fallback para compatibilidade
+app.use('/uploads', express.static(uploadDir));
+
+// --- PROXY DE MÍDIA (Para evitar CORS e problemas de decriptação) ---
+app.get('/api/media/proxy', async (req, res) => {
+    const { url } = req.query;
+    if (!url) return res.status(400).send('URL is required');
+
+    try {
+        console.log(`[PROXY] Buscando mídia: ${url.substring(0, 50)}...`);
+        const response = await axios({
+            method: 'get',
+            url: url,
+            responseType: 'stream',
+            timeout: 10000,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+        });
+
+        res.set('Content-Type', response.headers['content-type']);
+        res.set('Cache-Control', 'public, max-age=86400');
+        response.data.pipe(res);
+    } catch (err) {
+        console.error(`[PROXY ERROR] Falha ao buscar ${url}:`, err.message);
+        res.status(500).send('Error fetching media');
+    }
+});
 
 // --- STRIPE WEBHOOK (Deve vir ANTES do express.json() para pegar o body raw) ---
 app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
@@ -77,40 +152,32 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
 
                 // 📧 Enviar email de confirmação de pagamento
                 try {
-                    const [settingsRows] = await pool.execute('SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ("smtp_pass", "smtp_from_email", "smtp_from_name")');
-                    const smtpSettings = {};
-                    settingsRows.forEach(row => smtpSettings[row.setting_key] = row.setting_value);
+                    const [settingsRows] = await pool.execute('SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ("smtp_user", "smtp_pass", "smtp_from_email", "smtp_from_name")');
+                    const smtp = {};
+                    settingsRows.forEach(row => smtp[row.setting_key] = row.setting_value);
 
-                    if (smtpSettings.smtp_pass) {
-                        const token = (smtpSettings.smtp_pass || '').replace(/zoho-enczapikey\s+/i, '').trim();
-                        const emailHtml = `
-                            <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto;">
-                                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 20px; text-align: center; border-radius: 12px 12px 0 0;">
-                                    <h1 style="color: white; margin: 0; font-size: 28px;">🎉 Pagamento Confirmado!</h1>
-                                </div>
-                                <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 12px 12px;">
-                                    <h2 style="color: #333; margin-bottom: 20px;">Olá!</h2>
-                                    <p style="color: #666; font-size: 16px; line-height: 1.6;">
-                                        Seu pagamento foi processado com sucesso! Seu plano <strong>${planName}</strong> já está ativo.
-                                    </p>
-                                    <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #667eea;">
-                                        <p style="margin: 0; color: #333;"><strong>Plano:</strong> ${planName}</p>
-                                        <p style="margin: 10px 0 0 0; color: #333;"><strong>Status:</strong> Ativo ✅</p>
-                                    </div>
-                                    <p style="color: #666; font-size: 14px;">
-                                        Acesse o painel para aproveitar todos os recursos disponíveis.
-                                    </p>
-                                    <div style="text-align: center; margin-top: 30px;">
-                                        <a href="https://ublochat.com.br" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 32px; text-decoration: none; border-radius: 25px; font-weight: bold; display: inline-block;">Acessar Painel</a>
-                                    </div>
-                                </div>
+                    if (smtp.smtp_pass) {
+                        const token = (smtp.smtp_pass || '').replace(/zoho-enczapikey\s+/i, '').trim();
+                        const emailHtml = MASTER_TEMPLATE(
+                            'Pagamento Confirmado',
+                            `
+                            <div class="badge" style="color: #10b981; background: #ecfdf5;">Sucesso</div>
+                            <h2 class="title">Seu pagamento foi confirmado! 🎉</h2>
+                            <p class="text">Temos o prazer de informar que seu pagamento para o plano <strong>${planName}</strong> foi processado com sucesso.</p>
+                            <div style="background: #f8fafc; padding: 20px; border-radius: 16px; margin: 24px 0;">
+                                <p style="margin: 5px 0; font-size: 14px;"><strong>Plano:</strong> ${planName}</p>
+                                <p style="margin: 5px 0; font-size: 14px;"><strong>Status:</strong> Ativo ✅</p>
                             </div>
-                        `;
+                            <p class="text">Seus limites já foram atualizados e sua conta está totalmente ativa.</p>
+                            `,
+                            'Entrar no Painel',
+                            'https://ublochat.com.br'
+                        );
 
                         await axios.post('https://api.zeptomail.com/v1.1/email', {
-                            from: { address: smtpSettings.smtp_from_email || 'no-reply@ublochat.com.br', name: smtpSettings.smtp_from_name || 'UbloChat' },
+                            from: { address: smtp.smtp_from_email || 'no-reply@ublochat.com.br', name: smtp.smtp_from_name || 'MyZap' },
                             to: [{ email_address: { address: userEmail, name: userEmail.split('@')[0] } }],
-                            subject: '🎉 Pagamento Confirmado - UbloChat',
+                            subject: '🎉 Pagamento Confirmado - MyZap',
                             htmlbody: emailHtml
                         }, {
                             headers: {
@@ -570,99 +637,51 @@ app.post('/api/auth/register', async (req, res) => {
 
                 if (requireActivation) {
                     subject = '🔑 Ative sua Experiência MyZap';
-                    emailHtml = `
-                        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f9f9f9; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.05);">
-                            <div style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); padding: 40px 20px; text-align: center;">
-                                <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.5px;">Ative sua Conta</h1>
-                            </div>
-                            <div style="padding: 40px; background-color: white;">
-                                <h2 style="color: #1f2937; margin-top: 0; font-size: 20px;">Olá, <span style="text-transform: capitalize;">${name}</span>! 👋</h2>
-                                <p style="color: #4b5563; line-height: 1.6; font-size: 16px;">Estamos empolgados em ter você conosco! Para começar a automatizar seu WhatsApp com o MyZap, por favor, use o código de ativação abaixo:</p>
-                                
-                                <div style="background-color: #f0fdf4; border: 2px dashed #10B981; border-radius: 12px; padding: 24px; text-align: center; margin: 30px 0;">
-                                    <span style="font-size: 36px; font-weight: 900; letter-spacing: 10px; color: #065f46; font-family: monospace;">${activationCode}</span>
-                                </div>
-
-                                <div style="background-color: #fffbeb; border-left: 4px solid #f59e0b; padding: 16px; margin-bottom: 30px; border-radius: 4px;">
-                                    <p style="color: #92400e; margin: 0; font-size: 14px;"><strong>Importante:</strong> Este código é válido por 24 horas. Se você não solicitou este registro, pode ignorar este e-mail com segurança.</p>
-                                </div>
-
-                                <p style="color: #4b5563; line-height: 1.6; font-size: 16px;">Após a ativação, você terá acesso imediato a:</p>
-                                <ul style="color: #4b5563; line-height: 1.8; font-size: 14px; padding-left: 20px;">
-                                    <li>Gestão multinstâncias de WhatsApp</li>
-                                    <li>Dashboard de métricas em tempo real</li>
-                                    <li>Construtor de fluxos (Flowbuilder)</li>
-                                    <li>Campanhas de transmissão em massa</li>
-                                </ul>
-                            </div>
-                            <div style="background-color: #f3f4f6; padding: 20px; text-align: center; color: #9ca3af; font-size: 12px;">
-                                <p style="margin: 0;">&copy; ${new Date().getFullYear()} MyZap - Sua plataforma de automação inteligente.</p>
-                            </div>
+                    emailHtml = MASTER_TEMPLATE(
+                        'Ative sua Conta',
+                        `
+                        <div class="badge">Ativação</div>
+                        <h2 class="title">Olá, <span style="text-transform: capitalize;">${name}</span>! 👋</h2>
+                        <p class="text">Estamos empolgados em ter você conosco! Use o código abaixo para ativar sua conta:</p>
+                        <div style="background: #f8fafc; padding: 32px; border-radius: 16px; margin: 24px 0; text-align: center; border: 2px dashed #10B981;">
+                            <span style="font-size: 36px; font-weight: 900; letter-spacing: 10px; color: #065f46; font-family: monospace;">${activationCode}</span>
                         </div>
-                    `;
+                        <p class="text" style="font-size: 13px; color: #64748b;">Este código é válido por 24 horas.</p>
+                        `,
+                        'Ativar Conta Agora',
+                        'https://ublochat.com.br/activation'
+                    );
                 } else {
-                    subject = '🚀 Bem-vindo ao Futuro da Automação - MyZap';
-                    emailHtml = `
-                        <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f9f9f9; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.05);">
-                            <div style="background: linear-gradient(135deg, #4F46E5 0%, #10B981 100%); padding: 40px 20px; text-align: center;">
-                                <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 800;">Registro Concluído!</h1>
-                            </div>
-                            <div style="padding: 40px; background-color: white;">
-                                <h2 style="color: #1f2937; margin-top: 0; font-size: 22px;">Seja muito bem vindo, ${name}! 🚀</h2>
-                                <p style="color: #4b5563; line-height: 1.6; font-size: 16px;">Sua jornada para uma comunicação imparável começa agora. Sua conta MyZap está pronta para uso imediato.</p>
-                                
-                                <div style="text-align: center; margin: 40px 0;">
-                                    <a href="https://ublochat.com.br" style="background-color: #10B981; color: white; padding: 16px 32px; text-decoration: none; border-radius: 50px; font-weight: 800; font-size: 16px; display: inline-block; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);">ACESSAR MEU PAINEL</a>
-                                </div>
-
-                                <h3 style="color: #111827; font-size: 18px;">Próximos passos sugeridos:</h3>
-                                <table style="width: 100%; border-collapse: collapse;">
-                                    <tr>
-                                        <td style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;">
-                                            <strong style="color: #10B981;">1. Conecte seu WhatsApp</strong><br>
-                                            <small style="color: #6b7280;">Vá em "Instâncias" e escaneie o QR Code.</small>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;">
-                                            <strong style="color: #10B981;">2. Crie sua primeira Campanha</strong><br>
-                                            <small style="color: #6b7280;">Alcance centenas de clientes em minutos.</small>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td style="padding: 10px 0;">
-                                            <strong style="color: #10B981;">3. Explore o Flowbuilder</strong><br>
-                                            <small style="color: #6b7280;">Automatize conversas complexas visualmente.</small>
-                                        </td>
-                                    </tr>
-                                </table>
-
-                                <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid #f3f4f6; text-align: center;">
-                                    <p style="color: #6b7280; font-size: 14px;">Precisa de ajuda? <a href="https://wa.me/5511999999999" style="color: #10B981; font-weight: bold;">Fale com nosso suporte</a></p>
-                                </div>
-                            </div>
-                            <div style="background-color: #f3f4f6; padding: 20px; text-align: center; color: #9ca3af; font-size: 12px;">
-                                <p style="margin: 0;">&copy; ${new Date().getFullYear()} MyZap - Automação que Conecta.</p>
-                            </div>
-                        </div>
-                    `;
+                    subject = '🚀 Bem-vindo ao MyZap!';
+                    emailHtml = MASTER_TEMPLATE(
+                        'Bem-vindo',
+                        `
+                        <div class="badge">Sucesso</div>
+                        <h2 class="title">Olá, <span style="text-transform: capitalize;">${name}</span>! 🚀</h2>
+                        <p class="text">Sua conta no MyZap foi criada com sucesso. Você agora tem acesso total a todas as nossas ferramentas de automação.</p>
+                        `,
+                        'Entrar no Painel',
+                        'https://ublochat.com.br'
+                    );
                 }
-
-                await sendZeptoEmail(email, subject, emailHtml);
             }
-        } catch (emailErr) {
-            console.error(`⚠️ [REGISTER] Falha ao enviar email:`, emailErr.message);
-        }
 
-        res.status(201).json({
-            message: 'OK',
-            requireActivation,
-            email: requireActivation ? email : undefined
-        });
-    } catch (err) {
-        console.error('❌ [REGISTER] Erro:', err);
-        res.status(500).json({ error: 'Erro ao criar conta' });
+
+            await sendZeptoEmail(email, subject, emailHtml);
+        }
+        } catch (emailErr) {
+        console.error(`⚠️ [REGISTER] Falha ao enviar email:`, emailErr.message);
     }
+
+    res.status(201).json({
+        message: 'OK',
+        requireActivation,
+        email: requireActivation ? email : undefined
+    });
+} catch (err) {
+    console.error('❌ [REGISTER] Erro:', err);
+    res.status(500).json({ error: 'Erro ao criar conta' });
+}
 });
 
 app.post('/api/auth/login', async (req, res) => {
@@ -744,35 +763,22 @@ app.post('/api/auth/activate', async (req, res) => {
             [user.id]
         );
 
-        // 📧 Enviar email de BOAS-VINDAS agora que ativou
-        try {
-            const [rows] = await pool.execute('SELECT name FROM users WHERE id = ?', [user.id]);
-            const name = rows[0]?.name || 'Amigo';
-            const welcomeEmailHtml = `
-                <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f9f9f9; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.05);">
-                    <div style="background: linear-gradient(135deg, #10B981 0%, #059669 100%); padding: 40px 20px; text-align: center;">
-                        <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 800;">Sua Conta está Ativa!</h1>
+        if (smtp.smtp_pass) {
+            subject = '🚀 Bem-vindo ao MyZap - Conta Ativada!';
+            emailHtml = MASTER_TEMPLATE(
+                'Conta Ativada',
+                `
+                    <div class="badge">Sucesso</div>
+                    <h2 class="title">Tudo pronto, ${name}! 🚀</h2>
+                    <p class="text">Sua conta no MyZap foi ativada com sucesso. Você agora tem acesso total a todas as ferramentas.</p>
+                    <div style="background: #f0fdf4; border-left: 4px solid #10B981; padding: 20px; border-radius: 8px; margin: 24px 0;">
+                        <p style="color: #065f46; margin: 0; font-size: 15px;"><strong>Dica:</strong> Comece conectando seu primeiro número em "Instâncias".</p>
                     </div>
-                    <div style="padding: 40px; background-color: white;">
-                        <h2 style="color: #1f2937; margin-top: 0; font-size: 22px;">Pronto para decolar, ${name}! 🚀</h2>
-                        <p style="color: #4b5563; line-height: 1.6; font-size: 16px;">Sua conta no MyZap foi ativada com sucesso. Você agora tem acesso total a todas as ferramentas de automação e escala para o seu negócio.</p>
-                        
-                        <div style="background-color: #f0fdf4; border-radius: 12px; padding: 20px; margin: 30px 0; border-left: 5px solid #10B981;">
-                            <p style="color: #065f46; margin: 0; font-size: 15px;"><strong>Dica:</strong> Comece conectando seu primeiro número de WhatsApp em "Instâncias".</p>
-                        </div>
-
-                        <div style="text-align: center; margin-top: 40px;">
-                            <a href="https://ublochat.com.br" style="background-color: #10B981; color: white; padding: 16px 32px; text-decoration: none; border-radius: 50px; font-weight: 800; font-size: 16px; display: inline-block;">ENTRAR NO PAINEL AGORA</a>
-                        </div>
-                    </div>
-                    <div style="background-color: #f3f4f6; padding: 20px; text-align: center; color: #9ca3af; font-size: 12px;">
-                        <p style="margin: 0;">&copy; ${new Date().getFullYear()} MyZap - Sua conexão inteligente.</p>
-                    </div>
-                </div>
-            `;
-            await sendZeptoEmail(email, '🚀 Bem-vindo ao MyZap - Conta Ativada!', welcomeEmailHtml);
-        } catch (e) {
-            console.error('Erro ao enviar boas-vindas na ativação:', e);
+                    `,
+                'Entrar no Painel',
+                'https://ublochat.com.br'
+            );
+            await sendZeptoEmail(email, subject, emailHtml);
         }
 
         // 🔐 Gerar Token para login automático
@@ -822,31 +828,19 @@ app.post('/api/auth/recover', async (req, res) => {
         const baseUrl = appUrlRow[0]?.setting_value || 'https://ublochat.com.br';
         const resetLink = `${baseUrl.replace(/\/$/, '')}/reset-password?token=${resetToken}`;
 
-        const emailHtml = `
-            <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f9f9f9; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.05);">
-                <div style="background: linear-gradient(135deg, #EF4444 0%, #B91C1C 100%); padding: 40px 20px; text-align: center;">
-                    <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 800;">Recuperação de Senha</h1>
-                </div>
-                <div style="padding: 40px; background-color: white;">
-                    <h2 style="color: #1f2937; margin-top: 0; font-size: 20px;">Olá, ${user.name}! 🔐</h2>
-                    <p style="color: #4b5563; line-height: 1.6; font-size: 16px;">Recebemos uma solicitação para redefinir a senha da sua conta MyZap. Se você não solicitou isso, pode ignorar este e-mail.</p>
-                    
-                    <div style="text-align: center; margin: 40px 0;">
-                        <a href="${resetLink}" style="background-color: #EF4444; color: white; padding: 16px 32px; text-decoration: none; border-radius: 50px; font-weight: 800; font-size: 16px; display: inline-block; box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);">REDEFINIR MINHA SENHA</a>
-                    </div>
-
-                    <div style="background-color: #fffbeb; border-left: 4px solid #f59e0b; padding: 16px; margin-bottom: 30px; border-radius: 4px;">
-                        <p style="color: #92400e; margin: 0; font-size: 14px;"><strong>Nota:</strong> Este link expirará em 60 minutos por motivos de segurança.</p>
-                    </div>
-
-                    <p style="color: #9ca3af; font-size: 12px; margin-top: 20px;">Se o botão não funcionar, copie e cole o link abaixo no seu navegador:<br>
-                    <span style="word-break: break-all; color: #6366f1;">${resetLink}</span></p>
-                </div>
-                <div style="background-color: #f3f4f6; padding: 20px; text-align: center; color: #9ca3af; font-size: 12px;">
-                    <p style="margin: 0;">&copy; ${new Date().getFullYear()} MyZap - Segurança em primeiro lugar.</p>
-                </div>
+        const emailHtml = MASTER_TEMPLATE(
+            'Recuperação de Senha',
+            `
+            <div class="badge">Segurança</div>
+            <h2 class="title">Olá, ${user.name}! 🔐</h2>
+            <p class="text">Recebemos uma solicitação para redefinir a senha da sua conta MyZap. Se você não solicitou isso, pode ignorar este e-mail.</p>
+            <div style="background: #fffbeb; border-left: 4px solid #f59e0b; padding: 16px; margin: 24px 0; border-radius: 8px;">
+                <p style="color: #92400e; margin: 0; font-size: 14px;"><strong>Nota:</strong> Este link expirará em 60 minutos.</p>
             </div>
-        `;
+            `,
+            'Redefinir Senha',
+            resetLink
+        );
 
         await sendZeptoEmail(email, '🔐 Redefinição de Senha - MyZap', emailHtml);
         res.json({ message: 'Link de recuperação enviado com sucesso!' });
@@ -1339,54 +1333,8 @@ app.post('/api/contacts/:contactId/block', authenticateToken, async (req, res) =
 });
 
 // Send audio message (Base64 from panel)
-app.post('/api/messages/send-audio', authenticateToken, async (req, res) => {
-    try {
-        const { contactId, audioBase64 } = req.body;
-        const userId = req.user.id;
+// Endpoint de áudio consolidado foi movido para baixo (linha 1454 aprox) para evitar duplicatas.
 
-        const [contacts] = await pool.query("SELECT remote_jid, instance_name FROM contacts WHERE id = ? AND user_id = ?", [contactId, userId]);
-        if (contacts.length === 0) return res.status(404).json({ error: 'Contato não encontrado' });
-
-        const remoteJid = contacts[0].remote_jid;
-        let instanceName = contacts[0].instance_name;
-
-        // Se contato não tem instance_name, pegar da whitelist do usuário
-        if (!instanceName) {
-            const [user] = await pool.query("SELECT instance_whitelist FROM users WHERE id = ?", [userId]);
-            if (user.length > 0 && user[0].instance_whitelist) {
-                const whitelist = JSON.parse(user[0].instance_whitelist || '[]');
-                if (whitelist.length > 0) instanceName = whitelist[0];
-            }
-        }
-
-        if (!instanceName) return res.status(400).json({ error: 'Instância não configurada' });
-
-        // Salvar áudio temporário para gerar URL ou enviar base64 direto se Evolution suportar
-        // Evolution v2 suporta base64? O serviço atual usa URL.
-        // Vou salvar como arquivo e pegar URL pública.
-        const base64Data = audioBase64.replace(/^data:audio\/\w+;base64,/, "");
-        const fileName = `audio-${Date.now()}.mp3`;
-        const filePath = path.join(uploadDir, fileName);
-        fs.writeFileSync(filePath, base64Data, 'base64');
-
-        const publicUrl = `https://ublochat.com.br/api/uploads/${fileName}`;
-
-        const evo = await getEvolutionService();
-        const result = await evo.sendAudio(instanceName, remoteJid, publicUrl);
-
-        // Salvar no banco
-        const msgId = result?.key?.id || result?.id || `AUDIO-${Date.now()}`;
-        await pool.query(`
-            INSERT INTO messages (user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp, media_url, msg_status)
-            VALUES (?, ?, ?, ?, 1, '', 'audio', ?, ?, 'sent')
-        `, [userId, contactId, instanceName, msgId, Math.floor(Date.now() / 1000), publicUrl]);
-
-        res.json({ success: true, result });
-    } catch (err) {
-        console.error('Erro ao enviar áudio:', err);
-        res.status(500).json({ error: 'Erro ao enviar áudio' });
-    }
-});
 
 app.get('/api/messages/:contactId', authenticateToken, async (req, res) => {
     try {
@@ -1474,7 +1422,9 @@ app.post('/api/messages/send-audio', authenticateToken, async (req, res) => {
         const uploadDir = path.join(__dirname, 'uploads');
         if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
-        const audioBuffer = Buffer.from(audioBase64.replace(/^data:audio\/\w+;base64,/, ''), 'base64');
+        // Regex aprimorada para remover o prefixo data:audio/...;base64, suportando codecs
+        const base64Data = audioBase64.split(';base64,').pop();
+        const audioBuffer = Buffer.from(base64Data, 'base64');
         const audioFilename = `audio-${Date.now()}.ogg`;
         const audioPath = path.join(uploadDir, audioFilename);
         fs.writeFileSync(audioPath, audioBuffer);
