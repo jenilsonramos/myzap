@@ -440,6 +440,7 @@ async function connectToDB() {
     } catch (err) {
         console.error('❌ ERRO CRÍTICO NA CONEXÃO COM O BANCO DE DADOS:', err.message);
         console.error('Verifique as credenciais no arquivo .env e se o banco está rodando.');
+        throw err; // Propaga para o startServer
     }
 }
 
