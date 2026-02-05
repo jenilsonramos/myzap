@@ -210,32 +210,39 @@ const ServerHealthView: React.FC = () => {
                     <h3 className="font-bold text-lg dark:text-white">Tarefas Agendadas (CRONs)</h3>
                 </div>
 
-                {(health?.cronLogs?.length || 0) === 0 ? (
-                    <p className="text-slate-500 text-center py-8">
-                        Nenhum CRON executado ainda. As tarefas serão exibidas após a primeira execução.
-                    </p>
-                ) : (
-                    <div className="space-y-3">
-                        {health?.cronLogs.map((cron, index) => (
+                {/* Lista de CRONs configurados */}
+                <div className="space-y-3">
+                    {/* CRONs fixos do sistema */}
+                    {[
+                        { name: 'check_subscriptions', label: 'Verificar Assinaturas Vencidas', time: '01:00' },
+                        { name: 'send_expired_email', label: 'Email Assinatura Vencida', time: '09:00' },
+                        { name: 'notify_expiring_plans', label: 'Notificar Planos Expirando (3 dias)', time: '14:00' },
+                        { name: 'update_trial_days', label: 'Atualizar Dias de Trial', time: '00:00' }
+                    ].map((cron: any, index: number) => {
+                        const log = health?.cronLogs?.find(l => l.cron_name === cron.name);
+                        return (
                             <div key={index} className="bg-slate-50 dark:bg-slate-800 rounded-xl p-4 flex items-center justify-between">
                                 <div>
-                                    <p className="font-medium dark:text-white">{getCronLabel(cron.cron_name)}</p>
+                                    <p className="font-medium dark:text-white">{cron.label}</p>
                                     <p className="text-xs text-slate-500">
-                                        Último: {cron.last_execution ? new Date(cron.last_execution).toLocaleString('pt-BR') : 'Nunca'}
+                                        Horário: {cron.time} | Último: {log?.last_execution ? new Date(log.last_execution).toLocaleString('pt-BR') : 'Nunca executado'}
                                     </p>
                                 </div>
                                 <div className="text-right">
-                                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${cron.status === 'success' ? 'bg-emerald-100 text-emerald-600' : cron.status === 'error' ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-600'}`}>
-                                        {cron.status === 'success' ? 'Sucesso' : cron.status === 'error' ? 'Erro' : cron.status}
+                                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${log?.status === 'success' ? 'bg-emerald-100 text-emerald-600' :
+                                            log?.status === 'error' ? 'bg-red-100 text-red-600' :
+                                                'bg-slate-100 text-slate-600'
+                                        }`}>
+                                        {log?.status === 'success' ? 'Sucesso' : log?.status === 'error' ? 'Erro' : 'Pendente'}
                                     </span>
-                                    {cron.details && (
-                                        <p className="text-xs text-slate-500 mt-1">{cron.details}</p>
+                                    {log?.details && (
+                                        <p className="text-xs text-slate-500 mt-1">{log.details}</p>
                                     )}
                                 </div>
                             </div>
-                        ))}
-                    </div>
-                )}
+                        );
+                    })}
+                </div>
             </div>
         </div>
     );

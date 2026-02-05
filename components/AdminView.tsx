@@ -15,7 +15,12 @@ const AdminView: React.FC = () => {
         evolution_apikey: '',
         stripe_public_key: '',
         stripe_secret_key: '',
-        stripe_webhook_secret: ''
+        stripe_webhook_secret: '',
+        smtp_host: 'smtp.zeptomail.com',
+        smtp_port: '587',
+        smtp_key: '',
+        smtp_from_email: '',
+        smtp_from_name: ''
     });
     const [loadingSettings, setLoadingSettings] = useState(true);
 
@@ -30,7 +35,12 @@ const AdminView: React.FC = () => {
                 evolution_apikey: data.evolution_apikey || '',
                 stripe_public_key: data.stripe_public_key || '',
                 stripe_secret_key: data.stripe_secret_key || '',
-                stripe_webhook_secret: data.stripe_webhook_secret || ''
+                stripe_webhook_secret: data.stripe_webhook_secret || '',
+                smtp_host: data.smtp_host || 'smtp.zeptomail.com',
+                smtp_port: data.smtp_port || '587',
+                smtp_key: data.smtp_key || '',
+                smtp_from_email: data.smtp_from_email || '',
+                smtp_from_name: data.smtp_from_name || ''
             });
         } catch (err) {
             console.error('Error fetching settings:', err);
@@ -789,15 +799,51 @@ const AdminView: React.FC = () => {
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">SMTP Host</label>
-                                    <input readOnly value="smtp.zeptomail.com" className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white outline-none" />
+                                    <input
+                                        value={settings.smtp_host}
+                                        onChange={e => setSettings({ ...settings, smtp_host: e.target.value })}
+                                        className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                                    />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">SMTP Port</label>
-                                    <input readOnly value="587" className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white outline-none" />
+                                    <input
+                                        value={settings.smtp_port}
+                                        onChange={e => setSettings({ ...settings, smtp_port: e.target.value })}
+                                        className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                                    />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ZeproMail Key</label>
-                                    <input type="password" placeholder="api_key_..." className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none" />
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ZeptoMail API Key</label>
+                                    <input
+                                        type="password"
+                                        placeholder="api_key_..."
+                                        value={settings.smtp_key}
+                                        onChange={e => setSettings({ ...settings, smtp_key: e.target.value })}
+                                        className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">E-mail de Envio (From)</label>
+                                    <input
+                                        type="email"
+                                        placeholder="noreply@seudominio.com"
+                                        value={settings.smtp_from_email}
+                                        onChange={e => setSettings({ ...settings, smtp_from_email: e.target.value })}
+                                        className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome do Remetente</label>
+                                    <input
+                                        type="text"
+                                        placeholder="Sua Empresa"
+                                        value={settings.smtp_from_name}
+                                        onChange={e => setSettings({ ...settings, smtp_from_name: e.target.value })}
+                                        className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    />
                                 </div>
                             </div>
                         </div>

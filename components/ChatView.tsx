@@ -472,7 +472,8 @@ const ChatView: React.FC = () => {
             fetchContacts().then(() => {
                 // Verificar se há novas mensagens não lidas
                 const totalUnread = contacts.reduce((sum, c) => sum + (c.unread_count || 0), 0);
-                if (totalUnread > previousUnreadRef.current && previousUnreadRef.current > 0) {
+                // Toca notificação se aumentou (exceto na primeira carga quando previousUnreadRef é -1)
+                if (totalUnread > previousUnreadRef.current && previousUnreadRef.current >= 0) {
                     playNotificationSound();
                 }
                 previousUnreadRef.current = totalUnread;

@@ -738,17 +738,29 @@ app.get('/api/messages/:contactId', authenticateToken, async (req, res) => {
 // Send media message
 app.post('/api/messages/send-media', authenticateToken, async (req, res) => {
     try {
-        // Check if multer is available, otherwise handle base64
         const { contactId, mediaUrl, mediaType, caption } = req.body;
 
-        const [contacts] = await pool.query("SELECT remote_jid FROM contacts WHERE id = ? AND user_id = ?", [contactId, req.user.id]);
+        const [contacts] = await pool.query("SELECT remote_jid, instance_name FROM contacts WHERE id = ? AND user_id = ?", [contactId, req.user.id]);
         if (contacts.length === 0) return res.status(404).json({ error: 'Contato não encontrado' });
 
         const remoteJid = contacts[0].remote_jid;
-        const [instance] = await pool.query("SELECT business_name FROM whatsapp_accounts WHERE user_id = ? LIMIT 1", [req.user.id]);
-        if (instance.length === 0) return res.status(400).json({ error: 'Nenhuma instância configurada' });
+        let instanceName = contacts[0].instance_name;
 
-        const instanceName = instance[0].business_name;
+        // Se contato não tem instance_name, pegar da whitelist do usuário
+        if (!instanceName) {
+            const [user] = await pool.query("SELECT instance_whitelist FROM users WHERE id = ?", [req.user.id]);
+            if (user.length > 0 && user[0].instance_whitelist) {
+                const whitelist = JSON.parse(user[0].instance_whitelist || '[]');
+                if (whitelist.length > 0) {
+                    instanceName = whitelist[0];
+                }
+            }
+        }
+
+        if (!instanceName) {
+            return res.status(400).json({ error: 'Nenhuma instância configurada para este contato' });
+        }
+
         const evo = await getEvolutionService();
 
         let result;
@@ -868,21 +880,32 @@ app.get('/api/analytics/debug', authenticateToken, async (req, res) => {
 app.post('/api/messages/send', authenticateToken, async (req, res) => {
     const { contactId, content } = req.body;
     try {
-        // 1. Achar contato e instância
-        const [contacts] = await pool.query("SELECT remote_jid FROM contacts WHERE id = ? AND user_id = ?", [contactId, req.user.id]);
+        // 1. Achar contato e pegar instance_name
+        const [contacts] = await pool.query("SELECT remote_jid, instance_name FROM contacts WHERE id = ? AND user_id = ?", [contactId, req.user.id]);
         if (contacts.length === 0) return res.status(404).json({ error: 'Contato não encontrado' });
-        const remoteJid = contacts[0].remote_jid;
 
-        // Precisamos saber qual instância usar.
-        // Simplificação: Pegar a primeira instância conectada do usuário.
+        const remoteJid = contacts[0].remote_jid;
+        let instanceName = contacts[0].instance_name;
+
+        // Se contato não tem instance_name, pegar da whitelist do usuário
+        if (!instanceName) {
+            const [user] = await pool.query("SELECT instance_whitelist FROM users WHERE id = ?", [req.user.id]);
+            if (user.length > 0 && user[0].instance_whitelist) {
+                const whitelist = JSON.parse(user[0].instance_whitelist || '[]');
+                if (whitelist.length > 0) {
+                    instanceName = whitelist[0];
+                }
+            }
+        }
+
+        if (!instanceName) {
+            return res.status(400).json({ error: 'Nenhuma instância configurada para este contato' });
+        }
+
+        // 2. Enviar via Evolution
         const evo = await getEvolutionService();
         if (!evo) return res.status(500).json({ error: 'Evolution offline' });
 
-        const [instances] = await pool.query("SELECT business_name FROM whatsapp_accounts WHERE user_id = ?", [req.user.id]);
-        if (instances.length === 0) return res.status(400).json({ error: 'Nenhuma instância conectada' });
-        const instanceName = instances[0].business_name; // Pega a primeira
-
-        // 2. Enviar via Evolution
         const result = await evo._request(`/message/sendText/${instanceName}`, 'POST', {
             number: remoteJid.replace('@s.whatsapp.net', ''),
             text: content,
@@ -890,8 +913,6 @@ app.post('/api/messages/send', authenticateToken, async (req, res) => {
         });
 
         // 3. Salvar no banco MANUALMENTE (Para garantir que apareça no chat)
-        // O webhook pode demorar ou não vir se a configuração estiver errada.
-        // Tenta pegar o ID da resposta da Evolution, senão gera um timestamp
         const msgId = result?.key?.id || result?.id || `SEND-${Date.now()}`;
         const timestamp = Math.floor(Date.now() / 1000);
 
