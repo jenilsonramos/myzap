@@ -807,12 +807,13 @@ app.get('/api/analytics/dashboard', authenticateToken, async (req, res) => {
         // Agrupa por dia da semana (Dom, Seg, Ter...)
         const [weekly] = await pool.query(`
             SELECT 
-                DATE_FORMAT(FROM_UNIXTIME(timestamp), '%a') as name, 
+                DATE_FORMAT(FROM_UNIXTIME(MIN(timestamp)), '%a') as name, 
+                DATE(FROM_UNIXTIME(timestamp)) as day_date,
                 COUNT(*) as value 
             FROM messages 
             WHERE user_id = ? AND timestamp >= UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL 7 DAY)) 
             GROUP BY DATE(FROM_UNIXTIME(timestamp)) 
-            ORDER BY timestamp ASC
+            ORDER BY day_date ASC
         `, [userId]);
 
         // 3. Status (Enviadas vs Recebidas)
