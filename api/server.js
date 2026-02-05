@@ -7,6 +7,8 @@ const cors = require('cors');
 require('dotenv').config();
 const EvolutionService = require('./EvolutionService');
 
+const nodemailer = require('nodemailer');
+
 const app = express();
 app.use(cors());
 
@@ -2126,14 +2128,18 @@ app.post('/api/webhook/evolution', async (req, res) => {
                         unread_count = IF(? = 0, unread_count + 1, unread_count)
                 `, [userId, remoteJid, pushName, instance, fromMe, fromMe, fromMe]);
 
-                // 3. ID do Contato
-                const [cRows] = await pool.query("SELECT id FROM contacts WHERE user_id = ? AND remote_jid = ?", [userId, remoteJid]);
+                // 3. ID do Contato e Verificação de Bloqueio
+                const [cRows] = await pool.query("SELECT id, is_blocked FROM contacts WHERE user_id = ? AND remote_jid = ?", [userId, remoteJid]);
                 const contactId = cRows[0]?.id;
+                const isBlocked = cRows[0]?.is_blocked;
+
+                if (isBlocked) {
+                    logDebug(`🚫 [BLOCK] Contato ${remoteJid} está bloqueado. Ignorando mensagem.`);
+                    return res.status(200).send('OK');
+                }
 
                 if (!contactId) {
                     console.error(`❌ [WEBHOOK] CRÍTICO: Contact ID não encontrado para ${remoteJid} (User: ${userId})`);
-                    // Fallback: tentar buscar apenas pelo número se houver falha de sufixo?
-                    // Por enquanto apenas loga erro.
                 }
 
                 // Definir status corretamente

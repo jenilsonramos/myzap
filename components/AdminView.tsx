@@ -18,9 +18,11 @@ const AdminView: React.FC = () => {
         stripe_webhook_secret: '',
         smtp_host: 'smtp.zeptomail.com',
         smtp_port: '587',
-        smtp_key: '',
+        smtp_user: '',
+        smtp_pass: '',
         smtp_from_email: '',
-        smtp_from_name: ''
+        smtp_from_name: '',
+        smtp_test_email: ''
     });
     const [loadingSettings, setLoadingSettings] = useState(true);
 
@@ -38,9 +40,11 @@ const AdminView: React.FC = () => {
                 stripe_webhook_secret: data.stripe_webhook_secret || '',
                 smtp_host: data.smtp_host || 'smtp.zeptomail.com',
                 smtp_port: data.smtp_port || '587',
-                smtp_key: data.smtp_key || '',
+                smtp_user: data.smtp_user || '',
+                smtp_pass: data.smtp_pass || '',
                 smtp_from_email: data.smtp_from_email || '',
-                smtp_from_name: data.smtp_from_name || ''
+                smtp_from_name: data.smtp_from_name || '',
+                smtp_test_email: ''
             });
         } catch (err) {
             console.error('Error fetching settings:', err);
@@ -791,59 +795,71 @@ const AdminView: React.FC = () => {
                         </div>
 
                         {/* ZeptoMail Config */}
-                        <div className="bg-white dark:bg-indigo-950/10 border border-indigo-500/10 rounded-huge p-8 space-y-6">
-                            <div className="flex items-center gap-3 mb-2">
-                                <span className="material-icons-round text-indigo-500">dns</span>
-                                <h4 className="text-sm font-black dark:text-white uppercase tracking-widest">Servidor SMTP ZeptoMail</h4>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">SMTP Host</label>
-                                    <input
-                                        value={settings.smtp_host}
-                                        onChange={e => setSettings({ ...settings, smtp_host: e.target.value })}
-                                        className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
-                                    />
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            <div className="bg-slate-50 dark:bg-white/5 p-8 rounded-huge border border-slate-100 dark:border-white/5 space-y-6">
+                                <div className="flex items-center gap-3">
+                                    <span className="material-icons-round text-indigo-500">alternate_email</span>
+                                    <h4 className="text-sm font-black dark:text-white uppercase tracking-widest">Configuração SMTP (ZeptoMail / Outros)</h4>
                                 </div>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">SMTP Port</label>
-                                    <input
-                                        value={settings.smtp_port}
-                                        onChange={e => setSettings({ ...settings, smtp_port: e.target.value })}
-                                        className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ZeptoMail API Key</label>
-                                    <input
-                                        type="password"
-                                        placeholder="api_key_..."
-                                        value={settings.smtp_key}
-                                        onChange={e => setSettings({ ...settings, smtp_key: e.target.value })}
-                                        className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
-                                    />
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-1.5 col-span-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Servidor SMTP (Host)</label>
+                                        <input value={settings.smtp_host} onChange={e => setSettings({ ...settings, smtp_host: e.target.value })} type="text" className="w-full bg-white dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Porta</label>
+                                        <input value={settings.smtp_port} onChange={e => setSettings({ ...settings, smtp_port: e.target.value })} type="text" className="w-full bg-white dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">E-mail Remetente</label>
+                                        <input value={settings.smtp_from_email} onChange={e => setSettings({ ...settings, smtp_from_email: e.target.value })} type="text" className="w-full bg-white dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Usuário / ID</label>
+                                        <input value={settings.smtp_user} onChange={e => setSettings({ ...settings, smtp_user: e.target.value })} type="text" className="w-full bg-white dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Senha / Key</label>
+                                        <input value={settings.smtp_pass} onChange={e => setSettings({ ...settings, smtp_pass: e.target.value })} type="password" title="Senha do SMTP" className="w-full bg-white dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
+                                    </div>
                                 </div>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">E-mail de Envio (From)</label>
+
+                            <div className="bg-white dark:bg-indigo-950/20 border-2 border-dashed border-indigo-500/20 p-8 rounded-huge space-y-6">
+                                <div className="flex items-center gap-3">
+                                    <span className="material-icons-round text-indigo-500">science</span>
+                                    <h4 className="text-sm font-black dark:text-white uppercase tracking-widest">Testar Envio de E-mail</h4>
+                                </div>
+                                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Envie um e-mail de teste real agora</p>
+                                <div className="space-y-4">
                                     <input
                                         type="email"
-                                        placeholder="noreply@seudominio.com"
-                                        value={settings.smtp_from_email}
-                                        onChange={e => setSettings({ ...settings, smtp_from_email: e.target.value })}
-                                        className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                                        placeholder="E-mail de destino (Ex: voce@email.com)"
+                                        value={settings.smtp_test_email}
+                                        onChange={(e) => setSettings({ ...settings, smtp_test_email: e.target.value })}
+                                        className="w-full bg-slate-100 dark:bg-slate-800 border-none rounded-2xl px-5 py-4 text-sm dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
                                     />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome do Remetente</label>
-                                    <input
-                                        type="text"
-                                        placeholder="Sua Empresa"
-                                        value={settings.smtp_from_name}
-                                        onChange={e => setSettings({ ...settings, smtp_from_name: e.target.value })}
-                                        className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
-                                    />
+                                    <button
+                                        onClick={async () => {
+                                            if (!settings.smtp_test_email) return showToast('Preencha o e-mail de teste', 'warning');
+                                            try {
+                                                const res = await fetch('/api/admin/test-email', {
+                                                    method: 'POST',
+                                                    headers: {
+                                                        'Content-Type': 'application/json',
+                                                        'Authorization': `Bearer ${localStorage.getItem('myzap_token')}`
+                                                    },
+                                                    body: JSON.stringify(settings)
+                                                });
+                                                if (res.ok) showToast('E-mail de teste enviado!', 'success');
+                                                else showToast('Erro ao enviar teste.', 'error');
+                                            } catch (e) { showToast('Falha na comunicação.', 'error'); }
+                                        }}
+                                        className="w-full py-4 bg-indigo-600 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-lg hover:bg-indigo-700 transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <span className="material-icons-round text-sm">send</span>
+                                        Enviar Teste Agora
+                                    </button>
                                 </div>
                             </div>
                         </div>

@@ -896,8 +896,16 @@ const ChatView: React.FC = () => {
                                     <span className="material-icons-round">auto_awesome</span>
                                 </button>
 
-                                {/* Input or Recording */}
-                                {isRecording ? (
+                                {/* Input or Recording or Blocked Alert */}
+                                {(selectedContact as any).is_blocked ? (
+                                    <div className="flex-1 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-2xl p-3 flex flex-col items-center gap-1">
+                                        <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400">
+                                            <span className="material-icons-round text-sm">block</span>
+                                            <span className="text-sm font-bold">Contato Bloqueado</span>
+                                        </div>
+                                        <p className="text-[10px] text-rose-500/70">As mensagens deste contato serão ignoradas pelo sistema.</p>
+                                    </div>
+                                ) : isRecording ? (
                                     <div className="flex-1 flex items-center gap-3 bg-red-50 dark:bg-red-900/30 rounded-2xl py-3 px-4">
                                         <span className="w-3 h-3 rounded-full bg-red-500 animate-pulse"></span>
                                         <span className="text-red-600 dark:text-red-400 font-medium">
