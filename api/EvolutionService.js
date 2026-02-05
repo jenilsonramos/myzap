@@ -133,7 +133,8 @@ class EvolutionService {
         return this._request(`/message/sendMedia/${instanceName}`, 'POST', {
             number: number.replace(/\D/g, ''),
             mediatype: 'audio',
-            media: url
+            media: url,
+            ptt: true
         });
     }
 

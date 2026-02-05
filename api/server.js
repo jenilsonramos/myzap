@@ -35,7 +35,8 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 // Servir arquivos estáticos da pasta uploads
-app.use('/uploads', express.static(uploadDir));
+app.use('/api/uploads', express.static(uploadDir));
+app.use('/uploads', express.static(uploadDir)); // Fallback para compatibilidade
 
 // --- STRIPE WEBHOOK (Deve vir ANTES do express.json() para pegar o body raw) ---
 app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
@@ -798,6 +799,16 @@ app.put('/api/admin/users/:id', authenticateAdmin, async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'Erro' }); }
 });
 
+app.delete('/api/admin/users/:id', authenticateAdmin, async (req, res) => {
+    try {
+        await pool.execute('DELETE FROM users WHERE id = ?', [req.params.id]);
+        res.json({ message: 'Usuário excluído com sucesso' });
+    } catch (err) {
+        console.error('❌ Erro DELETE /api/admin/users:', err);
+        res.status(500).json({ error: 'Erro ao excluir usuário' });
+    }
+});
+
 app.get('/api/admin/settings', authenticateAdmin, async (req, res) => {
     try {
         const [rows] = await pool.execute('SELECT setting_key, setting_value FROM system_settings');
@@ -941,7 +952,7 @@ app.get('/api/admin/revenue-stats', authenticateAdmin, async (req, res) => {
         const [mrrResult] = await pool.query(`
             SELECT COALESCE(SUM(p.price), 0) as mrr
             FROM users u
-            LEFT JOIN plans p ON u.plan = p.name
+            LEFT JOIN plans p ON u.plan COLLATE utf8mb4_unicode_ci = p.name COLLATE utf8mb4_unicode_ci
             WHERE u.status = 'active' AND u.plan != 'Teste Grátis'
         `);
         const mrr = parseFloat(mrrResult[0]?.mrr || 0);
@@ -987,7 +998,7 @@ app.get('/api/admin/revenue-stats', authenticateAdmin, async (req, res) => {
                 COALESCE(SUM(p.price), 0) as revenue,
                 COUNT(*) as users
             FROM users u
-            LEFT JOIN plans p ON u.plan = p.name
+            LEFT JOIN plans p ON u.plan COLLATE utf8mb4_unicode_ci = p.name COLLATE utf8mb4_unicode_ci
             WHERE u.status = 'active' 
             AND u.plan != 'Teste Grátis'
             AND u.created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
@@ -1002,7 +1013,7 @@ app.get('/api/admin/revenue-stats', authenticateAdmin, async (req, res) => {
                 COUNT(*) as subscribers,
                 COALESCE(SUM(p.price), 0) as revenue
             FROM users u
-            LEFT JOIN plans p ON u.plan = p.name
+            LEFT JOIN plans p ON u.plan COLLATE utf8mb4_unicode_ci = p.name COLLATE utf8mb4_unicode_ci
             WHERE u.status = 'active' AND u.plan != 'Teste Grátis'
             GROUP BY u.plan
             ORDER BY revenue DESC
@@ -1250,7 +1261,9 @@ app.post('/api/messages/send-media', authenticateToken, upload.single('file'), a
 
         if (!instanceName) return res.status(400).json({ error: 'Instância não configurada' });
 
-        const publicUrl = `https://ublochat.com.br/api/uploads/${file.filename}`;
+        const [appUrlRow] = await pool.query("SELECT setting_value FROM system_settings WHERE setting_key = 'app_url'");
+        const baseUrl = appUrlRow[0]?.setting_value || 'https://ublochat.com.br';
+        const publicUrl = `${baseUrl.replace(/\/$/, '')}/api/uploads/${file.filename}`;
         const mediaType = file.mimetype.startsWith('image/') ? 'image' :
             file.mimetype.startsWith('video/') ? 'video' :
                 file.mimetype.startsWith('audio/') ? 'audio' : 'document';
@@ -1305,7 +1318,9 @@ app.post('/api/messages/send-audio', authenticateToken, async (req, res) => {
         const audioPath = path.join(uploadDir, audioFilename);
         fs.writeFileSync(audioPath, audioBuffer);
 
-        const publicUrl = `https://ublochat.com.br/api/uploads/${audioFilename}`;
+        const [appUrlRow] = await pool.query("SELECT setting_value FROM system_settings WHERE setting_key = 'app_url'");
+        const baseUrl = appUrlRow[0]?.setting_value || 'https://ublochat.com.br';
+        const publicUrl = `${baseUrl.replace(/\/$/, '')}/api/uploads/${audioFilename}`;
 
         // Enviar via Evolution API
         const evo = await getEvolutionService();
