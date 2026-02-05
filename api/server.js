@@ -689,7 +689,9 @@ async function sendZeptoEmail(to, subject, html) {
             }
         };
 
-        const response = await axios.post('https://api.zeptomail.com.br/v1.1/email', data, config);
+        const url = 'https://api.zeptomail.com/v1.1/email';
+        console.log(`📤 [ZEPTOMAIL] Enviando para: ${to} via ${url}`);
+        const response = await axios.post(url, data, config);
         return response.data;
     } catch (err) {
         console.error('❌ [ZEPTOMAIL ERROR]:', err.response?.data || err.message);
