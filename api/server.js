@@ -659,14 +659,53 @@ app.post('/api/admin/settings', authenticateAdmin, async (req, res) => {
 });
 
 // --- GOOGLE GEMINI / AI SETTINGS ---
-app.post('/api/admin/ai-settings', authenticateAdmin, async (req, res) => {
-    // Reutiliza a lógica de settings globais
+// --- ZEPTOMAIL INTEGRATION ---
+const axios = require('axios');
+
+async function sendZeptoEmail(to, subject, html) {
     try {
-        for (const [key, value] of Object.entries(req.body)) {
-            await pool.execute('INSERT INTO system_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?', [key, value, value]);
-        }
-        res.json({ message: 'OK' });
-    } catch (err) { res.status(500).json({ error: 'Erro' }); }
+        const [rows] = await pool.execute('SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ("zeptomail_api_key", "zeptomail_from_address", "zeptomail_from_name")');
+        const settings = {};
+        rows.forEach(row => settings[row.setting_key] = row.setting_value);
+
+        if (!settings.zeptomail_api_key) throw new Error('ZeptoMail API Key não configurada');
+
+        const data = {
+            "from": {
+                "address": settings.zeptomail_from_address || "no-reply@ublochat.com.br",
+                "name": settings.zeptomail_from_name || "MyZap"
+            },
+            "to": [{ "email_address": { "address": to } }],
+            "subject": subject,
+            "htmlbody": html
+        };
+
+        const config = {
+            headers: {
+                'accept': 'application/json',
+                'content-type': 'application/json',
+                'Authorization': `Zoho-enczapikey ${settings.zeptomail_api_key}`
+            }
+        };
+
+        const response = await axios.post('https://api.zeptomail.com.br/v1.1/email', data, config);
+        return response.data;
+    } catch (err) {
+        console.error('❌ [ZEPTOMAIL ERROR]:', err.response?.data || err.message);
+        throw err;
+    }
+}
+
+app.post('/api/admin/test-email', authenticateAdmin, async (req, res) => {
+    try {
+        const { email } = req.body;
+        if (!email) return res.status(400).json({ error: 'E-mail obrigatório' });
+
+        await sendZeptoEmail(email, 'Teste de Configuração MyZap', '<h1>Sucesso!</h1><p>Sua integração nativa com o ZeptoMail está funcionando corretamente.</p>');
+        res.json({ success: true, message: 'E-mail de teste enviado com sucesso!' });
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao enviar e-mail', details: err.message });
+    }
 });
 
 
@@ -2181,72 +2220,59 @@ app.post('/api/webhook/evolution', async (req, res) => {
                     .catch(err => console.error('❌ ERRO AO SALVAR MSG:', err));
 
                 // ======= CHATBOT POR PALAVRAS-CHAVE =======
-                // Verifica se há chatbot ativo antes do FlowBuild
                 if (!fromMe) {
                     try {
+                        // Buscar todos os chatbots ativos do usuário para esta instância
                         const [chatbotRows] = await pool.query(
-                            "SELECT kc.id, kc.is_active FROM keyword_chatbot kc WHERE kc.user_id = ? AND (kc.instance_name IS NULL OR kc.instance_name = ?)",
+                            "SELECT id FROM keyword_chatbot WHERE user_id = ? AND (instance_name IS NULL OR instance_name = ?) AND is_active = 1",
                             [userId, instance]
                         );
 
-                        if (chatbotRows.length > 0 && chatbotRows[0].is_active) {
-                            const chatbotId = chatbotRows[0].id;
-                            logDebug(`🤖 [CHATBOT] Chatbot ativo encontrado (ID: ${chatbotId})`);
-
-                            // Buscar regras do chatbot
-                            const [rules] = await pool.query(
-                                "SELECT * FROM keyword_chatbot_rules WHERE chatbot_id = ? ORDER BY response_order ASC",
-                                [chatbotId]
-                            );
-
-                            let matched = false;
+                        if (chatbotRows.length > 0) {
+                            let matchedGlobal = false;
                             const msgLower = content.toLowerCase();
 
-                            for (const rule of rules) {
-                                if (matched) break;
+                            for (const bot of chatbotRows) {
+                                if (matchedGlobal) break;
 
-                                const keyword = (rule.keyword || '').toLowerCase();
+                                const [rules] = await pool.query(
+                                    "SELECT * FROM keyword_chatbot_rules WHERE chatbot_id = ? ORDER BY response_order ASC",
+                                    [bot.id]
+                                );
 
-                                switch (rule.match_type) {
-                                    case 'starts':
-                                        matched = msgLower.startsWith(keyword);
-                                        break;
-                                    case 'ends':
-                                        matched = msgLower.endsWith(keyword);
-                                        break;
-                                    case 'contains':
-                                        matched = msgLower.includes(keyword);
-                                        break;
-                                    case 'any':
-                                        matched = true;
-                                        break;
-                                }
+                                for (const rule of rules) {
+                                    if (matchedGlobal) break;
+                                    const keyword = (rule.keyword || '').toLowerCase();
+                                    let matched = false;
 
-                                if (matched && rule.message_content) {
-                                    logDebug(`🤖 [CHATBOT] Regra encontrada: ${rule.match_type} "${keyword}"`);
-
-                                    // Aplicar delay se configurado
-                                    if (rule.delay_seconds > 0) {
-                                        await new Promise(r => setTimeout(r, rule.delay_seconds * 1000));
+                                    switch (rule.match_type) {
+                                        case 'starts': matched = msgLower.startsWith(keyword); break;
+                                        case 'ends': matched = msgLower.endsWith(keyword); break;
+                                        case 'contains': matched = msgLower.includes(keyword); break;
+                                        case 'any': matched = true; break;
                                     }
 
-                                    // Enviar resposta
-                                    await sendWhatsAppMessage(instance, remoteJid, rule.message_content);
+                                    if (matched && rule.message_content) {
+                                        matchedGlobal = true;
+                                        logDebug(`🤖 [CHATBOT] Regra encontrada no bot ${bot.id}: ${rule.match_type} "${keyword}"`);
 
-                                    // Salvar mensagem no banco
-                                    const chatbotMsgId = `CHATBOT-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-                                    await pool.query(`
-                                        INSERT INTO messages (user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp, source)
-                                        VALUES (?, ?, ?, ?, 1, ?, 'text', ?, 'chatbot')
-                                    `, [userId, contactId, instance, chatbotMsgId, rule.message_content, Math.floor(Date.now() / 1000)]);
+                                        if (rule.delay_seconds > 0) {
+                                            await new Promise(r => setTimeout(r, rule.delay_seconds * 1000));
+                                        }
 
-                                    logDebug(`🤖 [CHATBOT] Resposta enviada: "${rule.message_content.substring(0, 50)}..."`);
+                                        await sendWhatsAppMessage(instance, remoteJid, rule.message_content);
+
+                                        const chatbotMsgId = `CHATBOT-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                                        await pool.query(`
+                                            INSERT INTO messages (user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp, source)
+                                            VALUES (?, ?, ?, ?, 1, ?, 'text', ?, 'chatbot')
+                                        `, [userId, contactId, instance, chatbotMsgId, rule.message_content, Math.floor(Date.now() / 1000)]);
+                                    }
                                 }
                             }
 
-                            // Se chatbot respondeu, não processar FlowBuild
-                            if (matched) {
-                                logDebug(`🤖 [CHATBOT] FlowBuild ignorado (chatbot ativo e respondeu)`);
+                            if (matchedGlobal) {
+                                logDebug(`🤖 [CHATBOT] FlowBuild ignorado (chatbot respondeu)`);
                                 return res.status(200).send('OK');
                             }
                         }
@@ -2256,7 +2282,6 @@ app.post('/api/webhook/evolution', async (req, res) => {
                 }
 
                 // ======= FLOW EXECUTION =======
-                // Check if user has active flows and execute matching ones
                 try {
                     // Only process if it's an incoming message (not from me)
                     if (!fromMe) {
@@ -2747,16 +2772,11 @@ const emailTransport = nodemailer.createTransport({
 
 async function sendEmail(to, subject, html) {
     try {
-        await emailTransport.sendMail({
-            from: '"UbloChat" <noreply@ublochat.com.br>',
-            to,
-            subject,
-            html
-        });
-        console.log(`📧 Email enviado para ${to}`);
+        await sendZeptoEmail(to, subject, html);
+        console.log(`📧 Email enviado via ZeptoMail para ${to}`);
         return true;
     } catch (err) {
-        console.error(`❌ Erro ao enviar email:`, err.message);
+        console.error(`❌ Erro ao enviar email via ZeptoMail:`, err.message);
         return false;
     }
 }

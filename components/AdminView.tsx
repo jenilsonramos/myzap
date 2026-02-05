@@ -799,28 +799,20 @@ const AdminView: React.FC = () => {
                             <div className="bg-slate-50 dark:bg-white/5 p-8 rounded-huge border border-slate-100 dark:border-white/5 space-y-6">
                                 <div className="flex items-center gap-3">
                                     <span className="material-icons-round text-indigo-500">alternate_email</span>
-                                    <h4 className="text-sm font-black dark:text-white uppercase tracking-widest">Configuração SMTP (ZeptoMail / Outros)</h4>
+                                    <h4 className="text-sm font-black dark:text-white uppercase tracking-widest">Configuração ZeptoMail (API Nativa)</h4>
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1.5 col-span-2">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Servidor SMTP (Host)</label>
-                                        <input value={settings.smtp_host} onChange={e => setSettings({ ...settings, smtp_host: e.target.value })} type="text" className="w-full bg-white dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
+                                <div className="grid grid-cols-1 gap-4">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ZeptoMail Send Mail Token (API Key)</label>
+                                        <input value={settings.zeptomail_api_key} onChange={e => setSettings({ ...settings, zeptomail_api_key: e.target.value })} type="password" placeholder="Zoho-enczapikey ..." className="w-full bg-white dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
                                     </div>
                                     <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Porta</label>
-                                        <input value={settings.smtp_port} onChange={e => setSettings({ ...settings, smtp_port: e.target.value })} type="text" className="w-full bg-white dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">E-mail Remetente (De)</label>
+                                        <input value={settings.zeptomail_from_address} onChange={e => setSettings({ ...settings, zeptomail_from_address: e.target.value })} type="text" placeholder="contato@seudominio.com" className="w-full bg-white dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
                                     </div>
                                     <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">E-mail Remetente</label>
-                                        <input value={settings.smtp_from_email} onChange={e => setSettings({ ...settings, smtp_from_email: e.target.value })} type="text" className="w-full bg-white dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Usuário / ID</label>
-                                        <input value={settings.smtp_user} onChange={e => setSettings({ ...settings, smtp_user: e.target.value })} type="text" className="w-full bg-white dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Senha / Key</label>
-                                        <input value={settings.smtp_pass} onChange={e => setSettings({ ...settings, smtp_pass: e.target.value })} type="password" title="Senha do SMTP" className="w-full bg-white dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome do Remetente</label>
+                                        <input value={settings.zeptomail_from_name} onChange={e => setSettings({ ...settings, zeptomail_from_name: e.target.value })} type="text" placeholder="Equipe MyZap" className="w-full bg-white dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
                                     </div>
                                 </div>
                             </div>
