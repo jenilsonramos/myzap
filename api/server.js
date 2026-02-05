@@ -5,9 +5,9 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
 require('dotenv').config();
-const EvolutionService = require('./EvolutionService');
-
+const axios = require('axios');
 const nodemailer = require('nodemailer');
+const EvolutionService = require('./EvolutionService');
 
 const app = express();
 app.use(cors());
@@ -661,7 +661,6 @@ app.post('/api/admin/settings', authenticateAdmin, async (req, res) => {
 
 // --- GOOGLE GEMINI / AI SETTINGS ---
 // --- ZEPTOMAIL INTEGRATION ---
-const nodemailer = require('nodemailer');
 
 async function sendZeptoEmail(to, subject, html) {
     try {
@@ -1741,17 +1740,13 @@ async function processAiAgentNode(node, context) {
     const userMessage = context.variables.last_input || '';
 
     try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/${node.data.model || 'gemini-1.5-flash'}:generateContent?key=${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [
-                    { role: 'user', parts: [{ text: `${prompt}\n\nUsuário: ${userMessage}` }] }
-                ]
-            })
+        const response = await axios.post(`https://generativelanguage.googleapis.com/v1/models/${node.data.model || 'gemini-1.5-flash'}:generateContent?key=${apiKey}`, {
+            contents: [
+                { role: 'user', parts: [{ text: `${prompt}\n\nUsuário: ${userMessage}` }] }
+            ]
         });
 
-        const data = await response.json();
+        const data = response.data;
         const aiResponse = data?.candidates?.[0]?.content?.parts?.[0]?.text || 'Desculpe, não consegui processar.';
 
         await sendWhatsAppMessage(context.instanceName, context.remoteJid, aiResponse);
@@ -1767,13 +1762,14 @@ async function processApiNode(node, context) {
     const body = replaceVariables(node.data.body || '{}', context);
 
     try {
-        const options = { method, headers: { 'Content-Type': 'application/json' } };
-        if (['POST', 'PUT', 'PATCH'].includes(method)) {
-            options.body = body;
-        }
+        const response = await axios({
+            url,
+            method,
+            data: ['POST', 'PUT', 'PATCH'].includes(method) ? (typeof body === 'string' ? JSON.parse(body) : body) : undefined,
+            headers: { 'Content-Type': 'application/json' }
+        });
 
-        const response = await fetch(url, options);
-        const data = await response.json();
+        const data = response.data;
         context.variables.api_response = JSON.stringify(data);
         console.log(`🌐 [FLOW] API Response:`, data);
     } catch (err) {
