@@ -13,13 +13,19 @@ interface Chatbot {
     id: number;
     instance_name: string;
     is_active: boolean;
+    rules: ChatbotRule[];
 }
 
 const ChatbotView: React.FC = () => {
-    const [chatbot, setChatbot] = useState<Chatbot | null>(null);
-    const [rules, setRules] = useState<ChatbotRule[]>([]);
+    const [view, setView] = useState<'list' | 'editor'>('list');
+    const [chatbots, setChatbots] = useState<Chatbot[]>([]);
     const [instances, setInstances] = useState<string[]>([]);
+
+    // Editor State
+    const [editingId, setEditingId] = useState<number | null>(null);
     const [selectedInstance, setSelectedInstance] = useState<string>('');
+    const [rules, setRules] = useState<ChatbotRule[]>([]);
+
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
@@ -36,17 +42,13 @@ const ChatbotView: React.FC = () => {
                 setInstances(data.map((i: any) => i.business_name || i.name || i.instanceName));
             }
 
-            // Buscar chatbot
+            // Buscar chatbots (lista)
             const chatRes = await fetch('/api/chatbot/keywords', {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (chatRes.ok) {
                 const data = await chatRes.json();
-                setChatbot(data.chatbot);
-                setRules(data.rules || []);
-                if (data.chatbot?.instance_name) {
-                    setSelectedInstance(data.chatbot.instance_name);
-                }
+                setChatbots(data);
             }
         } catch (err) {
             console.error('Erro:', err);
@@ -58,6 +60,20 @@ const ChatbotView: React.FC = () => {
     useEffect(() => {
         fetchData();
     }, []);
+
+    const openCreate = () => {
+        setEditingId(null);
+        setSelectedInstance('');
+        setRules([]);
+        setView('editor');
+    };
+
+    const openEdit = (bot: Chatbot) => {
+        setEditingId(bot.id);
+        setSelectedInstance(bot.instance_name || '');
+        setRules(bot.rules || []);
+        setView('editor');
+    };
 
     const addRule = () => {
         setRules([...rules, {
@@ -83,42 +99,55 @@ const ChatbotView: React.FC = () => {
         setSaving(true);
         try {
             const token = localStorage.getItem('myzap_token');
-            await fetch('/api/chatbot/keywords', {
+            const res = await fetch('/api/chatbot/keywords', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${token}`
                 },
                 body: JSON.stringify({
+                    id: editingId,
                     instance_name: selectedInstance || null,
                     rules: rules.map((r, i) => ({ ...r, response_order: i }))
                 })
             });
-            await fetchData();
-            alert('Chatbot salvo com sucesso!');
+
+            if (res.ok) {
+                await fetchData();
+                setView('list');
+            }
         } catch (err) {
             console.error('Erro ao salvar:', err);
-            alert('Erro ao salvar chatbot');
         } finally {
             setSaving(false);
         }
     };
 
-    const toggleChatbot = async () => {
+    const deleteChatbot = async (id: number) => {
+        if (!confirm('Deseja excluir este chatbot?')) return;
         try {
             const token = localStorage.getItem('myzap_token');
-            const res = await fetch('/api/chatbot/keywords/toggle', {
+            await fetch(`/api/chatbot/keywords/${id}`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            await fetchData();
+        } catch (err) {
+            console.error('Erro ao excluir:', err);
+        }
+    };
+
+    const toggleChatbot = async (id: number, currentStatus: boolean) => {
+        try {
+            const token = localStorage.getItem('myzap_token');
+            const res = await fetch(`/api/chatbot/keywords/${id}/toggle`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
                     Authorization: `Bearer ${token}`
                 },
-                body: JSON.stringify({ is_active: !chatbot?.is_active })
+                body: JSON.stringify({ is_active: !currentStatus })
             });
-            const data = await res.json();
-            if (data.flowsDisabled) {
-                alert('FlowBuild foi pausado automaticamente enquanto o Chatbot está ativo.');
-            }
             await fetchData();
         } catch (err) {
             console.error('Erro ao alternar:', err);
@@ -133,51 +162,87 @@ const ChatbotView: React.FC = () => {
         );
     }
 
-    return (
-        <div className="max-w-4xl mx-auto space-y-6">
-            {/* Header */}
-            <div className="bg-white dark:bg-card-dark rounded-3xl p-6 shadow-xl border border-white/20">
-                <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-4">
-                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center">
-                            <span className="material-icons-round text-white text-2xl">smart_toy</span>
-                        </div>
-                        <div>
-                            <h2 className="text-2xl font-bold dark:text-white">Chatbot por Palavras-chave</h2>
-                            <p className="text-slate-500 text-sm">Respostas automáticas baseadas em palavras-chave</p>
-                        </div>
+    if (view === 'list') {
+        return (
+            <div className="max-w-4xl mx-auto space-y-6">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h2 className="text-2xl font-bold dark:text-white">Meus Chatbots</h2>
+                        <p className="text-slate-500 text-sm">Gerencie suas regras de resposta automática</p>
                     </div>
                     <button
-                        onClick={toggleChatbot}
-                        className={`px-6 py-3 rounded-xl font-bold transition-all ${chatbot?.is_active
-                            ? 'bg-red-500 hover:bg-red-600 text-white'
-                            : 'bg-emerald-500 hover:bg-emerald-600 text-white'
-                            }`}
+                        onClick={openCreate}
+                        className="bg-primary hover:bg-primary-dark text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 transition-all shadow-lg"
                     >
-                        {chatbot?.is_active ? 'Desativar' : 'Ativar'}
+                        <span className="material-icons-round">add</span> Novo Chatbot
                     </button>
                 </div>
 
-                {chatbot?.is_active && (
-                    <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 flex items-center gap-3">
-                        <span className="material-icons-round text-amber-500">warning</span>
-                        <p className="text-amber-700 dark:text-amber-400 text-sm">
-                            <strong>Atenção:</strong> O FlowBuild está pausado enquanto o Chatbot está ativo.
-                        </p>
+                {chatbots.length === 0 ? (
+                    <div className="bg-white dark:bg-card-dark rounded-3xl p-20 text-center border-2 border-dashed border-slate-200 dark:border-white/5">
+                        <span className="material-icons-round text-6xl text-slate-200 dark:text-white/10 mb-4">smart_toy</span>
+                        <p className="text-slate-500 dark:text-slate-400 font-bold mb-6">Você ainda não tem chatbots cadastrados</p>
+                        <button onClick={openCreate} className="text-primary font-bold hover:underline">Criar meu primeiro chatbot</button>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 gap-4">
+                        {chatbots.map(bot => (
+                            <div key={bot.id} className="bg-white dark:bg-card-dark rounded-3xl p-6 shadow-xl border border-white/20 flex items-center justify-between group hover:border-primary/50 transition-all">
+                                <div className="flex items-center gap-4">
+                                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${bot.is_active ? 'bg-emerald-500/10 text-emerald-500' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>
+                                        <span className="material-icons-round">{bot.is_active ? 'bolt' : 'smart_toy'}</span>
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold dark:text-white">{bot.instance_name || 'Todas as instâncias'}</h4>
+                                        <p className="text-xs text-slate-500">{bot.rules.length} regras configuradas</p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <button
+                                        onClick={() => toggleChatbot(bot.id, bot.is_active)}
+                                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${bot.is_active ? 'bg-emerald-500/10 text-emerald-500' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}
+                                    >
+                                        {bot.is_active ? 'Ativo' : 'Pausado'}
+                                    </button>
+                                    <button onClick={() => openEdit(bot)} className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-primary transition-all flex items-center justify-center">
+                                        <span className="material-icons-round text-sm">edit</span>
+                                    </button>
+                                    <button onClick={() => deleteChatbot(bot.id)} className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-red-500 transition-all flex items-center justify-center">
+                                        <span className="material-icons-round text-sm">delete</span>
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 )}
+            </div>
+        );
+    }
+
+    return (
+        <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-300">
+            {/* Header Editor */}
+            <div className="bg-white dark:bg-card-dark rounded-3xl p-6 shadow-xl border border-white/20 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                    <button onClick={() => setView('list')} className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-primary transition-all flex items-center justify-center">
+                        <span className="material-icons-round">arrow_back</span>
+                    </button>
+                    <div>
+                        <h2 className="text-xl font-bold dark:text-white">{editingId ? 'Editar Chatbot' : 'Novo Chatbot'}</h2>
+                        <p className="text-slate-500 text-sm">Configure as palavras-chave e respostas</p>
+                    </div>
+                </div>
             </div>
 
             {/* Configuração */}
             <div className="bg-white dark:bg-card-dark rounded-3xl p-6 shadow-xl border border-white/20">
-                <h3 className="font-bold text-lg mb-4 dark:text-white">Configuração</h3>
-
+                <h3 className="font-bold text-lg mb-4 dark:text-white">Instância de Resposta</h3>
                 <div className="mb-6">
-                    <label className="block text-sm font-medium text-slate-500 mb-2">Instância (deixe vazio para todas)</label>
+                    <label className="block text-sm font-medium text-slate-500 mb-2">Selecione para qual WhatsApp este chatbot responderá</label>
                     <select
                         value={selectedInstance}
                         onChange={(e) => setSelectedInstance(e.target.value)}
-                        className="w-full bg-slate-100 dark:bg-slate-800 rounded-xl px-4 py-3 border-none focus:ring-2 focus:ring-primary outline-none"
+                        className="w-full bg-slate-100 dark:bg-slate-800 rounded-xl px-4 py-3 border-none focus:ring-2 focus:ring-primary outline-none dark:text-white"
                     >
                         <option value="">Todas as instâncias</option>
                         {instances.map(inst => (
@@ -203,20 +268,19 @@ const ChatbotView: React.FC = () => {
                 {rules.length === 0 ? (
                     <div className="text-center py-12 text-slate-500">
                         <span className="material-icons-round text-4xl mb-2">rule</span>
-                        <p>Nenhuma regra configurada</p>
-                        <p className="text-sm">Clique em "Adicionar Regra" para começar</p>
+                        <p>Nenhuma regra configurada ainda</p>
                     </div>
                 ) : (
                     <div className="space-y-4">
                         {rules.map((rule, index) => (
-                            <div key={index} className="bg-slate-50 dark:bg-slate-800 rounded-2xl p-4 space-y-4">
+                            <div key={index} className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 space-y-4 border border-transparent hover:border-primary/20 transition-all">
                                 <div className="flex items-center justify-between">
-                                    <span className="bg-primary/10 text-primary text-xs font-bold px-3 py-1 rounded-full">
-                                        Regra {index + 1}
+                                    <span className="bg-primary/10 text-primary text-[10px] font-black uppercase px-3 py-1 rounded-full">
+                                        Regra #{index + 1}
                                     </span>
                                     <button
                                         onClick={() => removeRule(index)}
-                                        className="w-8 h-8 rounded-lg bg-red-100 text-red-500 hover:bg-red-200 flex items-center justify-center transition-all"
+                                        className="w-8 h-8 rounded-lg text-slate-400 hover:text-red-500 flex items-center justify-center transition-all"
                                     >
                                         <span className="material-icons-round text-sm">delete</span>
                                     </button>
@@ -224,52 +288,52 @@ const ChatbotView: React.FC = () => {
 
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-xs font-medium text-slate-500 mb-1">Tipo de Match</label>
+                                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-tighter mb-1">Tipo de Match</label>
                                         <select
                                             value={rule.match_type}
                                             onChange={(e) => updateRule(index, 'match_type', e.target.value)}
-                                            className="w-full bg-white dark:bg-slate-700 rounded-xl px-3 py-2 text-sm border border-slate-200 dark:border-slate-600 focus:ring-2 focus:ring-primary outline-none"
+                                            className="w-full bg-white dark:bg-slate-700 rounded-xl px-3 py-2 text-sm border-none focus:ring-2 focus:ring-primary outline-none dark:text-white"
                                         >
-                                            <option value="starts">Começa com</option>
                                             <option value="contains">Contém</option>
+                                            <option value="starts">Começa com</option>
                                             <option value="ends">Termina com</option>
                                             <option value="any">Qualquer mensagem</option>
                                         </select>
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-medium text-slate-500 mb-1">Palavra-chave</label>
+                                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-tighter mb-1">Palavra-chave</label>
                                         <input
                                             type="text"
                                             value={rule.keyword}
                                             onChange={(e) => updateRule(index, 'keyword', e.target.value)}
-                                            placeholder={rule.match_type === 'any' ? '(não aplicável)' : 'Digite a palavra...'}
+                                            placeholder={rule.match_type === 'any' ? '(Inativo)' : 'Ex: Olá, suporte...'}
                                             disabled={rule.match_type === 'any'}
-                                            className="w-full bg-white dark:bg-slate-700 rounded-xl px-3 py-2 text-sm border border-slate-200 dark:border-slate-600 focus:ring-2 focus:ring-primary outline-none disabled:opacity-50"
+                                            className="w-full bg-white dark:bg-slate-700 rounded-xl px-3 py-2 text-sm border-none focus:ring-2 focus:ring-primary outline-none disabled:opacity-50 dark:text-white"
                                         />
                                     </div>
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-medium text-slate-500 mb-1">Mensagem de Resposta</label>
+                                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-tighter mb-1">Mensagem de Resposta</label>
                                     <textarea
                                         value={rule.message_content}
                                         onChange={(e) => updateRule(index, 'message_content', e.target.value)}
-                                        placeholder="Digite a resposta que será enviada..."
+                                        placeholder="Digite a resposta automática..."
                                         rows={3}
-                                        className="w-full bg-white dark:bg-slate-700 rounded-xl px-3 py-2 text-sm border border-slate-200 dark:border-slate-600 focus:ring-2 focus:ring-primary outline-none resize-none"
+                                        className="w-full bg-white dark:bg-slate-700 rounded-xl px-3 py-2 text-sm border-none focus:ring-2 focus:ring-primary outline-none resize-none dark:text-white"
                                     />
                                 </div>
 
                                 <div className="flex items-center gap-4">
                                     <div className="flex-1">
-                                        <label className="block text-xs font-medium text-slate-500 mb-1">Delay (segundos)</label>
+                                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-tighter mb-1">Delay (segundos)</label>
                                         <input
                                             type="number"
                                             min="0"
                                             max="60"
                                             value={rule.delay_seconds}
                                             onChange={(e) => updateRule(index, 'delay_seconds', parseInt(e.target.value) || 0)}
-                                            className="w-full bg-white dark:bg-slate-700 rounded-xl px-3 py-2 text-sm border border-slate-200 dark:border-slate-600 focus:ring-2 focus:ring-primary outline-none"
+                                            className="w-full bg-white dark:bg-slate-700 rounded-xl px-3 py-2 text-sm border-none focus:ring-2 focus:ring-primary outline-none dark:text-white"
                                         />
                                     </div>
                                 </div>
@@ -279,24 +343,32 @@ const ChatbotView: React.FC = () => {
                 )}
             </div>
 
-            {/* Botão Salvar */}
-            <button
-                onClick={saveChatbot}
-                disabled={saving}
-                className="w-full py-4 bg-primary text-white font-bold rounded-2xl hover:bg-primary-dark transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-                {saving ? (
-                    <>
-                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        Salvando...
-                    </>
-                ) : (
-                    <>
-                        <span className="material-icons-round">save</span>
-                        Salvar Chatbot
-                    </>
-                )}
-            </button>
+            {/* Botão Salvar Editor */}
+            <div className="flex gap-4">
+                <button
+                    onClick={() => setView('list')}
+                    className="flex-1 py-4 bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold rounded-2xl hover:bg-slate-200 transition-all"
+                >
+                    Cancelar
+                </button>
+                <button
+                    onClick={saveChatbot}
+                    disabled={saving || rules.length === 0}
+                    className="flex-[2] py-4 bg-primary text-white font-bold rounded-2xl hover:bg-primary-dark transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg"
+                >
+                    {saving ? (
+                        <>
+                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            Salvando...
+                        </>
+                    ) : (
+                        <>
+                            <span className="material-icons-round">check_circle</span>
+                            Confirmar e Salvar
+                        </>
+                    )}
+                </button>
+            </div>
         </div>
     );
 };

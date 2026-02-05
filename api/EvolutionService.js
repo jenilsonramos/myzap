@@ -146,6 +146,14 @@ class EvolutionService {
             caption
         });
     }
+
+    // 9. Bloquear/Desbloquear Contato
+    async blockUnblockContact(instanceName, number, block = true) {
+        return this._request(`/chat/blockUnblock/${instanceName}`, 'POST', {
+            number: number.replace(/\D/g, ''),
+            action: block ? 'block' : 'unblock'
+        });
+    }
 }
 
 module.exports = EvolutionService;

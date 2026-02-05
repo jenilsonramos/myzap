@@ -915,7 +915,7 @@ const AdminView: React.FC = () => {
                             </div>
                         )}
 
-                        <button onClick={() => handleAction('Automação de e-mails atualizada!')} className="bg-slate-900 dark:bg-indigo-600 text-white px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:opacity-90 transition-all">Salvar Automações</button>
+                        <button onClick={saveSettings} className="bg-slate-900 dark:bg-indigo-600 text-white px-10 py-4 rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:opacity-90 transition-all">Salvar Automações</button>
                     </div>
                 )}
 

@@ -301,6 +301,13 @@ async function setupTables() {
             )
         `);
 
+        // ========== OTIMIZAÇÃO: ÍNDICES ==========
+        console.log('🚀 [DB] Aplicando otimizações de performance...');
+        await pool.query("CREATE INDEX idx_messages_user_contact ON messages(user_id, contact_id)").catch(() => { });
+        await pool.query("CREATE INDEX idx_messages_timestamp ON messages(timestamp)").catch(() => { });
+        await pool.query("CREATE INDEX idx_contacts_user ON contacts(user_id)").catch(() => { });
+        await pool.query("CREATE INDEX idx_wa_accounts_user ON whatsapp_accounts(user_id)").catch(() => { });
+
         // ========== NOVAS TABELAS ==========
 
         // Tabela para controle de CRONs
@@ -718,10 +725,9 @@ app.get('/api/contacts', authenticateToken, async (req, res) => {
 
         const params = [];
 
-        if (req.user.role !== 'admin') {
-            query += ' WHERE c.user_id = ? ';
-            params.push(req.user.id);
-        }
+        // Restringir SEMPRE ao usuário logado, mesmo sendo Admin (Privacidade)
+        query += ' WHERE c.user_id = ? ';
+        params.push(req.user.id);
 
         query += ' ORDER BY lastTime DESC';
 
@@ -773,6 +779,26 @@ app.post('/api/contacts/:contactId/block', authenticateToken, async (req, res) =
         const userId = req.user.id;
         const contactId = req.params.contactId;
 
+        // 1. Buscar dados do contato
+        const [contacts] = await pool.query("SELECT remote_jid, instance_name FROM contacts WHERE id = ? AND user_id = ?", [contactId, userId]);
+        if (contacts.length === 0) return res.status(404).json({ error: 'Contato não encontrado' });
+
+        const { remote_jid, instance_name } = contacts[0];
+
+        // 2. Realizar bloqueio real via Evolution se houver instância
+        if (instance_name) {
+            try {
+                const evo = await getEvolutionService();
+                if (evo) {
+                    await evo.blockUnblockContact(instance_name, remote_jid, block);
+                    console.log(`🚫 [BLOCK] Contato ${remote_jid} ${block ? 'bloqueado' : 'desbloqueado'} via Evolution.`);
+                }
+            } catch (evoErr) {
+                console.warn('⚠️ Falha ao bloquear via Evolution:', evoErr.message);
+            }
+        }
+
+        // 3. Atualizar status no banco
         await pool.query(
             "UPDATE contacts SET is_blocked = ? WHERE id = ? AND user_id = ?",
             [block ? 1 : 0, contactId, userId]
@@ -837,14 +863,8 @@ app.post('/api/messages/send-audio', authenticateToken, async (req, res) => {
 
 app.get('/api/messages/:contactId', authenticateToken, async (req, res) => {
     try {
-        let query = "SELECT id, user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp, source, media_url, msg_status as status FROM messages WHERE contact_id = ? ORDER BY timestamp ASC";
-        let params = [req.params.contactId];
-
-        // Se NÃO for admin, filtra pelo usuário
-        if (req.user.role !== 'admin') {
-            query = "SELECT id, user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp, source, media_url, msg_status as status FROM messages WHERE contact_id = ? AND user_id = ? ORDER BY timestamp ASC";
-            params.push(req.user.id);
-        }
+        const query = "SELECT id, user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp, source, media_url, msg_status as status FROM messages WHERE contact_id = ? AND user_id = ? ORDER BY timestamp ASC";
+        const params = [req.params.contactId, req.user.id];
 
         const [rows] = await pool.query(query, params);
         res.json(rows);
@@ -1120,7 +1140,7 @@ app.patch('/api/flows/:id/toggle', authenticateToken, async (req, res) => {
         if (rows.length === 0) return res.status(404).json({ error: 'Fluxo não encontrado' });
 
         const newStatus = rows[0].status === 'active' ? 'paused' : 'active';
-        await pool.query('UPDATE flows SET status = ? WHERE id = ?', [newStatus, req.params.id]);
+        await pool.query('UPDATE flows SET status = ? WHERE id = ? AND user_id = ?', [newStatus, req.params.id, req.user.id]);
         res.json({ status: newStatus });
     } catch (err) {
         res.status(500).json({ error: 'Erro ao alternar status', details: err.message });
@@ -2577,33 +2597,33 @@ app.post('/api/ai/improve-text', authenticateToken, async (req, res) => {
 // --- CHATBOT POR PALAVRAS-CHAVE ---
 app.get('/api/chatbot/keywords', authenticateToken, async (req, res) => {
     try {
+        // Buscar todos os chatbots do usuário
         const [chatbots] = await pool.query("SELECT * FROM keyword_chatbot WHERE user_id = ?", [req.user.id]);
-        const chatbot = chatbots[0];
 
-        if (!chatbot) {
-            return res.json({ chatbot: null, rules: [] });
+        // Para cada chatbot, buscar suas regras
+        const result = [];
+        for (const chatbot of chatbots) {
+            const [rules] = await pool.query("SELECT * FROM keyword_chatbot_rules WHERE chatbot_id = ? ORDER BY response_order ASC", [chatbot.id]);
+            result.push({ ...chatbot, rules });
         }
 
-        const [rules] = await pool.query("SELECT * FROM keyword_chatbot_rules WHERE chatbot_id = ? ORDER BY response_order ASC", [chatbot.id]);
-        res.json({ chatbot, rules });
+        res.json(result);
     } catch (err) {
-        res.status(500).json({ error: 'Erro ao buscar chatbot' });
+        res.status(500).json({ error: 'Erro ao buscar chatbots' });
     }
 });
 
 app.post('/api/chatbot/keywords', authenticateToken, async (req, res) => {
     try {
-        const { instance_name, rules } = req.body;
+        const { id, instance_name, rules } = req.body;
+        let chatbotId = id;
 
-        // Criar ou atualizar chatbot
-        const [existing] = await pool.query("SELECT id FROM keyword_chatbot WHERE user_id = ?", [req.user.id]);
-        let chatbotId;
-
-        if (existing.length > 0) {
-            chatbotId = existing[0].id;
-            await pool.query("UPDATE keyword_chatbot SET instance_name = ?, updated_at = NOW() WHERE id = ?", [instance_name, chatbotId]);
+        if (chatbotId) {
+            // Atualizar existente
+            await pool.query("UPDATE keyword_chatbot SET instance_name = ?, updated_at = NOW() WHERE id = ? AND user_id = ?", [instance_name, chatbotId, req.user.id]);
             await pool.query("DELETE FROM keyword_chatbot_rules WHERE chatbot_id = ?", [chatbotId]);
         } else {
+            // Criar novo
             const [result] = await pool.query("INSERT INTO keyword_chatbot (user_id, instance_name) VALUES (?, ?)", [req.user.id, instance_name]);
             chatbotId = result.insertId;
         }
@@ -2625,14 +2645,13 @@ app.post('/api/chatbot/keywords', authenticateToken, async (req, res) => {
     }
 });
 
-app.patch('/api/chatbot/keywords/toggle', authenticateToken, async (req, res) => {
+app.patch('/api/chatbot/keywords/:id/toggle', authenticateToken, async (req, res) => {
     try {
         const { is_active } = req.body;
+        const { id } = req.params;
 
-        // Atualizar status do chatbot
-        await pool.query("UPDATE keyword_chatbot SET is_active = ? WHERE user_id = ?", [is_active ? 1 : 0, req.user.id]);
+        await pool.query("UPDATE keyword_chatbot SET is_active = ? WHERE id = ? AND user_id = ?", [is_active ? 1 : 0, id, req.user.id]);
 
-        // Se ativando chatbot, pausar todos os FlowBuilds do usuário
         if (is_active) {
             await pool.query("UPDATE flows SET status = 'paused' WHERE user_id = ? AND status = 'active'", [req.user.id]);
         }
@@ -2640,6 +2659,17 @@ app.patch('/api/chatbot/keywords/toggle', authenticateToken, async (req, res) =>
         res.json({ success: true, is_active, flowsDisabled: is_active });
     } catch (err) {
         res.status(500).json({ error: 'Erro ao alternar chatbot' });
+    }
+});
+
+app.delete('/api/chatbot/keywords/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        await pool.query("DELETE FROM keyword_chatbot_rules WHERE chatbot_id = ?", [id]);
+        await pool.query("DELETE FROM keyword_chatbot WHERE id = ? AND user_id = ?", [id, req.user.id]);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao excluir chatbot' });
     }
 });
 
