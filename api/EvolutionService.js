@@ -148,11 +148,14 @@ class EvolutionService {
     }
 
     // 9. Bloquear/Desbloquear Contato
-    async blockUnblockContact(instanceName, number, block = true) {
-        // Se já vier com @s.whatsapp.net, envia direto, senão limpa e envia
-        const target = number.includes('@') ? number : number.replace(/\D/g, '');
+    async blockUnblockContact(instanceName, remoteJid, block = true) {
+        // Remove @s.whatsapp.net para garantir compatibilidade caso a API prefira apenas o número
+        const cleanNumber = remoteJid.split('@')[0].replace(/\D/g, '');
+
+        console.log(`🚫 [Evolution] Bloqueando/Desbloqueando: ${cleanNumber} (${block ? 'block' : 'unblock'})`);
+
         return this._request(`/chat/blockUnblock/${instanceName}`, 'POST', {
-            number: target,
+            number: cleanNumber,
             action: block ? 'block' : 'unblock'
         });
     }

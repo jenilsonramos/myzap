@@ -699,10 +699,11 @@ async function sendZeptoEmail(to, subject, html) {
 
 app.post('/api/admin/test-email', authenticateAdmin, async (req, res) => {
     try {
-        const { email } = req.body;
-        if (!email) return res.status(400).json({ error: 'E-mail obrigatório' });
+        const { email, smtp_test_email } = req.body;
+        const targetEmail = email || smtp_test_email;
+        if (!targetEmail) return res.status(400).json({ error: 'E-mail obrigatório' });
 
-        await sendZeptoEmail(email, 'Teste de Configuração MyZap', '<h1>Sucesso!</h1><p>Sua integração nativa com o ZeptoMail está funcionando corretamente.</p>');
+        await sendZeptoEmail(targetEmail, 'Teste de Configuração MyZap', '<h1>Sucesso!</h1><p>Sua integração nativa com o ZeptoMail está funcionando corretamente.</p>');
         res.json({ success: true, message: 'E-mail de teste enviado com sucesso!' });
     } catch (err) {
         res.status(500).json({ error: 'Erro ao enviar e-mail', details: err.message });
@@ -766,7 +767,7 @@ app.get('/api/contacts', authenticateToken, async (req, res) => {
         const params = [];
 
         // Restringir SEMPRE ao usuário logado, mesmo sendo Admin (Privacidade)
-        query += ' WHERE c.user_id = ? ';
+        query += ' WHERE c.user_id = ? AND (c.is_blocked = 0 OR c.is_blocked IS NULL) ';
         params.push(req.user.id);
 
         query += ' ORDER BY lastTime DESC';
@@ -2176,27 +2177,28 @@ app.post('/api/webhook/evolution', async (req, res) => {
             }
 
             if (remoteJid !== 'status@broadcast') {
-                // 2. Contato (Sempre força 'open' se for mensagem recebida)
-                logDebug(`📇 Gravando contato: ${remoteJid}`);
-                await pool.query(`
-                    INSERT INTO contacts (user_id, remote_jid, name, instance_name, status, unread_count) 
-                    VALUES (?, ?, ?, ?, 'open', IF(? = 0, 1, 0)) 
-                    ON DUPLICATE KEY UPDATE 
-                        name = VALUES(name),
-                        instance_name = COALESCE(instance_name, VALUES(instance_name)),
-                        status = IF(? = 0, 'open', status),
-                        unread_count = IF(? = 0, unread_count + 1, unread_count)
-                `, [userId, remoteJid, pushName, instance, fromMe, fromMe, fromMe]);
-
-                // 3. ID do Contato e Verificação de Bloqueio
-                const [cRows] = await pool.query("SELECT id, is_blocked FROM contacts WHERE user_id = ? AND remote_jid = ?", [userId, remoteJid]);
-                const contactId = cRows[0]?.id;
-                const isBlocked = cRows[0]?.is_blocked;
-
-                if (isBlocked) {
-                    logDebug(`🚫 [BLOCK] Contato ${remoteJid} está bloqueado. Ignorando mensagem.`);
+                // 2. Verificação Instantânea de Bloqueio (ANIMAL)
+                const [blockCheck] = await pool.query("SELECT is_blocked FROM contacts WHERE user_id = ? AND remote_jid = ?", [userId, remoteJid]);
+                if (blockCheck.length > 0 && blockCheck[0].is_blocked) {
+                    logDebug(`🚫 [BLOCK] BLOQUEIO REAL: Contato ${remoteJid} ignorado completamente.`);
                     return res.status(200).send('OK');
                 }
+
+                // 3. Contato (Sempre força 'open' se for mensagem recebida)
+                logDebug(`📇 Gravando contato: ${remoteJid}`);
+                await pool.query(`
+                        INSERT INTO contacts (user_id, remote_jid, name, instance_name, status, unread_count) 
+                        VALUES (?, ?, ?, ?, 'open', IF(? = 0, 1, 0)) 
+                        ON DUPLICATE KEY UPDATE 
+                            name = VALUES(name),
+                            instance_name = COALESCE(instance_name, VALUES(instance_name)),
+                            status = IF(? = 0, 'open', status),
+                            unread_count = IF(? = 0, unread_count + 1, unread_count)
+                    `, [userId, remoteJid, pushName, instance, fromMe, fromMe, fromMe]);
+
+                // Obter ID do contato (indiferente se é novo ou antigo)
+                const [cRows] = await pool.query("SELECT id FROM contacts WHERE user_id = ? AND remote_jid = ?", [userId, remoteJid]);
+                const contactId = cRows[0]?.id;
 
                 if (!contactId) {
                     console.error(`❌ [WEBHOOK] CRÍTICO: Contact ID não encontrado para ${remoteJid} (User: ${userId})`);
