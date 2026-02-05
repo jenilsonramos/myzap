@@ -543,14 +543,92 @@ app.post('/api/auth/register', async (req, res) => {
         const [rows] = await pool.execute('SELECT id FROM users WHERE email = ?', [email]);
         if (rows.length > 0) return res.status(400).json({ error: 'Email ja cadastrado' });
 
+        // Verificar se ativação de conta está habilitada
+        const [settingsRows] = await pool.execute('SELECT setting_value FROM system_settings WHERE setting_key = ?', ['require_email_activation']);
+        const requireActivation = settingsRows[0]?.setting_value === 'true';
+
+        // Gerar código de ativação se necessário
+        const activationCode = requireActivation ? Math.random().toString(36).substring(2, 8).toUpperCase() : null;
+        const userStatus = requireActivation ? 'pending_activation' : 'active';
+
         const hashedPassword = await bcrypt.hash(password, 10);
-        await pool.execute(
-            "INSERT INTO users (name, email, password, status, plan, created_at, trial_ends_at) VALUES (?, ?, ?, 'active', 'Teste Grátis', NOW(), DATE_ADD(NOW(), INTERVAL 7 DAY))",
-            [name, email, hashedPassword]
+        const [insertResult] = await pool.execute(
+            "INSERT INTO users (name, email, password, status, plan, created_at, trial_ends_at, activation_code) VALUES (?, ?, ?, ?, 'Teste Grátis', NOW(), DATE_ADD(NOW(), INTERVAL 7 DAY), ?)",
+            [name, email, hashedPassword, userStatus, activationCode]
         );
 
-        res.status(201).json({ message: 'OK' });
-    } catch (err) { res.status(500).json({ error: 'Erro' }); }
+        // Enviar email de boas-vindas ou ativação
+        try {
+            const [smtpSettings] = await pool.execute('SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ("smtp_pass", "smtp_from_email", "smtp_from_name")');
+            const smtp = {};
+            smtpSettings.forEach(row => smtp[row.setting_key] = row.setting_value);
+
+            if (smtp.smtp_pass) {
+                const token = (smtp.smtp_pass || '').replace(/zoho-enczapikey\s+/i, '').trim();
+                let emailHtml, subject;
+
+                if (requireActivation) {
+                    subject = '🔑 Ative sua conta MyZap';
+                    emailHtml = `
+                        <div style="font-family: 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto;">
+                            <div style="background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%); padding: 40px 20px; text-align: center; border-radius: 12px 12px 0 0;">
+                                <h1 style="color: white; margin: 0;">🔑 Ative sua conta</h1>
+                            </div>
+                            <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 12px 12px;">
+                                <h2 style="color: #333;">Olá, ${name}!</h2>
+                                <p style="color: #666;">Use o código abaixo para ativar sua conta:</p>
+                                <div style="background: white; padding: 24px; border-radius: 12px; text-align: center; margin: 20px 0;">
+                                    <span style="font-size: 32px; font-weight: 900; letter-spacing: 8px; color: #6366f1;">${activationCode}</span>
+                                </div>
+                                <p style="color: #999; font-size: 12px;">Este código expira em 24 horas.</p>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    subject = '🚀 Bem-vindo ao MyZap!';
+                    emailHtml = `
+                        <div style="font-family: 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto;">
+                            <div style="background: linear-gradient(135deg, #4f46e5 0%, #10b981 100%); padding: 40px 20px; text-align: center; border-radius: 12px 12px 0 0;">
+                                <h1 style="color: white; margin: 0;">🚀 Bem-vindo!</h1>
+                            </div>
+                            <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 12px 12px;">
+                                <h2 style="color: #333;">Olá, ${name}!</h2>
+                                <p style="color: #666;">Sua conta no MyZap foi criada com sucesso. Você já pode acessar o painel e começar a usar nossa plataforma.</p>
+                                <div style="text-align: center; margin-top: 30px;">
+                                    <a href="https://ublochat.com.br" style="background: #4f46e5; color: white; padding: 14px 32px; text-decoration: none; border-radius: 25px; font-weight: bold;">Acessar Painel</a>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                await axios.post('https://api.zeptomail.com/v1.1/email', {
+                    from: { address: smtp.smtp_from_email || 'no-reply@ublochat.com.br', name: smtp.smtp_from_name || 'MyZap' },
+                    to: [{ email_address: { address: email, name: name } }],
+                    subject: subject,
+                    htmlbody: emailHtml
+                }, {
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'Authorization': `Zoho-enczapikey ${token}`
+                    }
+                });
+                console.log(`📧 [REGISTER] Email enviado para ${email} (${requireActivation ? 'ativação' : 'boas-vindas'})`);
+            }
+        } catch (emailErr) {
+            console.error(`⚠️ [REGISTER] Falha ao enviar email:`, emailErr.message);
+        }
+
+        res.status(201).json({
+            message: 'OK',
+            requireActivation,
+            email: requireActivation ? email : undefined
+        });
+    } catch (err) {
+        console.error('❌ [REGISTER] Erro:', err);
+        res.status(500).json({ error: 'Erro ao criar conta' });
+    }
 });
 
 app.post('/api/auth/login', async (req, res) => {
@@ -601,6 +679,39 @@ app.put('/api/auth/update', authenticateToken, async (req, res) => {
         await pool.execute('UPDATE users SET name = ?, email = ? WHERE id = ?', [name, email, req.user.id]);
         res.json({ message: 'Perfil atualizado com sucesso' });
     } catch (err) { res.status(500).json({ error: 'Erro ao atualizar perfil' }); }
+});
+
+// Endpoint de ativação de conta
+app.post('/api/auth/activate', async (req, res) => {
+    const { email, code } = req.body;
+    try {
+        const [users] = await pool.execute(
+            'SELECT id, activation_code, status FROM users WHERE email = ?',
+            [email]
+        );
+
+        if (users.length === 0) return res.status(404).json({ error: 'Usuário não encontrado' });
+
+        const user = users[0];
+        if (user.status !== 'pending_activation') {
+            return res.status(400).json({ error: 'Conta já está ativada' });
+        }
+
+        if (user.activation_code !== code.toUpperCase()) {
+            return res.status(400).json({ error: 'Código de ativação inválido' });
+        }
+
+        await pool.execute(
+            "UPDATE users SET status = 'active', activation_code = NULL WHERE id = ?",
+            [user.id]
+        );
+
+        console.log(`✅ [ACTIVATION] Conta ativada: ${email}`);
+        res.json({ message: 'Conta ativada com sucesso!' });
+    } catch (err) {
+        console.error('❌ [ACTIVATION] Erro:', err);
+        res.status(500).json({ error: 'Erro ao ativar conta' });
+    }
 });
 
 const cleanupTrials = async () => {
@@ -1161,6 +1272,56 @@ app.post('/api/messages/send-media', authenticateToken, upload.single('file'), a
     } catch (err) {
         console.error('Erro ao enviar mídia:', err);
         res.status(500).json({ error: 'Erro ao enviar mídia' });
+    }
+});
+
+
+// --- SEND AUDIO (Gravação de Áudio do Microfone) ---
+app.post('/api/messages/send-audio', authenticateToken, async (req, res) => {
+    try {
+        const { contactId, audioBase64 } = req.body;
+        const userId = req.user.id;
+
+        if (!contactId || !audioBase64) {
+            return res.status(400).json({ error: 'contactId e audioBase64 são obrigatórios' });
+        }
+
+        // Buscar contato e instância
+        const [contactRows] = await pool.query('SELECT * FROM contacts WHERE id = ? AND user_id = ?', [contactId, userId]);
+        if (contactRows.length === 0) return res.status(404).json({ error: 'Contato não encontrado' });
+        const contact = contactRows[0];
+        const remoteJid = contact.remote_jid;
+
+        const [instanceRows] = await pool.query('SELECT instance_name FROM instances WHERE user_id = ? LIMIT 1', [userId]);
+        const instanceName = instanceRows[0]?.instance_name;
+        if (!instanceName) return res.status(400).json({ error: 'Instância não configurada' });
+
+        // Salvar arquivo de áudio
+        const uploadDir = path.join(__dirname, 'uploads');
+        if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+        const audioBuffer = Buffer.from(audioBase64.replace(/^data:audio\/\w+;base64,/, ''), 'base64');
+        const audioFilename = `audio-${Date.now()}.webm`;
+        const audioPath = path.join(uploadDir, audioFilename);
+        fs.writeFileSync(audioPath, audioBuffer);
+
+        const publicUrl = `https://ublochat.com.br/api/uploads/${audioFilename}`;
+
+        // Enviar via Evolution API
+        const evo = await getEvolutionService();
+        const result = await evo.sendAudio(instanceName, remoteJid, publicUrl);
+
+        const msgId = result?.key?.id || result?.id || `AUDIO-${Date.now()}`;
+        await pool.query(`
+            INSERT INTO messages (user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp, media_url, msg_status)
+            VALUES (?, ?, ?, ?, 1, 'Áudio', 'audio', ?, ?, 'sent')
+        `, [userId, contactId, instanceName, msgId, Math.floor(Date.now() / 1000), publicUrl]);
+
+        console.log(`🎤 [ÁUDIO] Enviado para ${remoteJid}`);
+        res.json({ success: true, result });
+    } catch (err) {
+        console.error('❌ [ÁUDIO] Erro ao enviar áudio:', err);
+        res.status(500).json({ error: 'Erro ao enviar áudio', details: err.message });
     }
 });
 

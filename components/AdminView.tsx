@@ -22,7 +22,8 @@ const AdminView: React.FC = () => {
         smtp_pass: '',
         smtp_from_email: '',
         smtp_from_name: '',
-        smtp_test_email: ''
+        smtp_test_email: '',
+        require_email_activation: 'false'
     });
     const [loadingSettings, setLoadingSettings] = useState(true);
 
@@ -898,16 +899,42 @@ const AdminView: React.FC = () => {
                             </div>
                         </div>
 
+                        {/* Activation Settings */}
+                        <div className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/20 dark:to-indigo-950/20 p-6 rounded-huge border border-purple-200 dark:border-purple-500/20">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 bg-purple-500 rounded-2xl flex items-center justify-center shadow-lg shadow-purple-500/30">
+                                        <span className="material-icons-round text-white">verified_user</span>
+                                    </div>
+                                    <div>
+                                        <h4 className="text-sm font-black dark:text-white uppercase tracking-widest">Exigir Ativação de Conta</h4>
+                                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1">Novos usuários devem confirmar email antes de acessar</p>
+                                    </div>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={settings.require_email_activation === 'true'}
+                                        onChange={(e) => setSettings({ ...settings, require_email_activation: e.target.checked ? 'true' : 'false' })}
+                                        className="sr-only peer"
+                                    />
+                                    <div className="w-14 h-8 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 dark:peer-focus:ring-purple-800 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all dark:border-slate-600 peer-checked:bg-purple-600"></div>
+                                </label>
+                            </div>
+                        </div>
+
                         {/* Email Templates List */}
                         <div className="space-y-6">
                             <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] ml-1">Modelos de E-mail Ativos</h4>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {[
                                     { id: 'WELCOME', name: 'Bem-vindo ao MyZap', trigger: 'Criação de Conta', color: 'bg-indigo-500' },
+                                    { id: 'ACCOUNT_ACTIVATION', name: 'Ativação de Conta', trigger: 'Código por Email', color: 'bg-purple-500' },
                                     { id: 'PAYMENT_APPROVED', name: 'Pagamento Aprovado', trigger: 'Stripe Callback', color: 'bg-emerald-500' },
                                     { id: 'EXPIRING_SOON', name: 'Assinatura Vencendo', trigger: '7 dias antes', color: 'bg-amber-500' },
                                     { id: 'EXPIRED', name: 'Acesso Expirado', trigger: 'Inadimplência', color: 'bg-rose-500' },
                                     { id: 'PASSWORD_RECOVERY', name: 'Recuperação de Senha', trigger: 'Clique Esqueci Senha', color: 'bg-indigo-400' },
+                                    { id: 'PASSWORD_CHANGED', name: 'Senha Alterada', trigger: 'Após Troca de Senha', color: 'bg-teal-500' },
                                 ].map((email, idx) => (
                                     <div key={idx} className="p-5 bg-white dark:bg-card-dark border border-slate-100 dark:border-white/5 rounded-3xl flex items-center gap-4 hover:border-indigo-500 transition-all cursor-pointer shadow-sm relative group">
                                         <div className={`w-3 h-12 rounded-full ${email.color}`}></div>

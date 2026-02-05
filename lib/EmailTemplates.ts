@@ -128,5 +128,40 @@ export const emailTemplates = {
             'Trocar Minha Senha',
             '{reset_url}'
         )
+    },
+    ACCOUNT_ACTIVATION: {
+        subject: 'Ative sua conta MyZap 🔑',
+        html: MASTER_TEMPLATE(
+            'Ativação de Conta',
+            `
+            <div class="badge" style="color: #4f46e5; background: #eef2ff;">Ativação</div>
+            <h2 class="title">Olá, {name}! Ative sua conta.</h2>
+            <p class="text">Estamos quase lá! Para começar a usar o MyZap, você precisa ativar sua conta.</p>
+            <p class="text">Use o código abaixo para ativar sua conta:</p>
+            <div style="background: #f8fafc; padding: 24px; border-radius: 16px; margin: 24px 0; text-align: center;">
+                <span style="font-size: 32px; font-weight: 900; letter-spacing: 8px; color: #4f46e5;">{activation_code}</span>
+            </div>
+            <p class="text" style="font-size: 13px; color: #94a3b8;">Este código é válido por 24 horas. Se você não criou esta conta, ignore este e-mail.</p>
+            `,
+            'Ativar Conta',
+            '{activation_url}'
+        )
+    },
+    PASSWORD_CHANGED: {
+        subject: 'Senha Alterada com Sucesso ✅',
+        html: MASTER_TEMPLATE(
+            'Segurança da Conta',
+            `
+            <div class="badge" style="color: #10b981; background: #ecfdf5;">Confirmação</div>
+            <h2 class="title">Sua senha foi alterada!</h2>
+            <p class="text">Sua senha foi alterada com sucesso em {date} às {time}.</p>
+            <p class="text">Se você realizou esta alteração, pode ignorar este e-mail.</p>
+            <div style="background: #fef2f2; padding: 16px; border-radius: 12px; margin: 24px 0; border-left: 4px solid #ef4444;">
+                <p style="margin: 0; font-size: 14px; color: #b91c1c;"><strong>⚠️ Não foi você?</strong> Clique no botão abaixo imediatamente para proteger sua conta.</p>
+            </div>
+            `,
+            'Recuperar Conta',
+            '{recovery_url}'
+        )
     }
 };
