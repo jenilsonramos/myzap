@@ -664,35 +664,37 @@ app.post('/api/admin/settings', authenticateAdmin, async (req, res) => {
 
 async function sendZeptoEmail(to, subject, html) {
     try {
-        const [rows] = await pool.execute('SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ("zeptomail_api_key", "zeptomail_from_address", "zeptomail_from_name")');
+        const [rows] = await pool.execute('SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ("smtp_user", "smtp_pass", "smtp_from_email", "smtp_from_name")');
         const settings = {};
         rows.forEach(row => settings[row.setting_key] = row.setting_value);
 
-        if (!settings.zeptomail_api_key) throw new Error('ZeptoMail API Key/Senha não configurada');
+        if (!settings.smtp_pass) throw new Error('API Key/Token ZeptoMail não configurado');
 
-        console.log(`📧 [ZEPTOMAIL SMTP] Iniciando envio para: ${to}`);
+        const data = {
+            "from": {
+                "address": settings.smtp_from_email || "no-reply@ublochat.com.br",
+                "name": settings.smtp_from_name || "MyZap"
+            },
+            "to": [{ "email_address": { "address": to } }],
+            "subject": subject,
+            "htmlbody": html
+        };
 
-        const transporter = nodemailer.createTransport({
-            host: "smtp.zeptomail.com",
-            port: 587,
-            auth: {
-                user: "emailapikey",
-                pass: settings.zeptomail_api_key
+        const config = {
+            headers: {
+                'accept': 'application/json',
+                'content-type': 'application/json',
+                'Authorization': `zoho-enczapikey ${settings.smtp_pass}`
             }
-        });
+        };
 
-        const info = await transporter.sendMail({
-            from: `"${settings.zeptomail_from_name || 'MyZap'}" <${settings.zeptomail_from_address || 'no-reply@ublochat.com.br'}>`,
-            to: to,
-            subject: subject,
-            html: html,
-        });
-
-        console.log(`✅ [ZEPTOMAIL SMTP] Sucesso: ${info.messageId}`);
-        return info;
+        const url = 'https://api.zeptomail.com/v1.1/email';
+        console.log(`📤 [ZEPTOMAIL REST] Enviando para: ${to}`);
+        const response = await axios.post(url, data, config);
+        return response.data;
     } catch (err) {
-        console.error('❌ [ZEPTOMAIL SMTP ERROR]:', err.message);
-        throw err;
+        console.error('❌ [ZEPTOMAIL ERROR]:', err.response?.data || err.message);
+        throw new Error(err.response?.data ? JSON.stringify(err.response.data) : err.message);
     }
 }
 
@@ -779,6 +781,22 @@ app.get('/api/contacts', authenticateToken, async (req, res) => {
         const [rows] = await pool.query(query, params);
         res.json(rows);
     } catch (err) { res.status(500).json({ error: 'Erro ao listar contatos' }); }
+});
+
+app.get('/api/contacts/blocked', authenticateToken, async (req, res) => {
+    try {
+        const [rows] = await pool.query(`
+            SELECT c.*, 
+            (SELECT content FROM messages m WHERE m.contact_id = c.id ORDER BY m.timestamp DESC LIMIT 1) as lastMessage,
+            (SELECT timestamp FROM messages m WHERE m.contact_id = c.id ORDER BY m.timestamp DESC LIMIT 1) as lastTime
+            FROM contacts c 
+            WHERE c.user_id = ? AND c.is_blocked = 1
+            ORDER BY lastTime DESC
+        `, [req.user.id]);
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao listar contatos bloqueados' });
+    }
 });
 
 // Update contact status (open, pending, closed)
@@ -2191,11 +2209,11 @@ app.post('/api/webhook/evolution', async (req, res) => {
                         INSERT INTO contacts (user_id, remote_jid, name, instance_name, status, unread_count) 
                         VALUES (?, ?, ?, ?, 'open', IF(? = 0, 1, 0)) 
                         ON DUPLICATE KEY UPDATE 
-                            name = VALUES(name),
+                            name = IF(? = 0, VALUES(name), name),
                             instance_name = COALESCE(instance_name, VALUES(instance_name)),
                             status = IF(? = 0, 'open', status),
                             unread_count = IF(? = 0, unread_count + 1, unread_count)
-                    `, [userId, remoteJid, pushName, instance, fromMe, fromMe, fromMe]);
+                    `, [userId, remoteJid, pushName, instance, fromMe, fromMe, fromMe, fromMe, fromMe]);
 
                 // Obter ID do contato (indiferente se é novo ou antigo)
                 const [cRows] = await pool.query("SELECT id FROM contacts WHERE user_id = ? AND remote_jid = ?", [userId, remoteJid]);
