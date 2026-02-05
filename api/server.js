@@ -668,29 +668,42 @@ async function sendZeptoEmail(to, subject, html) {
         const settings = {};
         rows.forEach(row => settings[row.setting_key] = row.setting_value);
 
-        if (!settings.smtp_pass) throw new Error('API Key/Token ZeptoMail não configurado');
+        let token = settings.smtp_pass || '';
+        if (!token) throw new Error('API Key/Token ZeptoMail não configurado');
+
+        // Limpeza do token (caso o usuário tenha colado o prefixo junto)
+        token = token.replace(/zoho-enczapikey\s+/i, '').trim();
 
         const data = {
             "from": {
                 "address": settings.smtp_from_email || "no-reply@ublochat.com.br",
                 "name": settings.smtp_from_name || "MyZap"
             },
-            "to": [{ "email_address": { "address": to } }],
+            "to": [
+                {
+                    "email_address": {
+                        "address": to,
+                        "name": to.split('@')[0]
+                    }
+                }
+            ],
             "subject": subject,
             "htmlbody": html
         };
 
         const config = {
             headers: {
-                'accept': 'application/json',
-                'content-type': 'application/json',
-                'Authorization': `zoho-enczapikey ${settings.smtp_pass}`
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'Authorization': `Zoho-enczapikey ${token}`
             }
         };
 
         const url = 'https://api.zeptomail.com/v1.1/email';
         console.log(`📤 [ZEPTOMAIL REST] Enviando para: ${to}`);
+
         const response = await axios.post(url, data, config);
+        console.log('✅ [ZEPTOMAIL REST] Sucesso:', response.data);
         return response.data;
     } catch (err) {
         console.error('❌ [ZEPTOMAIL ERROR]:', err.response?.data || err.message);
