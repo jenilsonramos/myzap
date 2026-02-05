@@ -2205,15 +2205,16 @@ app.post('/api/webhook/evolution', async (req, res) => {
 
                 // 3. Contato (Sempre força 'open' se for mensagem recebida)
                 logDebug(`📇 Gravando contato: ${remoteJid}`);
+                const contactName = fromMe ? null : pushName;
                 await pool.query(`
                         INSERT INTO contacts (user_id, remote_jid, name, instance_name, status, unread_count) 
                         VALUES (?, ?, ?, ?, 'open', IF(? = 0, 1, 0)) 
                         ON DUPLICATE KEY UPDATE 
-                            name = IF(? = 0, VALUES(name), name),
+                            name = COALESCE(?, name),
                             instance_name = COALESCE(instance_name, VALUES(instance_name)),
                             status = IF(? = 0, 'open', status),
                             unread_count = IF(? = 0, unread_count + 1, unread_count)
-                    `, [userId, remoteJid, pushName, instance, fromMe, fromMe, fromMe, fromMe, fromMe]);
+                    `, [userId, remoteJid, contactName || (remoteJid ? remoteJid.split('@')[0] : 'Desconhecido'), instance, fromMe, contactName, fromMe, fromMe]);
 
                 // Obter ID do contato (indiferente se é novo ou antigo)
                 const [cRows] = await pool.query("SELECT id FROM contacts WHERE user_id = ? AND remote_jid = ?", [userId, remoteJid]);
