@@ -436,7 +436,7 @@ async function connectToDB() {
     }
 }
 
-connectToDB();
+// A inicialização será chamada ao final do arquivo
 
 // stripe integration (inicializado sob demanda)
 let stripe;
@@ -2704,7 +2704,6 @@ app.get('/api/admin/server-health', authenticateAdmin, async (req, res) => {
 });
 
 // ========== CRONS DO SISTEMA ==========
-const nodemailer = require('nodemailer');
 
 // Configuração do ZeptoMail
 const emailTransport = nodemailer.createTransport({
@@ -2948,8 +2947,18 @@ setTimeout(scheduleCrons, 5000);
 // ========== FIM NOVAS FUNCIONALIDADES ==========
 
 const PORT = 5000;
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Servidor rodando na porta ${PORT}`);
-    console.log(`🌍 Domínio: ublochat.com.br`);
-    setupTables();
-});
+
+async function startServer() {
+    try {
+        await connectToDB();
+        app.listen(PORT, '0.0.0.0', () => {
+            console.log(`🚀 Servidor rodando na porta ${PORT}`);
+            console.log(`🌍 Domínio: ublochat.com.br`);
+        });
+    } catch (err) {
+        console.error('❌ FALHA AO INICIAR SERVIDOR:', err.message);
+        process.exit(1);
+    }
+}
+
+startServer();
