@@ -222,7 +222,9 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
     res.json({ received: true });
 });
 
-app.use(express.json());
+// Parsers globais (Movidos para depois do Stripe Webhook por causa do raw body)
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Configuração do Banco de Dados
 const dbConfig = {
@@ -664,24 +666,21 @@ app.post('/api/auth/register', async (req, res) => {
                         'https://ublochat.com.br'
                     );
                 }
+                await sendZeptoEmail(email, subject, emailHtml);
             }
-
-
-            await sendZeptoEmail(email, subject, emailHtml);
-        }
         } catch (emailErr) {
-        console.error(`⚠️ [REGISTER] Falha ao enviar email:`, emailErr.message);
-    }
+            console.error(`⚠️ [REGISTER] Falha ao enviar email:`, emailErr.message);
+        }
 
-    res.status(201).json({
-        message: 'OK',
-        requireActivation,
-        email: requireActivation ? email : undefined
-    });
-} catch (err) {
-    console.error('❌ [REGISTER] Erro:', err);
-    res.status(500).json({ error: 'Erro ao criar conta' });
-}
+        res.status(201).json({
+            message: 'OK',
+            requireActivation,
+            email: requireActivation ? email : undefined
+        });
+    } catch (err) {
+        console.error('❌ [REGISTER] Erro:', err);
+        res.status(500).json({ error: 'Erro ao criar conta' });
+    }
 });
 
 app.post('/api/auth/login', async (req, res) => {
@@ -763,22 +762,31 @@ app.post('/api/auth/activate', async (req, res) => {
             [user.id]
         );
 
-        if (smtp.smtp_pass) {
-            subject = '🚀 Bem-vindo ao MyZap - Conta Ativada!';
-            emailHtml = MASTER_TEMPLATE(
-                'Conta Ativada',
-                `
+        // Enviar email de BOAS-VINDAS
+        try {
+            const [smtpSettings] = await pool.execute('SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ("smtp_pass", "smtp_from_email", "smtp_from_name")');
+            const smtp = {};
+            smtpSettings.forEach(row => smtp[row.setting_key] = row.setting_value);
+
+            if (smtp.smtp_pass) {
+                const subject = '🚀 Bem-vindo ao MyZap - Conta Ativada!';
+                const emailHtml = MASTER_TEMPLATE(
+                    'Conta Ativada',
+                    `
                     <div class="badge">Sucesso</div>
-                    <h2 class="title">Tudo pronto, ${name}! 🚀</h2>
+                    <h2 class="title">Tudo pronto! 🚀</h2>
                     <p class="text">Sua conta no MyZap foi ativada com sucesso. Você agora tem acesso total a todas as ferramentas.</p>
                     <div style="background: #f0fdf4; border-left: 4px solid #10B981; padding: 20px; border-radius: 8px; margin: 24px 0;">
                         <p style="color: #065f46; margin: 0; font-size: 15px;"><strong>Dica:</strong> Comece conectando seu primeiro número em "Instâncias".</p>
                     </div>
                     `,
-                'Entrar no Painel',
-                'https://ublochat.com.br'
-            );
-            await sendZeptoEmail(email, subject, emailHtml);
+                    'Entrar no Painel',
+                    'https://ublochat.com.br'
+                );
+                await sendZeptoEmail(email, subject, emailHtml);
+            }
+        } catch (e) {
+            console.error('Erro ao enviar boas-vindas na ativação:', e);
         }
 
         // 🔐 Gerar Token para login automático
@@ -801,10 +809,6 @@ app.post('/api/auth/activate', async (req, res) => {
         res.status(500).json({ error: 'Erro ao ativar conta' });
     }
 });
-
-// Parsers globais (Movidos para depois do Stripe Webhook por causa do raw body)
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Endpoint de recuperação de senha
 app.post('/api/auth/recover', async (req, res) => {
@@ -888,7 +892,6 @@ const cleanupTrials = async () => {
 
 // Executa limpeza a cada 1 hora
 setInterval(cleanupTrials, 60 * 60 * 1000);
-setTimeout(cleanupTrials, 5000); // Executa 5s apos iniciar
 
 // --- ADMIN / SETTINGS ---
 
@@ -1346,114 +1349,10 @@ app.get('/api/messages/:contactId', authenticateToken, async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'Erro ao buscar mensagens' }); }
 });
 
-// Send media message (FormData from panel)
-app.post('/api/messages/send-media', authenticateToken, upload.single('file'), async (req, res) => {
-    try {
-        const { contactId } = req.body;
-        const file = req.file;
-        if (!file) return res.status(400).json({ error: 'Arquivo não enviado' });
-
-        const userId = req.user.id;
-        const [contacts] = await pool.query("SELECT remote_jid, instance_name FROM contacts WHERE id = ? AND user_id = ?", [contactId, userId]);
-        if (contacts.length === 0) return res.status(404).json({ error: 'Contato não encontrado' });
-
-        const remoteJid = contacts[0].remote_jid;
-        let instanceName = contacts[0].instance_name;
-
-        if (!instanceName) {
-            const [user] = await pool.query("SELECT instance_whitelist FROM users WHERE id = ?", [userId]);
-            if (user.length > 0 && user[0].instance_whitelist) {
-                const whitelist = JSON.parse(user[0].instance_whitelist || '[]');
-                if (whitelist.length > 0) instanceName = whitelist[0];
-            }
-        }
-
-        if (!instanceName) return res.status(400).json({ error: 'Instância não configurada' });
-
-        const [appUrlRow] = await pool.query("SELECT setting_value FROM system_settings WHERE setting_key = 'app_url'");
-        const baseUrl = appUrlRow[0]?.setting_value || 'https://ublochat.com.br';
-        const publicUrl = `${baseUrl.replace(/\/$/, '')}/api/uploads/${file.filename}`;
-        const mediaType = file.mimetype.startsWith('image/') ? 'image' :
-            file.mimetype.startsWith('video/') ? 'video' :
-                file.mimetype.startsWith('audio/') ? 'audio' : 'document';
-
-        const evo = await getEvolutionService();
-        let result;
-        if (mediaType === 'image') result = await evo.sendImage(instanceName, remoteJid, publicUrl);
-        else if (mediaType === 'video') result = await evo.sendVideo(instanceName, remoteJid, publicUrl);
-        else if (mediaType === 'audio') result = await evo.sendAudio(instanceName, remoteJid, publicUrl);
-        else result = await evo.sendDocument(instanceName, remoteJid, publicUrl, file.originalname);
-
-        const msgId = result?.key?.id || result?.id || `MEDIA-${Date.now()}`;
-        await pool.query(`
-            INSERT INTO messages (user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp, media_url, msg_status)
-            VALUES (?, ?, ?, ?, 1, '', ?, ?, ?, 'sent')
-        `, [userId, contactId, instanceName, msgId, mediaType, Math.floor(Date.now() / 1000), publicUrl]);
-
-        res.json({ success: true, result });
-    } catch (err) {
-        console.error('Erro ao enviar mídia:', err);
-        res.status(500).json({ error: 'Erro ao enviar mídia' });
-    }
-});
 
 
-// --- SEND AUDIO (Gravação de Áudio do Microfone) ---
-app.post('/api/messages/send-audio', authenticateToken, async (req, res) => {
-    try {
-        const { contactId, audioBase64 } = req.body;
-        const userId = req.user.id;
 
-        if (!contactId || !audioBase64) {
-            return res.status(400).json({ error: 'contactId e audioBase64 são obrigatórios' });
-        }
 
-        // Buscar contato e instância
-        const [contactRows] = await pool.query('SELECT * FROM contacts WHERE id = ? AND user_id = ?', [contactId, userId]);
-        if (contactRows.length === 0) return res.status(404).json({ error: 'Contato não encontrado' });
-        const contact = contactRows[0];
-        const remoteJid = contact.remote_jid;
-
-        const [instanceRows] = await pool.query('SELECT instance_name FROM instances WHERE user_id = ? LIMIT 1', [userId]);
-        const instanceName = instanceRows[0]?.instance_name;
-        if (!instanceName) return res.status(400).json({ error: 'Instância não configurada' });
-
-        // Salvar arquivo de áudio
-        const uploadDir = path.join(__dirname, 'uploads');
-        if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-
-        // Regex aprimorada para remover o prefixo data:audio/...;base64, suportando codecs
-        const base64Data = audioBase64.split(';base64,').pop();
-        const audioBuffer = Buffer.from(base64Data, 'base64');
-        const audioFilename = `audio-${Date.now()}.ogg`;
-        const audioPath = path.join(uploadDir, audioFilename);
-        fs.writeFileSync(audioPath, audioBuffer);
-
-        const [appUrlRow] = await pool.query("SELECT setting_value FROM system_settings WHERE setting_key = 'app_url'");
-        const baseUrl = appUrlRow[0]?.setting_value || 'https://ublochat.com.br';
-        const publicUrl = `${baseUrl.replace(/\/$/, '')}/api/uploads/${audioFilename}`;
-
-        console.log(`[AUDIO BACKEND] URL Pública: ${publicUrl}`);
-
-        // Enviar via Evolution API
-        console.log(`[AUDIO BACKEND] Enviando para Evolution API. Instância: ${instanceName}`);
-        const evo = await getEvolutionService();
-        const result = await evo.sendAudio(instanceName, remoteJid, publicUrl);
-        console.log(`[AUDIO BACKEND] Resultado Evolution:`, JSON.stringify(result));
-
-        const msgId = result?.key?.id || result?.id || `AUDIO-${Date.now()}`;
-        await pool.query(`
-            INSERT INTO messages (user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp, media_url, msg_status)
-            VALUES (?, ?, ?, ?, 1, 'Áudio', 'audio', ?, ?, 'sent')
-        `, [userId, contactId, instanceName, msgId, Math.floor(Date.now() / 1000), publicUrl]);
-
-        console.log(`🎤 [ÁUDIO] Enviado para ${remoteJid}`);
-        res.json({ success: true, result });
-    } catch (err) {
-        console.error('❌ [ÁUDIO] Erro ao enviar áudio:', err);
-        res.status(500).json({ error: 'Erro ao enviar áudio', details: err.message });
-    }
-});
 
 
 // --- ANALYTICS DASHBOARD ---
@@ -3140,47 +3039,7 @@ app.get('/api/messages/:contactId/search', authenticateToken, async (req, res) =
     }
 });
 
-// --- ENVIO DE ÁUDIO ---
-app.post('/api/messages/send-audio', authenticateToken, async (req, res) => {
-    try {
-        const { contactId, audioBase64, audioUrl } = req.body;
 
-        const [contacts] = await pool.query("SELECT remote_jid FROM contacts WHERE id = ? AND user_id = ?", [contactId, req.user.id]);
-        if (contacts.length === 0) return res.status(404).json({ error: 'Contato não encontrado' });
-
-        const remoteJid = contacts[0].remote_jid;
-        const [instance] = await pool.query("SELECT business_name FROM whatsapp_accounts WHERE user_id = ? LIMIT 1", [req.user.id]);
-        if (instance.length === 0) return res.status(400).json({ error: 'Nenhuma instância configurada' });
-
-        const instanceName = instance[0].business_name;
-        const evo = await getEvolutionService();
-        if (!evo) return res.status(500).json({ error: 'Evolution API offline' });
-
-        const number = remoteJid.replace('@s.whatsapp.net', '');
-        const mediaSource = audioUrl || audioBase64;
-
-        const result = await evo._request(`/message/sendMedia/${instanceName}`, 'POST', {
-            number,
-            mediatype: 'audio',
-            media: mediaSource,
-            mimetype: 'audio/ogg; codecs=opus'
-        });
-
-        const msgId = result?.key?.id || `AUDIO-${Date.now()}`;
-        const timestamp = Math.floor(Date.now() / 1000);
-
-        await pool.query(`
-            INSERT INTO messages (user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp, media_url)
-            VALUES (?, ?, ?, ?, 1, '', 'audio', ?, ?)
-            ON DUPLICATE KEY UPDATE content = VALUES(content)
-        `, [req.user.id, contactId, instanceName, msgId, timestamp, mediaSource]);
-
-        res.json(result);
-    } catch (err) {
-        console.error('Erro ao enviar áudio:', err);
-        res.status(500).json({ error: 'Erro ao enviar áudio', details: err.message });
-    }
-});
 
 // --- ASSISTENTE DE IA PARA TEXTO ---
 app.post('/api/ai/improve-text', authenticateToken, async (req, res) => {
@@ -3210,16 +3069,11 @@ app.post('/api/ai/improve-text', authenticateToken, async (req, res) => {
 
         const prompt = tonePrompts[tone] || tonePrompts.profissional;
 
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ role: 'user', parts: [{ text: `${prompt}\n\n"${text}"\n\nRetorne APENAS o texto reescrito, sem explicações.` }] }]
-            })
+        const response = await axios.post(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+            contents: [{ role: 'user', parts: [{ text: `${prompt}\n\n"${text}"\n\nRetorne APENAS o texto reescrito, sem explicações.` }] }]
         });
 
-        const data = await response.json();
-        const improvedText = data?.candidates?.[0]?.content?.parts?.[0]?.text || text;
+        const improvedText = response.data?.candidates?.[0]?.content?.parts?.[0]?.text || text;
 
         res.json({ original: text, improved: improvedText.trim() });
     } catch (err) {
@@ -3601,7 +3455,7 @@ function scheduleCrons() {
 }
 
 // Inicializar CRONs após conexão com banco
-setTimeout(scheduleCrons, 5000);
+// (Movido para dentro do startServer para garantir pool inicializado)
 
 // ========== FIM NOVAS FUNCIONALIDADES ==========
 
@@ -3610,6 +3464,11 @@ const PORT = 5000;
 async function startServer() {
     try {
         await connectToDB();
+
+        // Inicializar CRONs e Limpeza após conexão bem-sucedida
+        setTimeout(scheduleCrons, 5000);
+        setTimeout(cleanupTrials, 10000);
+
         app.listen(PORT, '0.0.0.0', () => {
             console.log(`🚀 Servidor rodando na porta ${PORT}`);
             console.log(`🌍 Domínio: ublochat.com.br`);
