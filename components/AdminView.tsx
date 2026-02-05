@@ -803,16 +803,20 @@ const AdminView: React.FC = () => {
                                 </div>
                                 <div className="grid grid-cols-1 gap-4">
                                     <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ZeptoMail Send Mail Token (API Key)</label>
-                                        <input value={settings.zeptomail_api_key} onChange={e => setSettings({ ...settings, zeptomail_api_key: e.target.value })} type="password" placeholder="Zoho-enczapikey ..." className="w-full bg-white dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Usuário SMTP (ZeptoMail: emailapikey)</label>
+                                        <input value={settings.smtp_user} onChange={e => setSettings({ ...settings, smtp_user: e.target.value })} type="text" placeholder="emailapikey" className="w-full bg-white dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">ZeptoMail Send Mail Token (Senha SMTP)</label>
+                                        <input value={settings.smtp_pass} onChange={e => setSettings({ ...settings, smtp_pass: e.target.value })} type="password" placeholder="wSsVR61x+Rb5..." className="w-full bg-white dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
                                     </div>
                                     <div className="space-y-1.5">
                                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">E-mail Remetente (De)</label>
-                                        <input value={settings.zeptomail_from_address} onChange={e => setSettings({ ...settings, zeptomail_from_address: e.target.value })} type="text" placeholder="contato@seudominio.com" className="w-full bg-white dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
+                                        <input value={settings.smtp_from_email} onChange={e => setSettings({ ...settings, smtp_from_email: e.target.value })} type="text" placeholder="contato@ublochat.com.br" className="w-full bg-white dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
                                     </div>
                                     <div className="space-y-1.5">
                                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome do Remetente</label>
-                                        <input value={settings.zeptomail_from_name} onChange={e => setSettings({ ...settings, zeptomail_from_name: e.target.value })} type="text" placeholder="Equipe MyZap" className="w-full bg-white dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
+                                        <input value={settings.smtp_from_name} onChange={e => setSettings({ ...settings, smtp_from_name: e.target.value })} type="text" placeholder="Equipe MyZap" className="w-full bg-white dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all" />
                                     </div>
                                 </div>
                             </div>
