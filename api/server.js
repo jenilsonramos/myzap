@@ -661,7 +661,7 @@ app.post('/api/admin/settings', authenticateAdmin, async (req, res) => {
 
 // --- GOOGLE GEMINI / AI SETTINGS ---
 // --- ZEPTOMAIL INTEGRATION ---
-const axios = require('axios');
+const nodemailer = require('nodemailer');
 
 async function sendZeptoEmail(to, subject, html) {
     try {
@@ -669,32 +669,30 @@ async function sendZeptoEmail(to, subject, html) {
         const settings = {};
         rows.forEach(row => settings[row.setting_key] = row.setting_value);
 
-        if (!settings.zeptomail_api_key) throw new Error('ZeptoMail API Key não configurada');
+        if (!settings.zeptomail_api_key) throw new Error('ZeptoMail API Key/Senha não configurada');
 
-        const data = {
-            "from": {
-                "address": settings.zeptomail_from_address || "no-reply@ublochat.com.br",
-                "name": settings.zeptomail_from_name || "MyZap"
-            },
-            "to": [{ "email_address": { "address": to } }],
-            "subject": subject,
-            "htmlbody": html
-        };
+        console.log(`📧 [ZEPTOMAIL SMTP] Iniciando envio para: ${to}`);
 
-        const config = {
-            headers: {
-                'accept': 'application/json',
-                'content-type': 'application/json',
-                'Authorization': `Zoho-enczapikey ${settings.zeptomail_api_key}`
+        const transporter = nodemailer.createTransport({
+            host: "smtp.zeptomail.com",
+            port: 587,
+            auth: {
+                user: "emailapikey",
+                pass: settings.zeptomail_api_key
             }
-        };
+        });
 
-        const url = 'https://api.zeptomail.com/v1.1/email';
-        console.log(`📤 [ZEPTOMAIL] Enviando para: ${to} via ${url}`);
-        const response = await axios.post(url, data, config);
-        return response.data;
+        const info = await transporter.sendMail({
+            from: `"${settings.zeptomail_from_name || 'MyZap'}" <${settings.zeptomail_from_address || 'no-reply@ublochat.com.br'}>`,
+            to: to,
+            subject: subject,
+            html: html,
+        });
+
+        console.log(`✅ [ZEPTOMAIL SMTP] Sucesso: ${info.messageId}`);
+        return info;
     } catch (err) {
-        console.error('❌ [ZEPTOMAIL ERROR]:', err.response?.data || err.message);
+        console.error('❌ [ZEPTOMAIL SMTP ERROR]:', err.message);
         throw err;
     }
 }
@@ -718,8 +716,12 @@ app.post('/api/stripe/create-checkout-session', authenticateToken, async (req, r
     const { planName, price, successUrl, cancelUrl } = req.body;
 
     try {
+        console.log(`💳 [STRIPE] Iniciando checkout para plano: ${planName}, Preço: ${price}`);
         const stripeInst = await getStripe();
-        if (!stripeInst) return res.status(500).json({ error: 'Stripe não configurado pelo administrador.' });
+        if (!stripeInst) {
+            console.error('❌ [STRIPE] Instância não obtida. Verifique stripe_secret_key no banco.');
+            return res.status(500).json({ error: 'Stripe não configurado pelo administrador.' });
+        }
 
         const session = await stripeInst.checkout.sessions.create({
             payment_method_types: ['card'],
@@ -746,9 +748,10 @@ app.post('/api/stripe/create-checkout-session', authenticateToken, async (req, r
             }
         });
 
+        console.log(`✅ [STRIPE] Sessão criada: ${session.id}`);
         res.json({ url: session.url });
     } catch (err) {
-        console.error('❌ [STRIPE CHECKOUT ERROR]:', err);
+        console.error('❌ [STRIPE CHECKOUT ERROR]:', err.message);
         res.status(500).json({ error: 'Erro ao criar sessão de checkout', details: err.message });
     }
 });

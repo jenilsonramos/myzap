@@ -61,6 +61,8 @@ const ChatView: React.FC = () => {
     const [isRecording, setIsRecording] = useState(false);
     const [recordingTime, setRecordingTime] = useState(0);
     const [showAIMenu, setShowAIMenu] = useState(false);
+    const [activeSidebarTab, setActiveSidebarTab] = useState<'chats' | 'blocked'>('chats');
+    const [blockedContacts, setBlockedContacts] = useState<Contact[]>([]);
     const [showTransferModal, setShowTransferModal] = useState(false);
     const [agents, setAgents] = useState<{ id: number; name: string; email: string }[]>([]);
     const [messageSearch, setMessageSearch] = useState('');
@@ -91,6 +93,21 @@ const ChatView: React.FC = () => {
             }
         } catch (error) {
             console.error('Erro ao buscar contatos', error);
+        }
+    };
+
+    const fetchBlockedContacts = async () => {
+        try {
+            const token = localStorage.getItem('myzap_token');
+            const res = await fetch('/api/contacts/blocked', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setBlockedContacts(data);
+            }
+        } catch (error) {
+            console.error('Erro ao buscar bloqueados', error);
         }
     };
 
@@ -521,7 +538,11 @@ const ChatView: React.FC = () => {
 
     useEffect(() => {
         fetchContacts();
-        const interval = setInterval(fetchContacts, 10000);
+        fetchBlockedContacts();
+        const interval = setInterval(() => {
+            fetchContacts();
+            fetchBlockedContacts();
+        }, 10000);
         return () => clearInterval(interval);
     }, []);
 
@@ -576,10 +597,28 @@ const ChatView: React.FC = () => {
 
                 {/* Contacts List */}
                 <div className="flex-1 bg-white dark:bg-card-dark rounded-3xl shadow-xl border border-white/20 overflow-hidden flex flex-col">
-                    <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
-                        {!sidebarCollapsed && <h3 className="font-bold text-slate-800 dark:text-slate-100">Conversas</h3>}
+                    <div className="p-0 border-b border-slate-100 dark:border-slate-800">
+                        <div className="flex">
+                            <button
+                                onClick={() => setActiveSidebarTab('chats')}
+                                className={`flex-1 py-4 text-xs font-bold uppercase tracking-widest transition-all border-b-2 ${activeSidebarTab === 'chats' ? 'border-primary text-primary bg-primary/5' : 'border-transparent text-slate-400 hover:text-slate-600'}`}
+                            >
+                                Conversas
+                            </button>
+                            <button
+                                onClick={() => setActiveSidebarTab('blocked')}
+                                className={`flex-1 py-4 text-xs font-bold uppercase tracking-widest transition-all border-b-2 ${activeSidebarTab === 'blocked' ? 'border-rose-500 text-rose-500 bg-rose-50' : 'border-transparent text-slate-400 hover:text-rose-400'}`}
+                            >
+                                Bloqueados
+                            </button>
+                        </div>
+                    </div>
+                    <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
+                        {!sidebarCollapsed && <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{activeSidebarTab === 'chats' ? 'Recentes' : 'Contatos Bloqueados'}</h3>}
                         <div className="flex items-center gap-2">
-                            <span className="bg-primary/10 text-primary text-xs font-bold px-2 py-1 rounded-lg">{filteredContacts.length}</span>
+                            <span className={`${activeSidebarTab === 'chats' ? 'bg-primary/10 text-primary' : 'bg-rose-100 text-rose-500'} text-xs font-bold px-2 py-1 rounded-lg`}>
+                                {activeSidebarTab === 'chats' ? filteredContacts.length : blockedContacts.length}
+                            </span>
                             <button
                                 onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
                                 className="hidden lg:flex w-8 h-8 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 items-center justify-center transition-all"
@@ -589,7 +628,7 @@ const ChatView: React.FC = () => {
                         </div>
                     </div>
                     <div className="flex-1 overflow-y-auto custom-scrollbar p-2">
-                        {filteredContacts.map((contact) => (
+                        {(activeSidebarTab === 'chats' ? filteredContacts : blockedContacts).map((contact) => (
                             <div
                                 key={contact.id}
                                 onClick={() => { setSelectedContact(contact); setShowContactDetails(false); }}
