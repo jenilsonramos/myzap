@@ -15,14 +15,17 @@ const AuthView: React.FC<AuthViewProps> = ({
     onLogin,
     onSignup,
     onRecover,
-    initialView = 'login',
+    initialView: propsInitialView = 'login',
     onToggleTheme,
     isDarkMode
 }) => {
     const navigate = useNavigate();
+    const [view, setView] = useState<'login' | 'signup' | 'recover' | 'activate'>(propsInitialView);
     const { showToast } = useToast();
     const [isLoading, setIsLoading] = useState(false);
     const [errorStatus, setErrorStatus] = useState<string | null>(null);
+    const [activationEmail, setActivationEmail] = useState('');
+    const [activationCode, setActivationCode] = useState('');
 
     const [formData, setFormData] = useState({
         email: '',
@@ -39,7 +42,7 @@ const AuthView: React.FC<AuthViewProps> = ({
         const API_URL = '/api/auth';
 
         try {
-            if (initialView === 'signup') {
+            if (view === 'signup') {
                 if (formData.password !== formData.confirmPassword) {
                     throw new Error('As senhas não coincidem.');
                 }
@@ -54,8 +57,15 @@ const AuthView: React.FC<AuthViewProps> = ({
                 });
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error || 'Erro no cadastro.');
-                showToast('Cadastro realizado com sucesso!', 'success');
 
+                if (data.requireActivation) {
+                    showToast('Conta criada! Verifique seu e-mail para ativar.', 'success');
+                    setActivationEmail(data.email);
+                    setView('activate');
+                    return;
+                }
+
+                showToast('Cadastro realizado com sucesso!', 'success');
                 const loginResponse = await fetch(`${API_URL}/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -68,19 +78,36 @@ const AuthView: React.FC<AuthViewProps> = ({
                     localStorage.setItem('myzap_auth', 'true');
                     onLogin(loginData);
                 }
-            } else if (initialView === 'login') {
+            } else if (view === 'login') {
                 const response = await fetch(`${API_URL}/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email: formData.email, password: formData.password })
                 });
                 const data = await response.json();
-                if (!response.ok) throw new Error(data.error || 'Falha no login.');
+                if (!response.ok) {
+                    if (data.status === 'pending_activation') {
+                        setActivationEmail(formData.email);
+                        setView('activate');
+                        throw new Error('Sua conta aguarda ativação. Código enviado ao seu e-mail.');
+                    }
+                    throw new Error(data.error || 'Falha no login.');
+                }
                 localStorage.setItem('myzap_auth', 'true');
                 localStorage.setItem('myzap_token', data.token);
                 localStorage.setItem('myzap_user', JSON.stringify(data.user));
                 showToast(`Bem-vindo de volta, ${data.user.name}!`, 'success');
                 onLogin(data);
+            } else if (view === 'activate') {
+                const response = await fetch(`${API_URL}/activate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: activationEmail, code: activationCode })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Falha na ativação.');
+                showToast('Conta ativada com sucesso! Faça seu login.', 'success');
+                setView('login');
             }
         } catch (err: any) {
             setErrorStatus(err.message);
@@ -90,7 +117,41 @@ const AuthView: React.FC<AuthViewProps> = ({
         }
     };
 
-    const isLogin = initialView === 'login';
+    const isLogin = view === 'login';
+
+    const renderActivateForm = () => (
+        <div className="flex flex-col items-center justify-center h-full p-6 md:p-12 animate-in fade-in duration-700">
+            <h2 className="text-2xl md:text-3xl font-black text-[#10B981] mb-4 md:mb-6">Ativar Conta</h2>
+            <div className="w-10 h-1 bg-[#10B981] mb-6 md:mb-8 rounded-full"></div>
+            <p className="text-slate-400 text-center text-[10px] md:text-xs font-semibold mb-6 md:mb-8 uppercase tracking-widest px-4">
+                Enviamos um código de 6 dígitos para <strong>{activationEmail}</strong>
+            </p>
+
+            <div className="w-full max-w-sm space-y-4">
+                <input
+                    type="text"
+                    required
+                    maxLength={6}
+                    value={activationCode}
+                    onChange={(e) => setActivationCode(e.target.value.toUpperCase())}
+                    placeholder="CÓDIGO (EX: A1B2C3)"
+                    className="w-full bg-[#f4f8f7] border-none focus:ring-2 focus:ring-[#10B981]/20 rounded-xl py-4 px-6 text-center text-xl font-black tracking-[0.5em] text-slate-900 outline-none transition-all placeholder:tracking-normal placeholder:font-bold placeholder:text-xs"
+                />
+            </div>
+
+            <button
+                type="submit"
+                disabled={isLoading}
+                className="bg-[#10B981] hover:bg-[#0da673] text-white font-black px-10 md:px-12 py-3 md:py-4 rounded-full mt-8 md:mt-10 shadow-lg shadow-[#10B981]/20 transition-all active:scale-95 uppercase tracking-widest text-[10px] md:text-xs min-w-[160px]"
+            >
+                {isLoading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mx-auto" /> : "Ativar Agora"}
+            </button>
+
+            <button type="button" onClick={() => setView('login')} className="text-slate-500 font-bold text-[10px] md:text-xs mt-6 uppercase tracking-widest hover:text-[#10B981] transition-all flex items-center gap-2">
+                <span className="material-icons-round text-sm">west</span> Voltar para o Login
+            </button>
+        </div>
+    );
 
     const renderLoginForm = () => (
         <div className="flex flex-col items-center justify-center h-full p-6 md:p-12 animate-in fade-in duration-700">
@@ -250,16 +311,17 @@ const AuthView: React.FC<AuthViewProps> = ({
             <div className="w-full max-w-5xl md:h-auto bg-white rounded-[2rem] md:rounded-[2.5rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)] overflow-hidden flex flex-col md:flex-row relative z-10 border border-white">
 
                 {/* Main Content Area (Form) */}
-                <div className={`flex-1 overflow-y-auto bg-white order-2 ${!isLogin && initialView !== 'recover' ? 'md:order-2' : 'md:order-1'}`}>
+                <div className={`flex-1 overflow-y-auto bg-white order-2 ${!isLogin && view !== 'recover' && view !== 'activate' ? 'md:order-2' : 'md:order-1'}`}>
                     <form onSubmit={handleSubmit} className="h-full">
-                        {initialView === 'login' && renderLoginForm()}
-                        {initialView === 'signup' && renderSignupForm()}
-                        {initialView === 'recover' && renderRecoverForm()}
+                        {view === 'login' && renderLoginForm()}
+                        {view === 'signup' && renderSignupForm()}
+                        {view === 'recover' && renderRecoverForm()}
+                        {view === 'activate' && renderActivateForm()}
                     </form>
                 </div>
 
                 {/* Transition Panel (The Green Side) */}
-                <div className={`w-full md:w-[40%] bg-[#10B981] flex flex-col items-center justify-center p-8 md:p-12 text-white text-center relative overflow-hidden order-1 ${!isLogin && initialView !== 'recover' ? 'md:order-1' : 'md:order-2'}`}>
+                <div className={`w-full md:w-[40%] bg-[#10B981] flex flex-col items-center justify-center p-8 md:p-12 text-white text-center relative overflow-hidden order-1 ${!isLogin && view !== 'recover' && view !== 'activate' ? 'md:order-1' : 'md:order-2'}`}>
                     <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 -translate-y-1/2 translate-x-1/2 rounded-full"></div>
                     <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 translate-y-1/4 -translate-x-1/4 rotate-45"></div>
 
@@ -273,7 +335,7 @@ const AuthView: React.FC<AuthViewProps> = ({
                                 <div className="w-10 h-1 bg-white/30 mx-auto rounded-full hidden md:block"></div>
                                 <button
                                     type="button"
-                                    onClick={() => navigate('/cadastro')}
+                                    onClick={() => setView('signup')}
                                     className="border-2 border-white text-white font-black px-10 md:px-12 py-2.5 md:py-3 rounded-full hover:bg-white hover:text-[#10B981] transition-all uppercase tracking-widest text-[9px] md:text-[10px] active:scale-95"
                                 >
                                     Cadastrar
@@ -288,7 +350,7 @@ const AuthView: React.FC<AuthViewProps> = ({
                                 <div className="w-10 h-1 bg-white/30 mx-auto rounded-full hidden md:block"></div>
                                 <button
                                     type="button"
-                                    onClick={() => navigate('/login')}
+                                    onClick={() => setView('login')}
                                     className="border-2 border-white text-white font-black px-10 md:px-12 py-2.5 md:py-3 rounded-full hover:bg-white hover:text-[#10B981] transition-all uppercase tracking-widest text-[9px] md:text-[10px] active:scale-95"
                                 >
                                     Entrar

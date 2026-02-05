@@ -640,6 +640,10 @@ app.post('/api/auth/login', async (req, res) => {
         const user = rows[0];
         if (!await bcrypt.compare(password, user.password)) return res.status(401).json({ error: 'Senha incorreta' });
 
+        if (user.status === 'pending_activation') {
+            return res.status(403).json({ error: 'Sua conta ainda não foi ativada. Verifique seu e-mail.', status: 'pending_activation' });
+        }
+
         const token = jwt.sign(
             { id: user.id, email: user.email, name: user.name, role: user.role || 'user' },
             process.env.JWT_SECRET || 'myzap_secret_key',
@@ -1314,7 +1318,7 @@ app.post('/api/messages/send-audio', authenticateToken, async (req, res) => {
         if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
         const audioBuffer = Buffer.from(audioBase64.replace(/^data:audio\/\w+;base64,/, ''), 'base64');
-        const audioFilename = `audio-${Date.now()}.webm`;
+        const audioFilename = `audio-${Date.now()}.ogg`;
         const audioPath = path.join(uploadDir, audioFilename);
         fs.writeFileSync(audioPath, audioBuffer);
 

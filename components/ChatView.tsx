@@ -176,7 +176,7 @@ const ChatView: React.FC = () => {
                 setRecordingTime(0);
 
                 if (send && selectedContact && audioChunksRef.current.length > 0) {
-                    const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                    const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/ogg; codecs=opus' });
                     const reader = new FileReader();
                     reader.readAsDataURL(audioBlob);
                     reader.onloadend = async () => {
@@ -494,22 +494,49 @@ const ChatView: React.FC = () => {
         let type = msg.type;
         let mediaUrl = msg.media_url;
 
-        // Fallback: Se o conteúdo for um JSON de mídia (mensagens antigas ou erro de parse no webhook)
-        if (content && content.startsWith('{') && content.endsWith('}')) {
+        // Fallback: Se o conteúdo for um JSON de mídia (mensagens antigas ou estrutura da Evolution API)
+        if (content && content.includes('{') && content.includes('}')) {
             try {
-                const parsed = JSON.parse(content);
-                if (parsed.imageMessage) { type = 'image'; mediaUrl = parsed.imageMessage.url; content = parsed.imageMessage.caption || ''; }
-                else if (parsed.videoMessage) { type = 'video'; mediaUrl = parsed.videoMessage.url; content = parsed.videoMessage.caption || ''; }
-                else if (parsed.audioMessage) { type = 'audio'; mediaUrl = parsed.audioMessage.url; content = ''; }
-                else if (parsed.documentMessage) { type = 'document'; mediaUrl = parsed.documentMessage.url; content = parsed.documentMessage.title || ''; }
+                // Tenta extrair o JSON se houver texto em volta ou se for puro
+                const jsonMatch = content.match(/\{.*\}/s);
+                if (jsonMatch) {
+                    const parsed = JSON.parse(jsonMatch[0]);
+                    const msgData = parsed.message || parsed;
+
+                    if (msgData.imageMessage) {
+                        type = 'image';
+                        mediaUrl = msgData.imageMessage.url || msgData.imageMessage.directPath;
+                        content = msgData.imageMessage.caption || '';
+                    }
+                    else if (msgData.videoMessage) {
+                        type = 'video';
+                        mediaUrl = msgData.videoMessage.url || msgData.videoMessage.directPath;
+                        content = msgData.videoMessage.caption || '';
+                    }
+                    else if (msgData.audioMessage) {
+                        type = 'audio';
+                        mediaUrl = msgData.audioMessage.url || msgData.audioMessage.directPath;
+                        content = '';
+                    }
+                    else if (msgData.documentMessage) {
+                        type = 'document';
+                        mediaUrl = msgData.documentMessage.url || msgData.documentMessage.directPath;
+                        content = msgData.documentMessage.title || '';
+                    }
+                }
             } catch (e) { /* ignore */ }
         }
 
         if (type === 'image' && mediaUrl) {
             return (
-                <div className="flex flex-col">
-                    <img src={mediaUrl} alt="Imagem" className="max-w-full rounded-lg mb-1 shadow-sm cursor-pointer hover:opacity-95 transition-opacity" onClick={() => window.open(mediaUrl, '_blank')} />
-                    {content && <p className="text-sm">{content}</p>}
+                <div className="flex flex-col max-w-[280px]">
+                    <img
+                        src={mediaUrl}
+                        alt="Imagem"
+                        className="w-full aspect-square object-cover rounded-2xl mb-1 shadow-sm cursor-pointer hover:opacity-95 transition-opacity border border-slate-100 dark:border-white/5"
+                        onClick={() => window.open(mediaUrl, '_blank')}
+                    />
+                    {content && <p className="text-xs px-1 text-slate-600 dark:text-slate-300">{content}</p>}
                 </div>
             );
         }
