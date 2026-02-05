@@ -106,8 +106,18 @@ const AuthView: React.FC<AuthViewProps> = ({
                 });
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error || 'Falha na ativação.');
-                showToast('Conta ativada com sucesso! Faça seu login.', 'success');
-                setView('login');
+
+                showToast('Conta ativada com sucesso!', 'success');
+
+                // Login Automático após ativação
+                if (data.token && data.user) {
+                    localStorage.setItem('myzap_auth', 'true');
+                    localStorage.setItem('myzap_token', data.token);
+                    localStorage.setItem('myzap_user', JSON.stringify(data.user));
+                    onLogin(data);
+                } else {
+                    setView('login');
+                }
             }
         } catch (err: any) {
             setErrorStatus(err.message);

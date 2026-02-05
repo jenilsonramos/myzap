@@ -167,7 +167,7 @@ const ChatView: React.FC = () => {
     };
 
     const stopRecording = async (send: boolean) => {
-        if (!mediaRecorderRef.current) return;
+        if (!mediaRecorderRef.current || mediaRecorderRef.current.state === 'inactive') return;
 
         return new Promise<void>((resolve) => {
             mediaRecorderRef.current!.onstop = async () => {
@@ -183,7 +183,7 @@ const ChatView: React.FC = () => {
                         const base64 = reader.result as string;
                         try {
                             const token = localStorage.getItem('myzap_token');
-                            await fetch('/api/messages/send-audio', {
+                            const resp = await fetch('/api/messages/send-audio', {
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',
@@ -191,7 +191,12 @@ const ChatView: React.FC = () => {
                                 },
                                 body: JSON.stringify({ contactId: selectedContact.id, audioBase64: base64 })
                             });
-                            await fetchMessages(selectedContact.id);
+                            if (resp.ok) {
+                                await fetchMessages(selectedContact.id);
+                            } else {
+                                const errData = await resp.json();
+                                console.error('Erro backend áudio:', errData);
+                            }
                         } catch (err) {
                             console.error('Erro ao enviar áudio:', err);
                         }
@@ -200,6 +205,7 @@ const ChatView: React.FC = () => {
 
                 // Parar todas as tracks
                 mediaRecorderRef.current?.stream.getTracks().forEach(t => t.stop());
+                audioChunksRef.current = [];
                 resolve();
             };
             mediaRecorderRef.current!.stop();
@@ -494,37 +500,38 @@ const ChatView: React.FC = () => {
         let type = msg.type;
         let mediaUrl = msg.media_url;
 
-        // Fallback: Se o conteúdo for um JSON de mídia (mensagens antigas ou estrutura da Evolution API)
-        if (content && content.includes('{') && content.includes('}')) {
+        // Parser Aprimorado para Evolution API v2
+        if (content && (content.includes('{') || content.includes('message'))) {
             try {
-                // Tenta extrair o JSON se houver texto em volta ou se for puro
                 const jsonMatch = content.match(/\{.*\}/s);
-                if (jsonMatch) {
-                    const parsed = JSON.parse(jsonMatch[0]);
-                    const msgData = parsed.message || parsed;
+                const data = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+                const m = data?.message || data;
 
-                    if (msgData.imageMessage) {
+                if (m) {
+                    if (m.imageMessage) {
                         type = 'image';
-                        mediaUrl = msgData.imageMessage.url || msgData.imageMessage.directPath;
-                        content = msgData.imageMessage.caption || '';
-                    }
-                    else if (msgData.videoMessage) {
-                        type = 'video';
-                        mediaUrl = msgData.videoMessage.url || msgData.videoMessage.directPath;
-                        content = msgData.videoMessage.caption || '';
-                    }
-                    else if (msgData.audioMessage) {
+                        mediaUrl = m.imageMessage.url || m.imageMessage.directPath;
+                        content = m.imageMessage.caption || '';
+                    } else if (m.audioMessage) {
                         type = 'audio';
-                        mediaUrl = msgData.audioMessage.url || msgData.audioMessage.directPath;
+                        mediaUrl = m.audioMessage.url || m.audioMessage.directPath;
                         content = '';
-                    }
-                    else if (msgData.documentMessage) {
+                    } else if (m.videoMessage) {
+                        type = 'video';
+                        mediaUrl = m.videoMessage.url || m.videoMessage.directPath;
+                        content = m.videoMessage.caption || '';
+                    } else if (m.documentMessage) {
                         type = 'document';
-                        mediaUrl = msgData.documentMessage.url || msgData.documentMessage.directPath;
-                        content = msgData.documentMessage.title || '';
+                        mediaUrl = m.documentMessage.url || m.documentMessage.directPath;
+                        content = m.documentMessage.title || m.documentMessage.fileName || '';
                     }
                 }
-            } catch (e) { /* ignore */ }
+            } catch (e) { }
+        }
+
+        // Se mediaUrl for apenas um path relativo (Evolution API às vezes manda assim)
+        if (mediaUrl && !mediaUrl.startsWith('http')) {
+            // Tenta reconstruir a URL se for necessário, mas geralmente os endpoints acima já dão a URL completa
         }
 
         if (type === 'image' && mediaUrl) {

@@ -576,16 +576,17 @@ app.post('/api/auth/register', async (req, res) => {
                                 <h1 style="color: white; margin: 0;">🔑 Ative sua conta</h1>
                             </div>
                             <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 12px 12px;">
-                                <h2 style="color: #333;">Olá, ${name}!</h2>
+                                <h2 style="color: #333 text-transform: capitalize;">Olá, ${name}!</h2>
                                 <p style="color: #666;">Use o código abaixo para ativar sua conta:</p>
-                                <div style="background: white; padding: 24px; border-radius: 12px; text-align: center; margin: 20px 0;">
+                                <div style="background: white; padding: 24px; border-radius: 12px; text-align: center; margin: 20px 0; border: 2px dashed #6366f1;">
                                     <span style="font-size: 32px; font-weight: 900; letter-spacing: 8px; color: #6366f1;">${activationCode}</span>
                                 </div>
-                                <p style="color: #999; font-size: 12px;">Este código expira em 24 horas.</p>
+                                <p style="color: #999; font-size: 12px;">Se você não solicitou este registro, ignore este e-mail.</p>
                             </div>
                         </div>
                     `;
                 } else {
+                    // Para registro direto (sem ativação), envia boas-vindas agora
                     subject = '🚀 Bem-vindo ao MyZap!';
                     emailHtml = `
                         <div style="font-family: 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto;">
@@ -603,19 +604,7 @@ app.post('/api/auth/register', async (req, res) => {
                     `;
                 }
 
-                await axios.post('https://api.zeptomail.com/v1.1/email', {
-                    from: { address: smtp.smtp_from_email || 'no-reply@ublochat.com.br', name: smtp.smtp_from_name || 'MyZap' },
-                    to: [{ email_address: { address: email, name: name } }],
-                    subject: subject,
-                    htmlbody: emailHtml
-                }, {
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json',
-                        'Authorization': `Zoho-enczapikey ${token}`
-                    }
-                });
-                console.log(`📧 [REGISTER] Email enviado para ${email} (${requireActivation ? 'ativação' : 'boas-vindas'})`);
+                await sendZeptoEmail(email, subject, emailHtml);
             }
         } catch (emailErr) {
             console.error(`⚠️ [REGISTER] Falha ao enviar email:`, emailErr.message);
@@ -711,8 +700,44 @@ app.post('/api/auth/activate', async (req, res) => {
             [user.id]
         );
 
-        console.log(`✅ [ACTIVATION] Conta ativada: ${email}`);
-        res.json({ message: 'Conta ativada com sucesso!' });
+        // 📧 Enviar email de BOAS-VINDAS agora que ativou
+        try {
+            const [rows] = await pool.execute('SELECT name FROM users WHERE id = ?', [user.id]);
+            const name = rows[0]?.name || 'Amigo';
+            const welcomeEmailHtml = `
+                <div style="font-family: 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto;">
+                    <div style="background: linear-gradient(135deg, #4f46e5 0%, #10b981 100%); padding: 40px 20px; text-align: center; border-radius: 12px 12px 0 0;">
+                        <h1 style="color: white; margin: 0;">🚀 Conta Ativada!</h1>
+                    </div>
+                    <div style="background: #f8f9fa; padding: 30px; border-radius: 0 0 12px 12px;">
+                        <h2 style="color: #333;">Seja bem-vindo, ${name}!</h2>
+                        <p style="color: #666;">Sua conta no MyZap foi ativada com sucesso. Agora você tem acesso total ao nosso painel.</p>
+                        <div style="text-align: center; margin-top: 30px;">
+                            <a href="https://ublochat.com.br" style="background: #4f46e5; color: white; padding: 14px 32px; text-decoration: none; border-radius: 25px; font-weight: bold;">Explorar Painel</a>
+                        </div>
+                    </div>
+                </div>
+            `;
+            await sendZeptoEmail(email, '🚀 Bem-vindo ao MyZap - Conta Ativada!', welcomeEmailHtml);
+        } catch (e) {
+            console.error('Erro ao enviar boas-vindas na ativação:', e);
+        }
+
+        // 🔐 Gerar Token para login automático
+        const [fullUser] = await pool.execute('SELECT id, name, email, plan, role, trial_ends_at FROM users WHERE id = ?', [user.id]);
+        const userData = fullUser[0];
+        const token = jwt.sign(
+            { id: userData.id, email: userData.email, name: userData.name, role: userData.role || 'user' },
+            process.env.JWT_SECRET || 'myzap_secret_key',
+            { expiresIn: '7d' }
+        );
+
+        console.log(`✅ [ACTIVATION] Conta ativada e logada: ${email}`);
+        res.json({
+            message: 'Conta ativada com sucesso!',
+            token,
+            user: { ...userData, plan: userData.plan || 'Teste Grátis' }
+        });
     } catch (err) {
         console.error('❌ [ACTIVATION] Erro:', err);
         res.status(500).json({ error: 'Erro ao ativar conta' });
@@ -1282,8 +1307,8 @@ app.post('/api/messages/send-media', authenticateToken, upload.single('file'), a
         const msgId = result?.key?.id || result?.id || `MEDIA-${Date.now()}`;
         await pool.query(`
             INSERT INTO messages (user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp, media_url, msg_status)
-            VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, 'sent')
-        `, [userId, contactId, instanceName, msgId, file.originalname, mediaType, Math.floor(Date.now() / 1000), publicUrl]);
+            VALUES (?, ?, ?, ?, 1, '', ?, ?, ?, 'sent')
+        `, [userId, contactId, instanceName, msgId, mediaType, Math.floor(Date.now() / 1000), publicUrl]);
 
         res.json({ success: true, result });
     } catch (err) {
