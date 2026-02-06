@@ -3182,6 +3182,60 @@ app.put('/api/contacts/:id', authenticateToken, async (req, res) => {
     }
 });
 
+// --- AI SETTINGS ---
+app.get('/api/settings/ai', authenticateToken, async (req, res) => {
+    try {
+        const keys = [
+            'openai_key', 'openai_model',
+            'google_key', 'google_model',
+            'system_prompt', 'temperature', 'max_tokens'
+        ];
+
+        // Dynamically build placeholder string like (?,?,?,?,...)
+        const placeholders = keys.map(() => '?').join(',');
+
+        const [rows] = await pool.query(
+            `SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN (${placeholders})`,
+            keys
+        );
+
+        const settings = {};
+        rows.forEach(r => settings[r.setting_key] = r.setting_value);
+
+        res.json(settings);
+    } catch (err) {
+        console.error('Erro ao buscar configs de IA:', err);
+        res.status(500).json({ error: 'Erro ao buscar configurações' });
+    }
+});
+
+app.post('/api/settings/ai', authenticateToken, async (req, res) => {
+    try {
+        const settings = req.body;
+        const keys = [
+            'openai_key', 'openai_model',
+            'google_key', 'google_model',
+            'system_prompt', 'temperature', 'max_tokens'
+        ];
+
+        // Upsert each setting
+        for (const key of keys) {
+            if (settings[key] !== undefined) {
+                await pool.query(
+                    `INSERT INTO system_settings (setting_key, setting_value) VALUES (?, ?)
+                     ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)`,
+                    [key, String(settings[key])]
+                );
+            }
+        }
+
+        res.json({ success: true, message: 'Configurações salvas' });
+    } catch (err) {
+        console.error('Erro ao salvar configs de IA:', err);
+        res.status(500).json({ error: 'Erro ao salvar configurações' });
+    }
+});
+
 // --- CONTADOR DE MENSAGENS NÃO LIDAS ---
 app.post('/api/contacts/:id/read', authenticateToken, async (req, res) => {
     try {

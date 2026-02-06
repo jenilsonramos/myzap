@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useToast } from './ToastContext';
 
 const AIIntegrationView: React.FC = () => {
@@ -14,13 +14,64 @@ const AIIntegrationView: React.FC = () => {
         max_tokens: 1000
     });
 
-    const handleSave = () => {
-        showToast('Configurações de IA salvas com sucesso!', 'success');
+    useEffect(() => {
+        const fetchSettings = async () => {
+            try {
+                const token = localStorage.getItem('myzap_token');
+                if (!token) return;
+
+                const res = await fetch('/api/settings/ai', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setAiSettings(prev => ({
+                        ...prev,
+                        ...data,
+                        temperature: data.temperature ? parseFloat(data.temperature) : 0.7,
+                        max_tokens: data.max_tokens ? parseInt(data.max_tokens) : 1000
+                    }));
+                }
+            } catch (error) {
+                console.error('Erro ao carregar configs de IA:', error);
+            }
+        };
+        fetchSettings();
+    }, []);
+
+    const handleSave = async () => {
+        try {
+            const token = localStorage.getItem('myzap_token');
+            const res = await fetch('/api/settings/ai', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(aiSettings)
+            });
+
+            if (res.ok) {
+                showToast('Configurações de IA salvas com sucesso!', 'success');
+            } else {
+                showToast('Erro ao salvar configurações', 'error');
+            }
+        } catch (error) {
+            showToast('Erro de conexão', 'error');
+        }
     };
 
     const providers = [
-        { id: 'openai', name: 'OpenAI (GPT)', icon: 'auto_awesome', color: 'from-slate-800 to-slate-900', textColor: 'text-slate-100', logo: 'https://cdn.worldvectorlogo.com/logos/openai-2.svg' },
-        { id: 'google', name: 'Google Gemini', icon: 'temp_grow', color: 'from-blue-600 to-indigo-700', textColor: 'text-blue-50', logo: 'https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d473530393318e429289.svg' }
+        { id: 'openai', name: 'OpenAI (GPT)', icon: 'auto_awesome', color: 'from-slate-800 to-slate-900', textColor: 'text-slate-100', logo: 'https://upload.wikimedia.org/wikipedia/commons/0/04/ChatGPT_logo.svg' },
+        {
+            id: 'google',
+            name: 'Google Gemini',
+            icon: 'temp_grow',
+            color: 'from-blue-600 to-indigo-700',
+            textColor: 'text-blue-50',
+            // Using a reliable Google logo or Gemini Sparkle Base64 if possible. For now, using a standard Google Cloud/Gemini related icon or just a text fallback if image fails, but here uses a solid Wikipedia SVG for Google Gemini or similar.
+            logo: 'https://upload.wikimedia.org/wikipedia/commons/8/8a/Google_Gemini_logo.svg'
+        }
     ];
 
     return (
