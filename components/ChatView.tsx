@@ -100,7 +100,8 @@ const ChatView: React.FC = () => {
             if (res.ok) {
                 const data = await res.json();
                 setMessages(prev => {
-                    const pending = prev.filter(m => m.isPending);
+                    // Filter out pending messages that already exist in the server data
+                    const pending = prev.filter(m => m.isPending && !data.some((dm: any) => dm.uid === m.uid || (dm.content === m.content && Math.abs(dm.timestamp - m.timestamp) < 5)));
                     const newMessages = [...data, ...pending];
                     // Play notification if new message received
                     if (data.length > 0) {
@@ -208,6 +209,10 @@ const ChatView: React.FC = () => {
                 reader.readAsDataURL(audioBlob);
                 reader.onloadend = async () => {
                     const base64 = reader.result as string;
+                    const tempId = Date.now();
+                    // Add pending audio message
+                    setMessages(prev => [...prev, { id: tempId, content: 'Áudio', type: 'audio', key_from_me: true, timestamp: Date.now() / 1000, isPending: true }]);
+
                     try {
                         const token = localStorage.getItem('myzap_token');
                         const res = await fetch(`${API_URL}/messages/send-audio`, {
@@ -215,8 +220,18 @@ const ChatView: React.FC = () => {
                             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                             body: JSON.stringify({ contactId: selectedContact.id, audioBase64: base64 })
                         });
-                        if (res.ok) fetchMessages(selectedContact.id);
-                    } catch (err) { console.error('Erro ao enviar áudio:', err); }
+                        const data = await res.json();
+                        if (res.ok) {
+                            setMessages(prev => prev.map(m => m.id === tempId ? { ...m, uid: data.messageId, isPending: false } : m));
+                            fetchMessages(selectedContact.id);
+                        } else {
+                            setMessages(prev => prev.filter(m => m.id !== tempId));
+                            alert('Erro ao enviar áudio: ' + (data.error || 'Erro desconhecido'));
+                        }
+                    } catch (err) {
+                        console.error('Erro ao enviar áudio:', err);
+                        setMessages(prev => prev.filter(m => m.id !== tempId));
+                    }
                 };
             }
             recorder.stream.getTracks().forEach(t => t.stop());
@@ -241,8 +256,16 @@ const ChatView: React.FC = () => {
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify({ contactId: selectedContact.id, content: msg })
             });
-            if (res.ok) fetchMessages(selectedContact.id);
-        } catch (err) { }
+            const data = await res.json();
+            if (res.ok) {
+                setMessages(prev => prev.map(m => m.id === tempId ? { ...m, uid: data.key?.id || data.id, isPending: false } : m));
+                fetchMessages(selectedContact.id);
+            } else {
+                setMessages(prev => prev.filter(m => m.id !== tempId));
+            }
+        } catch (err) {
+            setMessages(prev => prev.filter(m => m.id !== tempId));
+        }
     };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -260,8 +283,15 @@ const ChatView: React.FC = () => {
                 headers: { Authorization: `Bearer ${token}` },
                 body: formData
             });
-            if (res.ok) fetchMessages(selectedContact.id);
-        } catch (err) { }
+            const data = await res.json();
+            if (res.ok) {
+                fetchMessages(selectedContact.id);
+            } else {
+                alert('Erro ao enviar arquivo: ' + (data.error || 'Erro desconhecido'));
+            }
+        } catch (err) {
+            console.error('Erro ao enviar mídia:', err);
+        }
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
@@ -727,7 +757,7 @@ const ChatView: React.FC = () => {
                                     <div className="absolute bottom-full left-0 mb-6 z-50 animate-in fade-in slide-in-from-bottom-4 duration-300 sm:scale-100 scale-90 origin-bottom-left shadow-3xl">
                                         <EmojiPicker
                                             onEmojiClick={(e) => setNewMessage(p => p + e.emoji)}
-                                            theme={window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'}
+                                            theme={window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' as any : 'light' as any}
                                             previewConfig={{ showPreview: false }}
                                             skinTonesDisabled
                                             searchDisabled={window.innerWidth < 640}

@@ -116,6 +116,17 @@ app.get('/api/media/proxy', async (req, res) => {
     }
 });
 
+// --- HELPER PARA OBTER URL PÚBLICA ---
+async function getAppUrl() {
+    try {
+        const [rows] = await pool.query("SELECT setting_value FROM system_settings WHERE setting_key = 'app_url'");
+        if (rows.length > 0 && rows[0].setting_value) {
+            return rows[0].setting_value.replace(/\/$/, '');
+        }
+    } catch (e) { }
+    return (process.env.API_URL || 'http://localhost:5000').replace(/\/$/, '');
+}
+
 // --- STRIPE WEBHOOK (Deve vir ANTES do express.json() para pegar o body raw) ---
 app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
     const sig = req.headers['stripe-signature'];
@@ -1501,7 +1512,8 @@ app.post('/api/messages/send-media', authenticateToken, upload.single('file'), a
         else if (mimeType.startsWith('audio/')) mediaType = 'audio';
 
         // URL pública do arquivo
-        const fileUrl = `${process.env.API_URL || 'http://localhost:3001'}/uploads/${file.filename}`;
+        const publicUrl = await getAppUrl();
+        const fileUrl = `${publicUrl}/uploads/${file.filename}`;
 
         // Enviar via Evolution API
         const result = await evo._request(`/message/sendMedia/${instanceName}`, 'POST', {
@@ -1552,13 +1564,15 @@ app.post('/api/messages/send-audio', authenticateToken, async (req, res) => {
         if (!evo) return res.status(500).json({ error: 'Evolution offline' });
 
         // Salvar áudio como arquivo temporário
+        const isOgg = audioBase64.includes('audio/ogg');
         const audioBuffer = Buffer.from(audioBase64.split(',')[1] || audioBase64, 'base64');
-        const audioFilename = `audio-${Date.now()}.webm`;
+        const audioFilename = `audio-${Date.now()}.${isOgg ? 'ogg' : 'webm'}`;
         const audioPath = path.join(uploadDir, audioFilename);
         fs.writeFileSync(audioPath, audioBuffer);
 
         // URL pública do áudio
-        const audioUrl = `${process.env.API_URL || 'http://localhost:3001'}/uploads/${audioFilename}`;
+        const publicUrl = await getAppUrl();
+        const audioUrl = `${publicUrl}/uploads/${audioFilename}`;
 
         // Enviar como mensagem de áudio PTT (Push-to-Talk)
         const result = await evo._request(`/message/sendWhatsAppAudio/${instanceName}`, 'POST', {
