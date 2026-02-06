@@ -2916,6 +2916,7 @@ app.post('/api/webhook/evolution', async (req, res) => {
                                 // But user asked for "responder automaticamente". So I should implement the call.
 
                                 if (config.openai_key && config.openai_key.startsWith('sk-')) {
+                                    console.log(`🤖 [AI] Usando OpenAI...`);
                                     const { default: OpenAI } = await import('openai');
                                     const openai = new OpenAI({ apiKey: config.openai_key });
                                     const completion = await openai.chat.completions.create({
@@ -2928,7 +2929,9 @@ app.post('/api/webhook/evolution', async (req, res) => {
                                         max_tokens: parseInt(config.max_tokens) || 500,
                                     });
                                     responseText = completion.choices[0].message.content;
+                                    console.log(`🤖 [AI] Resposta da OpenAI gerada: ${responseText.slice(0, 30)}...`);
                                 } else if (config.google_key) {
+                                    console.log(`🤖 [AI] Usando Google Gemini...`);
                                     const { GoogleGenerativeAI } = await import('@google/generative-ai');
                                     const genAI = new GoogleGenerativeAI(config.google_key);
                                     const model = genAI.getGenerativeModel({
@@ -2937,6 +2940,7 @@ app.post('/api/webhook/evolution', async (req, res) => {
                                     });
                                     const result = await model.generateContent(content);
                                     responseText = result.response.text();
+                                    console.log(`🤖 [AI] Resposta do Gemini gerada: ${responseText.slice(0, 30)}...`);
                                 }
 
                                 if (responseText) {
