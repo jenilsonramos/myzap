@@ -70,6 +70,7 @@ const ChatView: React.FC = () => {
     const [showContactInfo, setShowContactInfo] = useState(false);
     const [transferModal, setTransferModal] = useState(false);
     const [agents, setAgents] = useState<{ id: number; name: string }[]>([]);
+    const [isImproving, setIsImproving] = useState(false);
 
     // --- Refs ---
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -354,7 +355,8 @@ const ChatView: React.FC = () => {
     };
 
     const improveText = async (tone: string) => {
-        if (!newMessage.trim()) return;
+        if (!newMessage.trim() || isImproving) return;
+        setIsImproving(true);
         try {
             const token = localStorage.getItem('myzap_token');
             const res = await fetch('/api/ai/improve-text', {
@@ -371,6 +373,7 @@ const ChatView: React.FC = () => {
                 } else {
                     showToast('Erro ao processar IA: ' + (data.error || 'Desconhecido'), 'error');
                 }
+                setIsImproving(false);
                 return;
             }
 
@@ -378,6 +381,8 @@ const ChatView: React.FC = () => {
         } catch (err) {
             console.error(err);
             showToast('Erro de conexão ao tentar usar a IA.', 'error');
+        } finally {
+            setIsImproving(false);
         }
     };
 
@@ -815,27 +820,32 @@ const ChatView: React.FC = () => {
 
                                     <textarea
                                         rows={1}
-                                        placeholder="Mensagem..."
+                                        placeholder={isImproving ? 'IA Gerando...' : 'Mensagem...'}
                                         value={newMessage}
                                         onChange={(e) => {
                                             setNewMessage(e.target.value);
                                             e.target.style.height = 'auto';
                                             e.target.style.height = e.target.scrollHeight + 'px';
                                         }}
+                                        disabled={isImproving}
                                         onKeyDown={(e) => {
                                             if (e.key === 'Enter' && !e.shiftKey) {
                                                 e.preventDefault();
                                                 handleSendMessage();
                                             }
                                         }}
-                                        className="flex-1 bg-transparent py-3 px-1 text-[16px] max-h-48 resize-none outline-none text-slate-800 dark:text-slate-100 font-medium placeholder:text-slate-400"
+                                        className={`flex-1 bg-transparent py-3 px-1 text-[16px] max-h-48 resize-none outline-none border-none focus:ring-0 text-slate-800 dark:text-slate-100 font-medium placeholder:text-slate-400 ${isImproving ? 'opacity-50 animate-pulse' : ''}`}
                                     />
 
                                     {newMessage.trim() ? (
                                         <div className="flex gap-2 pb-1 pr-1">
                                             <div className="relative group/ai">
-                                                <button className="w-11 h-11 bg-white/50 dark:bg-slate-700/50 text-primary hover:bg-white rounded-full flex items-center justify-center transition-all shadow-sm" title="Melhorar com IA">
-                                                    <span className="material-icons-round">auto_awesome</span>
+                                                <button
+                                                    disabled={isImproving}
+                                                    className={`w-11 h-11 bg-white/50 dark:bg-slate-700/50 text-primary hover:bg-white rounded-full flex items-center justify-center transition-all shadow-sm ${isImproving ? 'animate-spin opacity-50' : ''}`}
+                                                    title="Melhorar com IA"
+                                                >
+                                                    <span className="material-icons-round">{isImproving ? 'sync' : 'auto_awesome'}</span>
                                                 </button>
 
                                                 {/* Invisible Bridge to prevent hover loss */}
