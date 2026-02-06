@@ -2874,6 +2874,91 @@ app.post('/api/webhook/evolution', async (req, res) => {
                     .then(() => logDebug('🏆 SUCESSO! MENSAGEM NO BANCO.'))
                     .catch(err => console.error('❌ ERRO AO SALVAR MSG:', err));
 
+                // ======= AI AUTO-RESPONSE =======
+                if (!fromMe) {
+                    try {
+                        // Check if AI is active
+                        const [aiSettingsRows] = await pool.query(
+                            "SELECT setting_value FROM system_settings WHERE setting_key = 'ai_active'"
+                        );
+
+                        const aiActive = aiSettingsRows.length > 0 && (aiSettingsRows[0].setting_value === 'true' || aiSettingsRows[0].setting_value === '1');
+
+                        if (aiActive) {
+                            console.log(`🤖 [WEBHOOK] IA Ativa para User ${userId}. Processando resposta...`);
+
+                            // Send typing indicator
+                            const evo = await getEvolutionService();
+                            if (evo) {
+                                // await evo.sendTyping(instance, remoteJid); // Optional
+
+                                // Fetch AI config
+                                const [configRows] = await pool.query(
+                                    "SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ('openai_key', 'openai_model', 'google_key', 'google_model', 'system_prompt', 'temperature', 'max_tokens')"
+                                );
+                                const config = {};
+                                configRows.forEach(r => config[r.setting_key] = r.setting_value);
+
+                                let responseText = '';
+
+                                // Call OpenAI or Google logic here (Simplified for now - placeholders)
+                                // Ideally we should have a helper function `generateAIResponse(content, config)`
+
+                                // Placeholder response logic:
+                                // responseText = await generateAIResponse(content, config);
+
+                                // For now, let's just log and skip other bots to prove exclusivity logic
+                                // To actually generate response, we need to import OpenAI/Google libraries or use fetch.
+                                // Assuming we'll implement `generateAIResponse` or similar helper.
+
+                                // Implement actual AI call later or inline if libraries available.
+                                // Let's try to do a basic fetch implementation if possible, or just skip for now and confirm logic.
+                                // But user asked for "responder automaticamente". So I should implement the call.
+
+                                if (config.openai_key && config.openai_key.startsWith('sk-')) {
+                                    const { default: OpenAI } = await import('openai');
+                                    const openai = new OpenAI({ apiKey: config.openai_key });
+                                    const completion = await openai.chat.completions.create({
+                                        messages: [
+                                            { role: "system", content: config.system_prompt || "You are a helpful assistant." },
+                                            { role: "user", content: content }
+                                        ],
+                                        model: config.openai_model || "gpt-3.5-turbo",
+                                        temperature: parseFloat(config.temperature) || 0.7,
+                                        max_tokens: parseInt(config.max_tokens) || 500,
+                                    });
+                                    responseText = completion.choices[0].message.content;
+                                } else if (config.google_key) {
+                                    const { GoogleGenerativeAI } = await import('@google/generative-ai');
+                                    const genAI = new GoogleGenerativeAI(config.google_key);
+                                    const model = genAI.getGenerativeModel({
+                                        model: config.google_model || "gemini-pro",
+                                        systemInstruction: config.system_prompt
+                                    });
+                                    const result = await model.generateContent(content);
+                                    responseText = result.response.text();
+                                }
+
+                                if (responseText) {
+                                    await sendWhatsAppMessage(instance, remoteJid, responseText);
+
+                                    // Log AI response
+                                    const aiMsgId = `AI-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                                    await pool.query(`
+                                        INSERT INTO messages (user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp, source)
+                                        VALUES (?, ?, ?, ?, 1, ?, 'text', ?, 'ai')
+                                    `, [userId, contactId, instance, aiMsgId, responseText, Math.floor(Date.now() / 1000)]);
+
+                                    // STOP HERE (Exclusive)
+                                    return res.status(200).send('OK');
+                                }
+                            }
+                        }
+                    } catch (aiErr) {
+                        console.error(`❌ [AI WEBHOOK] Erro: ${aiErr.message}`);
+                    }
+                }
+
                 // ======= CHATBOT POR PALAVRAS-CHAVE =======
                 if (!fromMe) {
                     try {
@@ -3188,7 +3273,7 @@ app.get('/api/settings/ai', authenticateToken, async (req, res) => {
         const keys = [
             'openai_key', 'openai_model',
             'google_key', 'google_model',
-            'system_prompt', 'temperature', 'max_tokens'
+            'system_prompt', 'temperature', 'max_tokens', 'ai_active'
         ];
 
         // Dynamically build placeholder string like (?,?,?,?,...)
@@ -3215,7 +3300,7 @@ app.post('/api/settings/ai', authenticateToken, async (req, res) => {
         const keys = [
             'openai_key', 'openai_model',
             'google_key', 'google_model',
-            'system_prompt', 'temperature', 'max_tokens'
+            'system_prompt', 'temperature', 'max_tokens', 'ai_active'
         ];
 
         // Upsert each setting
@@ -3227,6 +3312,13 @@ app.post('/api/settings/ai', authenticateToken, async (req, res) => {
                     [key, String(settings[key])]
                 );
             }
+        }
+
+        // Se AI estiver ativa, desativar outros bots (Fluxos e Chatbots de Palavra-Chave)
+        if (settings.ai_active === 'true' || settings.ai_active === true) {
+            await pool.query("UPDATE keyword_chatbot SET is_active = 0 WHERE user_id = ?", [req.user.id]);
+            await pool.query("UPDATE flows SET status = 'paused' WHERE user_id = ?", [req.user.id]);
+            console.log(`🤖 [AI] IA ativada para User ${req.user.id}. Chatbots e Fluxos foram pausados.`);
         }
 
         res.json({ success: true, message: 'Configurações salvas' });

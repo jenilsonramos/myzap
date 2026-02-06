@@ -11,7 +11,8 @@ const AIIntegrationView: React.FC = () => {
         google_model: 'gemini-1.5-pro',
         system_prompt: 'Você é um assistente virtual ultra-eficiente do MyZap. Seja cordial, direto e ajude o cliente a resolver suas dúvidas rapidamente.',
         temperature: 0.7,
-        max_tokens: 1000
+        max_tokens: 1000,
+        ai_active: false
     });
 
     useEffect(() => {
@@ -77,6 +78,39 @@ const AIIntegrationView: React.FC = () => {
     return (
         <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
             {/* Provider Selection Cards */}
+            <div className="flex items-center justify-between bg-emerald-500/10 border border-emerald-500/20 p-6 rounded-3xl mb-4">
+                <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-emerald-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/30">
+                        <span className="material-icons-round text-2xl">smart_toy</span>
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-black text-emerald-900 dark:text-emerald-400 uppercase tracking-tight">Resposta Automática Inteligente</h3>
+                        <p className="text-emerald-700/80 dark:text-emerald-500/80 text-sm font-medium">A IA responderá a todas as mensagens recebidas.</p>
+                    </div>
+                </div>
+                <div className="relative">
+                    <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={!!aiSettings.ai_active}
+                            onChange={(e) => {
+                                const newValue = e.target.checked;
+                                if (newValue) {
+                                    // Show warning before enabling
+                                    if (confirm("⚠️ ATENÇÃO: Ao ativar a IA, todos os outros Chatbots e Fluxos serão DESATIVADOS automaticamente para evitar conflitos. Deseja continuar?")) {
+                                        setAiSettings({ ...aiSettings, ai_active: true });
+                                    }
+                                } else {
+                                    setAiSettings({ ...aiSettings, ai_active: false });
+                                }
+                            }}
+                        />
+                        <div className="w-14 h-8 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 dark:peer-focus:ring-emerald-800 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-7 after:w-7 after:transition-all dark:border-gray-600 peer-checked:bg-emerald-500"></div>
+                    </label>
+                </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {providers.map((provider) => (
                     <button
