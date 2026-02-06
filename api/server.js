@@ -576,7 +576,7 @@ async function setupTables() {
         }
 
         // TABELA: email_templates
-        await conn.execute(`
+        await pool.query(`
             CREATE TABLE IF NOT EXISTS email_templates (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 template_key VARCHAR(50) UNIQUE NOT NULL,
@@ -587,9 +587,9 @@ async function setupTables() {
         `);
 
         // Popular templates iniciais se estiverem vazios
-        const [templates] = await conn.execute("SELECT id FROM email_templates LIMIT 1");
+        const [templates] = await pool.query("SELECT id FROM email_templates LIMIT 1");
         if (templates.length === 0) {
-            await conn.execute(`
+            await pool.query(`
                 INSERT INTO email_templates (template_key, subject, body_html) VALUES 
                 ('welcome', '🚀 Bem-vindo ao MyZap!', '<div class="badge">Sucesso</div><h2 class="title">Olá, {{name}}! 👋</h2><p class="text">Sua conta foi criada com sucesso. Estamos felizes em ter você conosco!</p><p class="text">Explore todas as nossas funcionalidades de automação agora mesmo.</p>'),
                 ('activation', '🔑 Ative sua Experiência MyZap', '<div class="badge">Segurança</div><h2 class="title">Sua Chave de Acesso está pronta!</h2><p class="text">Olá {{name}}, use o código abaixo para ativar sua conta:</p><div style="background: #f8fafc; padding: 40px; border-radius: 20px; border: 2px dashed #6366f1; text-align: center; margin: 30px 0;"><span style="font-size: 42px; font-weight: 800; color: #4338ca; letter-spacing: 12px; font-family: monospace;">{{code}}</span></div>'),
