@@ -130,11 +130,23 @@ class EvolutionService {
     }
 
     async sendAudio(instanceName, number, url) {
+        // Na v2, o endpoint sendWhatsAppAudio é mais robusto para PTT
+        return this._request(`/message/sendWhatsAppAudio/${instanceName}`, 'POST', {
+            number: number.replace(/\D/g, ''),
+            audio: url,
+            delay: 1200,
+            encoding: true // Forçar encodamento na Evolution se necessário
+        });
+    }
+
+    // Método v2 genérico para mídia
+    async sendMedia(instanceName, number, mediaUrl, mediaType, caption = '', fileName = '') {
         return this._request(`/message/sendMedia/${instanceName}`, 'POST', {
             number: number.replace(/\D/g, ''),
-            mediatype: 'audio',
-            media: url,
-            ptt: true
+            mediatype: mediaType,
+            media: mediaUrl,
+            caption: caption,
+            fileName: fileName || undefined
         });
     }
 

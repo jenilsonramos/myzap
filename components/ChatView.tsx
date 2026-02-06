@@ -222,7 +222,7 @@ const ChatView: React.FC = () => {
                         });
                         const data = await res.json();
                         if (res.ok) {
-                            setMessages(prev => prev.map(m => m.id === tempId ? { ...m, uid: data.messageId, isPending: false } : m));
+                            setMessages(prev => prev.map(m => m.id === tempId ? { ...m, uid: data.messageId, media_url: data.audioUrl, isPending: false } : m));
                             fetchMessages(selectedContact.id);
                         } else {
                             setMessages(prev => prev.filter(m => m.id !== tempId));
@@ -272,6 +272,25 @@ const ChatView: React.FC = () => {
         const file = e.target.files?.[0];
         if (!file || !selectedContact) return;
 
+        const tempId = Date.now();
+        const mimeType = file.mimetype || file.type;
+        let mediaType = 'document';
+        if (mimeType.startsWith('image/')) mediaType = 'image';
+        else if (mimeType.startsWith('video/')) mediaType = 'video';
+        else if (mimeType.startsWith('audio/')) mediaType = 'audio';
+
+        // Add pending message with local preview if possible
+        const localUrl = URL.createObjectURL(file);
+        setMessages(prev => [...prev, {
+            id: tempId,
+            content: file.name,
+            type: mediaType,
+            key_from_me: true,
+            timestamp: Date.now() / 1000,
+            isPending: true,
+            media_url: localUrl
+        }]);
+
         const formData = new FormData();
         formData.append('file', file);
         formData.append('contactId', selectedContact.id.toString());
@@ -285,12 +304,15 @@ const ChatView: React.FC = () => {
             });
             const data = await res.json();
             if (res.ok) {
+                setMessages(prev => prev.map(m => m.id === tempId ? { ...m, uid: data.messageId, media_url: data.mediaUrl, isPending: false } : m));
                 fetchMessages(selectedContact.id);
             } else {
+                setMessages(prev => prev.filter(m => m.id !== tempId));
                 alert('Erro ao enviar arquivo: ' + (data.error || 'Erro desconhecido'));
             }
         } catch (err) {
             console.error('Erro ao enviar mídia:', err);
+            setMessages(prev => prev.filter(m => m.id !== tempId));
         }
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
@@ -377,17 +399,33 @@ const ChatView: React.FC = () => {
         let type = msg.type;
         let mediaUrl = msg.media_url;
 
+        // Recursive helper to find media in Evolution JSON
+        const findMedia = (obj: any): { type: string; msg: any } | null => {
+            if (!obj || typeof obj !== 'object') return null;
+            if (obj.imageMessage) return { type: 'image', msg: obj.imageMessage };
+            if (obj.audioMessage) return { type: 'audio', msg: obj.audioMessage };
+            if (obj.videoMessage) return { type: 'video', msg: obj.videoMessage };
+            if (obj.documentMessage) return { type: 'document', msg: obj.documentMessage };
+
+            for (const key in obj) {
+                const found = findMedia(obj[key]);
+                if (found) return found;
+            }
+            return null;
+        };
+
         // Smart parser for Evolution JSON messages
-        if (content && (content.startsWith('{') || content.startsWith('Message'))) {
+        if (content && (content.startsWith('{') || content.includes('"message"') || content.includes('"key"'))) {
             try {
                 const jsonMatch = content.match(/\{.*\}/s);
-                const data = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
-                const m = data?.message || data;
-                if (m) {
-                    if (m.imageMessage) { type = 'image'; mediaUrl = m.imageMessage.url || m.imageMessage.directPath; content = m.imageMessage.caption || ''; }
-                    else if (m.audioMessage) { type = 'audio'; mediaUrl = m.audioMessage.url || m.audioMessage.directPath; content = ''; }
-                    else if (m.videoMessage) { type = 'video'; mediaUrl = m.videoMessage.url || m.videoMessage.directPath; content = m.videoMessage.caption || ''; }
-                    else if (m.documentMessage) { type = 'document'; mediaUrl = m.documentMessage.url || m.documentMessage.directPath; content = m.documentMessage.title || m.documentMessage.fileName || ''; }
+                if (jsonMatch) {
+                    const data = JSON.parse(jsonMatch[0]);
+                    const media = findMedia(data.message || data);
+                    if (media) {
+                        type = media.type;
+                        mediaUrl = media.msg.url || media.msg.directPath || mediaUrl;
+                        content = media.msg.caption || media.msg.title || media.msg.fileName || '';
+                    }
                 }
             } catch (e) { }
         }
@@ -396,8 +434,10 @@ const ChatView: React.FC = () => {
         if (mediaUrl && !mediaUrl.startsWith('data:') && !mediaUrl.startsWith('http')) {
             const settings = JSON.parse(localStorage.getItem('myzap_settings') || '{}');
             const baseUrl = settings.app_url || window.location.origin;
-            mediaUrl = `${baseUrl.replace(/\/$/, '')}${mediaUrl.startsWith('/') ? mediaUrl : '/api/uploads/' + mediaUrl}`;
-        } else if (mediaUrl && (mediaUrl.includes('whatsapp.net') || mediaUrl.includes('.enc'))) {
+            // Handle both filename-only and relative paths
+            const path = mediaUrl.startsWith('/') ? mediaUrl : `/api/uploads/${mediaUrl}`;
+            mediaUrl = `${baseUrl.replace(/\/$/, '')}${path}`;
+        } else if (mediaUrl && (mediaUrl.includes('whatsapp.net') || mediaUrl.includes('.enc') || mediaUrl.includes('mmg.whatsapp.net'))) {
             mediaUrl = `/api/media/proxy?url=${encodeURIComponent(mediaUrl)}`;
         }
 

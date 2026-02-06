@@ -1514,15 +1514,11 @@ app.post('/api/messages/send-media', authenticateToken, upload.single('file'), a
         // URL pública do arquivo
         const publicUrl = await getAppUrl();
         const fileUrl = `${publicUrl}/uploads/${file.filename}`;
+        console.log(`[MEDIA] Enviando arquivo: ${file.originalname} -> ${fileUrl}`);
 
         // Enviar via Evolution API
-        const result = await evo._request(`/message/sendMedia/${instanceName}`, 'POST', {
-            number: remoteJid.replace('@s.whatsapp.net', ''),
-            mediatype: mediaType,
-            media: fileUrl,
-            caption: '',
-            fileName: file.originalname
-        });
+        const result = await evo.sendMedia(instanceName, remoteJid, fileUrl, mediaType, '', file.originalname);
+        console.log(`[MEDIA] Resposta da Evolution:`, JSON.stringify(result));
 
         // Salvar mensagem no banco
         const msgId = result?.key?.id || result?.id || `MEDIA-${Date.now()}`;
@@ -1573,13 +1569,11 @@ app.post('/api/messages/send-audio', authenticateToken, async (req, res) => {
         // URL pública do áudio
         const publicUrl = await getAppUrl();
         const audioUrl = `${publicUrl}/uploads/${audioFilename}`;
+        console.log(`[AUDIO] Enviando áudio: ${audioUrl}`);
 
         // Enviar como mensagem de áudio PTT (Push-to-Talk)
-        const result = await evo._request(`/message/sendWhatsAppAudio/${instanceName}`, 'POST', {
-            number: remoteJid.replace('@s.whatsapp.net', ''),
-            audio: audioUrl,
-            delay: 1200
-        });
+        const result = await evo.sendAudio(instanceName, remoteJid, audioUrl);
+        console.log(`[AUDIO] Resposta da Evolution:`, JSON.stringify(result));
 
         // Salvar mensagem no banco
         const msgId = result?.key?.id || result?.id || `AUDIO-${Date.now()}`;
