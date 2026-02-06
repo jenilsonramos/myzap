@@ -19,20 +19,21 @@ const MASTER_TEMPLATE = (title, content, ctaText = null, ctaUrl = null) => `
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${title}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
-        .wrapper { width: 100%; table-layout: fixed; background-color: #f8fafc; padding-bottom: 40px; }
-        .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 24px; overflow: hidden; margin-top: 40px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); border: 1px solid #e2e8f0; }
-        .header { background: linear-gradient(135deg, #4f46e5 0%, #10b981 100%); padding: 40px; text-align: center; }
-        .logo { font-size: 28px; font-weight: 900; color: #ffffff; letter-spacing: -1px; text-transform: uppercase; }
-        .content { padding: 40px; color: #334155; line-height: 1.6; }
-        .title { font-size: 24px; font-weight: 800; color: #1e293b; margin-bottom: 20px; letter-spacing: -0.5px; }
-        .text { font-size: 16px; margin-bottom: 24px; }
-        .btn-container { text-align: center; margin-top: 32px; }
-        .btn { background: #4f46e5; color: #ffffff !important; padding: 16px 32px; text-decoration: none; border-radius: 14px; font-weight: 700; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; display: inline-block; box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.3); }
-        .footer { padding: 32px; text-align: center; color: #94a3b8; font-size: 12px; }
-        .divider { height: 1px; background-color: #f1f5f9; margin: 32px 0; }
-        .badge { display: inline-block; padding: 4px 12px; background: #f1f5f9; border-radius: 99px; font-size: 11px; font-weight: 700; color: #64748b; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
+        body { font-family: 'Outfit', 'Segoe UI', sans-serif; background-color: #f1f5f9; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
+        .wrapper { width: 100%; table-layout: fixed; background-color: #f1f5f9; padding: 40px 0; }
+        .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 32px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.08); border: 1px solid rgba(255,255,255,0.1); }
+        .header { background: linear-gradient(135deg, #6366f1 0%, #10b981 100%); padding: 60px 40px; text-align: center; }
+        .logo { font-size: 32px; font-weight: 800; color: #ffffff; letter-spacing: -1.5px; text-transform: uppercase; }
+        .content { padding: 50px 40px; color: #334155; line-height: 1.8; }
+        .title { font-size: 28px; font-weight: 800; color: #0f172a; margin-bottom: 24px; letter-spacing: -1px; }
+        .text { font-size: 16px; margin-bottom: 24px; color: #475569; }
+        .btn-container { text-align: center; margin: 40px 0; }
+        .btn { background: #6366f1; color: #ffffff !important; padding: 18px 36px; text-decoration: none; border-radius: 18px; font-weight: 700; font-size: 15px; letter-spacing: 0.5px; display: inline-block; transition: all 0.3s ease; box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.4); }
+        .footer { padding: 40px; text-align: center; color: #94a3b8; font-size: 13px; background: #f8fafc; border-top: 1px solid #f1f5f9; }
+        .divider { height: 1px; background: linear-gradient(to right, transparent, #e2e8f0, transparent); margin: 40px 0; }
+        .badge { display: inline-block; padding: 6px 14px; background: #e0e7ff; border-radius: 99px; font-size: 11px; font-weight: 800; color: #4338ca; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 1.5px; }
     </style>
 </head>
 <body>
@@ -49,12 +50,13 @@ const MASTER_TEMPLATE = (title, content, ctaText = null, ctaUrl = null) => `
                 </div>
                 ` : ''}
                 <div class="divider"></div>
-                <p class="text" style="font-size: 14px; color: #64748b;">
-                    Qualquer dúvida, responda este e-mail ou chame nosso suporte no WhatsApp.
+                <p class="text" style="font-size: 14px; color: #64748b; text-align: center;">
+                    Dúvidas? Estamos aqui para ajudar.<br>
+                    <strong>Suporte Premium:</strong> hello@ublochat.com.br
                 </p>
             </div>
             <div class="footer">
-                <p>&copy; 2026 MyZap Enterprise. Todos os direitos reservados.</p>
+                <p>&copy; 2026 MyZap Enterprise. Sua automação inteligente.<br>Florianópolis, SC - Brasil</p>
             </div>
         </div>
     </div>
@@ -84,8 +86,9 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
-// Servir arquivos estáticos da pasta uploads
-app.use('/uploads', express.static(uploadDir));
+// Servir arquivos estáticos da pasta uploads (Corrigido para /api/uploads)
+app.use('/api/uploads', express.static(uploadDir));
+app.use('/uploads', express.static(uploadDir)); // Fallback compatibilidade
 
 // --- PROXY DE MÍDIA (Para evitar CORS e problemas de decriptação) ---
 app.get('/api/media/proxy', async (req, res) => {
@@ -532,6 +535,28 @@ async function setupTables() {
             );
         }
 
+        // TABELA: email_templates
+        await conn.execute(`
+            CREATE TABLE IF NOT EXISTS email_templates (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                template_key VARCHAR(50) UNIQUE NOT NULL,
+                subject VARCHAR(255) NOT NULL,
+                body_html TEXT NOT NULL,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Popular templates iniciais se estiverem vazios
+        const [templates] = await conn.execute("SELECT id FROM email_templates LIMIT 1");
+        if (templates.length === 0) {
+            await conn.execute(`
+                INSERT INTO email_templates (template_key, subject, body_html) VALUES 
+                ('welcome', '🚀 Bem-vindo ao MyZap!', '<div class="badge">Sucesso</div><h2 class="title">Olá, {{name}}! 👋</h2><p class="text">Sua conta foi criada com sucesso. Estamos felizes em ter você conosco!</p><p class="text">Explore todas as nossas funcionalidades de automação agora mesmo.</p>'),
+                ('activation', '🔑 Ative sua Experiência MyZap', '<div class="badge">Segurança</div><h2 class="title">Sua Chave de Acesso está pronta!</h2><p class="text">Olá {{name}}, use o código abaixo para ativar sua conta:</p><div style="background: #f8fafc; padding: 40px; border-radius: 20px; border: 2px dashed #6366f1; text-align: center; margin: 30px 0;"><span style="font-size: 42px; font-weight: 800; color: #4338ca; letter-spacing: 12px; font-family: monospace;">{{code}}</span></div>'),
+                ('password_recovery', '🔐 Recuperação de Acesso', '<div class="badge">Privacidade</div><h2 class="title">Esqueceu sua senha?</h2><p class="text">Não se preocupe, acontece com os melhores. Clique no botão abaixo para criar uma senha nova e segura.</p>')
+            `);
+        }
+
         console.log('✅ [DB] Esquema e Administração verificados.');
         await forceSanitize();
     } catch (err) {
@@ -628,48 +653,10 @@ app.post('/api/auth/register', async (req, res) => {
         );
 
         // Enviar email de boas-vindas ou ativação
-        try {
-            const [smtpSettings] = await pool.execute('SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ("smtp_pass", "smtp_from_email", "smtp_from_name")');
-            const smtp = {};
-            smtpSettings.forEach(row => smtp[row.setting_key] = row.setting_value);
-
-            if (smtp.smtp_pass) {
-                const token = (smtp.smtp_pass || '').replace(/zoho-enczapikey\s+/i, '').trim();
-                let emailHtml, subject;
-
-                if (requireActivation) {
-                    subject = '🔑 Ative sua Experiência MyZap';
-                    emailHtml = MASTER_TEMPLATE(
-                        'Ative sua Conta',
-                        `
-                        <div class="badge">Ativação</div>
-                        <h2 class="title">Olá, <span style="text-transform: capitalize;">${name}</span>! 👋</h2>
-                        <p class="text">Estamos empolgados em ter você conosco! Use o código abaixo para ativar sua conta:</p>
-                        <div style="background: #f8fafc; padding: 32px; border-radius: 16px; margin: 24px 0; text-align: center; border: 2px dashed #10B981;">
-                            <span style="font-size: 36px; font-weight: 900; letter-spacing: 10px; color: #065f46; font-family: monospace;">${activationCode}</span>
-                        </div>
-                        <p class="text" style="font-size: 13px; color: #64748b;">Este código é válido por 24 horas.</p>
-                        `,
-                        'Ativar Conta Agora',
-                        'https://ublochat.com.br/activation'
-                    );
-                } else {
-                    subject = '🚀 Bem-vindo ao MyZap!';
-                    emailHtml = MASTER_TEMPLATE(
-                        'Bem-vindo',
-                        `
-                        <div class="badge">Sucesso</div>
-                        <h2 class="title">Olá, <span style="text-transform: capitalize;">${name}</span>! 🚀</h2>
-                        <p class="text">Sua conta no MyZap foi criada com sucesso. Você agora tem acesso total a todas as nossas ferramentas de automação.</p>
-                        `,
-                        'Entrar no Painel',
-                        'https://ublochat.com.br'
-                    );
-                }
-                await sendZeptoEmail(email, subject, emailHtml);
-            }
-        } catch (emailErr) {
-            console.error(`⚠️ [REGISTER] Falha ao enviar email:`, emailErr.message);
+        if (requireActivation) {
+            await sendEmailWithTemplate(email, 'activation', { name, code: activationCode }, { text: 'Ativar Conta Agora', url: 'https://ublochat.com.br/activation' });
+        } else {
+            await sendEmailWithTemplate(email, 'welcome', { name }, { text: 'Entrar no Painel', url: 'https://ublochat.com.br' });
         }
 
         res.status(201).json({
@@ -832,22 +819,9 @@ app.post('/api/auth/recover', async (req, res) => {
         const baseUrl = appUrlRow[0]?.setting_value || 'https://ublochat.com.br';
         const resetLink = `${baseUrl.replace(/\/$/, '')}/reset-password?token=${resetToken}`;
 
-        const emailHtml = MASTER_TEMPLATE(
-            'Recuperação de Senha',
-            `
-            <div class="badge">Segurança</div>
-            <h2 class="title">Olá, ${user.name}! 🔐</h2>
-            <p class="text">Recebemos uma solicitação para redefinir a senha da sua conta MyZap. Se você não solicitou isso, pode ignorar este e-mail.</p>
-            <div style="background: #fffbeb; border-left: 4px solid #f59e0b; padding: 16px; margin: 24px 0; border-radius: 8px;">
-                <p style="color: #92400e; margin: 0; font-size: 14px;"><strong>Nota:</strong> Este link expirará em 60 minutos.</p>
-            </div>
-            `,
-            'Redefinir Senha',
-            resetLink
-        );
+        await sendEmailWithTemplate(email, 'password_recovery', { name: user.name }, { text: 'Redefinir Senha agora', url: resetLink });
 
-        await sendZeptoEmail(email, '🔐 Redefinição de Senha - MyZap', emailHtml);
-        res.json({ message: 'Link de recuperação enviado com sucesso!' });
+        res.json({ message: 'E-mail de recuperação enviado' });
 
     } catch (err) {
         console.error('❌ [RECOVER] Erro:', err);
@@ -3458,6 +3432,48 @@ function scheduleCrons() {
 // (Movido para dentro do startServer para garantir pool inicializado)
 
 // ========== FIM NOVAS FUNCIONALIDADES ==========
+
+// --- EMAIL TEMPLATES ROUTES ---
+app.get('/api/admin/email-templates', authenticateAdmin, async (req, res) => {
+    try {
+        const [rows] = await pool.execute('SELECT * FROM email_templates');
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao buscar templates' });
+    }
+});
+
+app.post('/api/admin/email-templates', authenticateAdmin, async (req, res) => {
+    const { id, subject, body_html } = req.body;
+    try {
+        await pool.execute('UPDATE email_templates SET subject = ?, body_html = ? WHERE id = ?', [subject, body_html, id]);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao atualizar template' });
+    }
+});
+
+// Enviar e-mail usando template do banco
+async function sendEmailWithTemplate(to, templateKey, vars = {}, cta = { text: null, url: null }) {
+    try {
+        const [rows] = await pool.execute('SELECT subject, body_html FROM email_templates WHERE template_key = ?', [templateKey]);
+        if (rows.length === 0) throw new Error('Template não encontrado');
+
+        let { subject, body_html } = rows[0];
+
+        // Substituir variáveis {{name}}, {{code}}, etc
+        Object.keys(vars).forEach(key => {
+            const regex = new RegExp(`{{${key}}}`, 'g');
+            body_html = body_html.replace(regex, vars[key]);
+            subject = subject.replace(regex, vars[key]);
+        });
+
+        const html = MASTER_TEMPLATE(subject, body_html, cta.text, cta.url);
+        await sendZeptoEmail(to, subject, html);
+    } catch (err) {
+        console.error(`[EMAIL] Erro ao enviar template ${templateKey}:`, err.message);
+    }
+}
 
 const PORT = 5000;
 
