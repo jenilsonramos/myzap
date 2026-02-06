@@ -25,6 +25,7 @@ interface Message {
     status?: 'sent' | 'delivered' | 'read';
     media_url?: string;
     isPending?: boolean;
+    instance_name?: string;
 }
 
 const API_URL = '/api';
@@ -454,7 +455,7 @@ const ChatView: React.FC = () => {
             if (mediaUrl.startsWith('/mms/')) {
                 fullUrl = `https://mmg.whatsapp.net${mediaUrl}`;
             }
-            mediaUrl = `/api/media/proxy?url=${encodeURIComponent(fullUrl)}`;
+            mediaUrl = `/api/media/proxy?url=${encodeURIComponent(fullUrl)}&msgId=${msg.uid || ''}&instance=${msg.instance_name || ''}`;
         }
 
         return { content, type, mediaUrl };

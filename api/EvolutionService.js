@@ -172,6 +172,14 @@ class EvolutionService {
             action: block ? 'block' : 'unblock'
         });
     }
+
+    // 10. Obter Base64 de uma mídia (Para descriptografia)
+    async getMediaBase64(instanceName, messageKey) {
+        // Endpoint v2: /message/getBase64/:instance
+        return this._request(`/message/getBase64/${instanceName}`, 'POST', {
+            key: messageKey
+        });
+    }
 }
 
 module.exports = EvolutionService;

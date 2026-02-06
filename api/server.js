@@ -92,17 +92,38 @@ app.use('/uploads', express.static(uploadDir)); // Fallback compatibilidade
 
 // --- PROXY DE MÍDIA (Para evitar CORS e problemas de decriptação) ---
 app.get('/api/media/proxy', async (req, res) => {
-    const { url } = req.query;
-    if (!url) return res.status(400).send('URL is required');
+    const { url, msgId, instance } = req.query;
+    if (!url && (!msgId || !instance)) return res.status(400).send('URL or msgId/instance is required');
 
     try {
-        console.log(`[PROXY] Buscando: ${url.substring(0, 80)}...`);
+        const evo = await getEvolutionService();
+
+        // Se temos msgId e instance, usamos o endpoint getBase64 da Evolution (Muito mais robusto)
+        if (msgId && instance && evo) {
+            console.log(`[PROXY] Buscando via Evolution API: ${msgId} em ${instance}`);
+            try {
+                const data = await evo.getMediaBase64(instance, { id: msgId, fromMe: false });
+                if (data && data.base64) {
+                    const buffer = Buffer.from(data.base64, 'base64');
+                    // Tentar inferir content-type se possível, ou usar genérico
+                    res.set('Content-Type', data.mimetype || 'application/octet-stream');
+                    return res.send(buffer);
+                }
+            } catch (evoErr) {
+                console.error(`[PROXY EVO ERROR] Falha no getBase64:`, evoErr.message);
+                // Fallback para download direto se houver URL
+            }
+        }
+
+        if (!url) return res.status(404).send('Media not found');
+
+        console.log(`[PROXY] Buscando via download direto: ${url.substring(0, 80)}...`);
         const response = await axios({
             method: 'get',
             url: url,
             responseType: 'stream',
             timeout: 20000,
-            validateStatus: false, // Permitir capturar erros 404/403
+            validateStatus: false,
             headers: {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
                 'Accept': '*/*'
@@ -118,7 +139,7 @@ app.get('/api/media/proxy', async (req, res) => {
         res.set('Cache-Control', 'public, max-age=86400');
         response.data.pipe(res);
     } catch (err) {
-        console.error(`[PROXY CRITICAL] Falha ao buscar ${url}:`, err.message);
+        console.error(`[PROXY CRITICAL] Falha ao buscar mídia:`, err.message);
         res.status(500).send('Error fetching media: ' + err.message);
     }
 });
@@ -1519,13 +1540,18 @@ app.post('/api/messages/send-media', authenticateToken, upload.single('file'), a
         else if (mimeType.startsWith('video/')) mediaType = 'video';
         else if (mimeType.startsWith('audio/')) mediaType = 'audio';
 
-        // URL pública do arquivo
+        // URL pública do arquivo (para o banco)
         const publicUrl = await getAppUrl();
         const fileUrl = `${publicUrl}/uploads/${file.filename}`;
-        console.log(`[MEDIA] Enviando arquivo: ${file.originalname} -> ${fileUrl}`);
 
-        // Enviar via Evolution API
-        const result = await evo.sendMedia(instanceName, remoteJid, fileUrl, mediaType, '', file.originalname);
+        // Base64 para envio direto (Evita que Evolution precise baixar de volta)
+        const fileBase64 = fs.readFileSync(file.path, { encoding: 'base64' });
+        const mediaData = `data:${mimeType};base64,${fileBase64}`;
+
+        console.log(`[MEDIA] Enviando arquivo: ${file.originalname} via Base64`);
+
+        // Enviar via Evolution API usando Base64
+        const result = await evo.sendMedia(instanceName, remoteJid, mediaData, mediaType, '', file.originalname);
         console.log(`[MEDIA] Resposta da Evolution:`, JSON.stringify(result));
 
         // Salvar mensagem no banco
@@ -1582,10 +1608,14 @@ app.post('/api/messages/send-audio', authenticateToken, async (req, res) => {
         // URL pública do áudio
         const publicUrl = await getAppUrl();
         const audioUrl = `${publicUrl}/uploads/${audioFilename}`;
-        console.log(`[AUDIO] Enviando áudio: ${audioUrl}`);
+
+        // Base64 para envio direto (Evita que Evolution precise baixar do nosso servidor)
+        const audioBase64Data = `data:audio/${isOgg ? 'ogg' : 'webm'};base64,${audioBuffer.toString('base64')}`;
+
+        console.log(`[AUDIO] Enviando áudio via Base64`);
 
         // Enviar como mensagem de áudio PTT (Push-to-Talk)
-        const result = await evo.sendAudio(instanceName, remoteJid, audioUrl);
+        const result = await evo.sendAudio(instanceName, remoteJid, audioBase64Data);
         console.log(`[AUDIO] Resposta da Evolution:`, JSON.stringify(result));
 
         // Salvar mensagem no banco

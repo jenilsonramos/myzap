@@ -147,7 +147,7 @@ const AnalyticsView: React.FC = () => {
               ))}
             </div>
             <div className="relative w-48 h-48 md:w-56 md:h-56">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <PieChart>
                   <Pie
                     data={pieData}
@@ -182,7 +182,7 @@ const AnalyticsView: React.FC = () => {
             </div>
           </div>
           <div className="h-48 md:h-56 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <BarChart data={stats.weeklyVolume}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} strokeOpacity={0.1} />
                 <XAxis
