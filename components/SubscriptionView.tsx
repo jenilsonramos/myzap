@@ -176,13 +176,17 @@ const SubscriptionView: React.FC = () => {
                         <div>
                             <div className="flex items-center gap-2 px-3 py-1 bg-white/20 backdrop-blur-md rounded-full w-fit mb-4">
                                 <span className={`w-2 h-2 ${user.status === 'active' ? 'bg-emerald-400' : 'bg-white'} rounded-full ${user.status === 'active' ? 'animate-pulse' : ''} shadow-[0_0_8px_white]`}></span>
-                                <span className="text-[10px] font-black uppercase tracking-widest">{user.status === 'active' ? 'Assinatura Ativa' : 'Conta Suspensa'}</span>
+                                <span className="text-[10px] font-black uppercase tracking-widest">
+                                    {user.status === 'active' ? 'Assinatura Ativa' : user.status === 'suspended' ? 'Conta Suspensa' : 'Assinatura Expirada'}
+                                </span>
                             </div>
                             <h2 className="text-4xl font-black tracking-tighter mb-2">{user.plan}</h2>
                             <p className="text-indigo-100 text-sm font-medium opacity-80">
                                 {user.status === 'active'
                                     ? (subInfo?.cancel_at_period_end ? "Sua assinatura será encerrada em breve." : "Sua conta está configurada para renovação automática.")
-                                    : "Seu acesso está temporariamente bloqueado por falta de pagamento ou suspensão administrativa."}
+                                    : user.status === 'suspended'
+                                        ? "Seu acesso foi bloqueado pela administração. Entre em contato para regularizar."
+                                        : "Seu acesso às funcionalidades está bloqueado. Escolha um plano abaixo para reativar."}
                             </p>
                         </div>
                         <div className="hidden sm:flex items-center justify-center w-20 h-20 bg-white/10 backdrop-blur-xl rounded-3xl border border-white/20 rotate-12">
@@ -207,7 +211,7 @@ const SubscriptionView: React.FC = () => {
                         <p className="text-[10px] font-bold text-white/60">
                             {subInfo?.current_period_end
                                 ? `Ciclo termina em: ${new Date(subInfo.current_period_end * 1000).toLocaleDateString()}`
-                                : (user.status === 'active' ? "Cobrança Automática Ativada" : "Plano Expirado")}
+                                : (user.status === 'active' ? "Cobrança Automática Ativada" : user.status === 'suspended' ? "Bloqueio Administrativo" : "Plano Expirado")}
                         </p>
                     </div>
                     <div className="absolute -bottom-20 -right-20 w-80 h-80 bg-white/10 rounded-full blur-3xl"></div>
@@ -215,11 +219,15 @@ const SubscriptionView: React.FC = () => {
 
                 <div className="lg:col-span-4 bg-white dark:bg-card-dark rounded-huge p-8 border border-slate-100 dark:border-white/5 shadow-xl flex flex-col items-center justify-center text-center">
                     <span className={`material-icons-round ${user.status === 'active' ? 'text-indigo-500' : 'text-rose-500'} text-5xl mb-4`}>{user.status === 'active' ? 'autorenew' : 'credit_card_off'}</span>
-                    <h4 className="text-lg font-black dark:text-white mb-2">{user.status === 'active' ? 'Renovação Automática' : 'Pagamento Pendente'}</h4>
+                    <h4 className="text-lg font-black dark:text-white mb-2">
+                        {user.status === 'active' ? 'Renovação Automática' : user.status === 'suspended' ? 'Acesso Revogado' : 'Pagamento Pendente'}
+                    </h4>
                     <p className="text-xs text-slate-500 font-medium px-4">
                         {user.status === 'active'
                             ? 'As cobranças serão feitas no cartão utilizado no ato da compra.'
-                            : 'Selecione um plano abaixo para normalizar sua conta.'}
+                            : user.status === 'suspended'
+                                ? 'Esta conta não pode realizar operações até que a suspensão seja removida.'
+                                : 'Selecione um plano abaixo para normalizar sua conta.'}
                     </p>
                 </div>
 

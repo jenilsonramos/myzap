@@ -248,13 +248,17 @@ const AppContent: React.FC = () => {
       />
 
       <main className="flex-1 flex flex-col gap-6 overflow-hidden min-w-0">
-        {status === 'inactive' && !JSON.parse(localStorage.getItem('myzap_user') || '{}').role?.includes('admin') && (
-          <div className="bg-rose-500 text-white px-6 py-3 rounded-2xl flex items-center justify-between shadow-lg shadow-rose-500/20 animate-in slide-in-from-top duration-500 shrink-0">
+        {(status === 'inactive' || status === 'suspended' || status === 'expired') && !JSON.parse(localStorage.getItem('myzap_user') || '{}').role?.includes('admin') && (
+          <div className="bg-rose-500 text-white px-6 py-3 rounded-2xl flex items-center justify-between shadow-lg shadow-rose-500/20 animate-in slide-in-from-top duration-500 shrink-0 mx-4 mt-2 lg:mx-0 lg:mt-0">
             <div className="flex items-center gap-3">
               <span className="material-icons-round">report_problem</span>
-              <p className="text-sm font-black uppercase lg:tracking-tighter">Sua conta está suspensa ou o plano expirou. Algumas funcionalidades estão limitadas.</p>
+              <p className="text-sm font-black uppercase lg:tracking-tighter">
+                {status === 'suspended'
+                  ? 'Sua conta foi suspensa pela administração. Entre em contato com o suporte.'
+                  : 'Sua assinatura expirou ou o plano de testes acabou. Renove agora.'}
+              </p>
             </div>
-            <button onClick={() => navigate('/my-plan')} className="bg-white text-rose-500 px-4 py-1.5 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-50 transition-all">Ver Detalhes</button>
+            <button onClick={() => navigate('/my-plan')} className="bg-white text-rose-500 px-4 py-1.5 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-50 transition-all ml-4 shrink-0">Ver Detalhes</button>
           </div>
         )}
         <Header currentView={getCurrentView()} />

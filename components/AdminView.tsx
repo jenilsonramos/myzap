@@ -176,7 +176,7 @@ const AdminView: React.FC = () => {
     }, [activeTab]);
 
     const toggleUserStatus = async (user: any) => {
-        const newStatus = user.status === 'active' ? 'inactive' : 'active';
+        const newStatus = user.status === 'active' ? 'suspended' : 'active';
         try {
             const response = await fetch(`/api/admin/users/${user.id}`, {
                 method: 'PUT',
@@ -556,14 +556,17 @@ const AdminView: React.FC = () => {
                                                             </div>
                                                         </td>
                                                         <td className="py-5 px-6">
-                                                            <div className="flex flex-col gap-1.5">
-                                                                <select
-                                                                    value={user.plan}
-                                                                    onChange={(e) => changeUserPlan(user, e.target.value)}
-                                                                    className="bg-indigo-50 dark:bg-indigo-500/10 rounded-lg px-2 py-0.5 text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase border-none focus:ring-1 focus:ring-indigo-500 outline-none cursor-pointer w-fit"
-                                                                >
-                                                                    {plans.map(p => <option key={p.id} value={p.name} className="dark:bg-slate-900">{p.name}</option>)}
-                                                                </select>
+                                                            <div className="flex flex-col gap-2">
+                                                                <div className="relative group/select w-fit">
+                                                                    <select
+                                                                        value={user.plan}
+                                                                        onChange={(e) => changeUserPlan(user, e.target.value)}
+                                                                        className="appearance-none bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 rounded-xl pl-3 pr-10 py-2 text-[11px] font-black text-indigo-600 dark:text-indigo-400 uppercase outline-none focus:ring-2 focus:ring-indigo-500 transition-all cursor-pointer hover:bg-indigo-100 dark:hover:bg-indigo-500/20 min-w-[120px]"
+                                                                    >
+                                                                        {plans.map(p => <option key={p.id} value={p.name} className="dark:bg-slate-900">{p.name}</option>)}
+                                                                    </select>
+                                                                    <span className="material-icons-round absolute right-3 top-1/2 -translate-y-1/2 text-sm text-indigo-400 pointer-events-none group-hover/select:translate-y-[-40%] transition-transform">unfold_more</span>
+                                                                </div>
                                                                 <span className={`text-[9px] font-black uppercase tracking-widest ${user.role === 'admin' ? 'text-amber-500' : 'text-slate-400 opacity-60'}`}>
                                                                     {user.role === 'admin' ? '💻 Administrador' : '👤 Usuário'}
                                                                 </span>
@@ -572,14 +575,18 @@ const AdminView: React.FC = () => {
                                                         <td className="py-5 px-6">
                                                             <button
                                                                 onClick={() => toggleUserStatus(user)}
-                                                                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all ${(user.status || 'active') === 'active'
-                                                                        ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-100 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100'
-                                                                        : 'bg-rose-50 dark:bg-rose-500/10 border-rose-100 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-100'
+                                                                className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border transition-all ${user.status === 'active'
+                                                                    ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-100 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100'
+                                                                    : user.status === 'suspended'
+                                                                        ? 'bg-rose-50 dark:bg-rose-500/10 border-rose-100 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-100'
+                                                                        : 'bg-amber-50 dark:bg-amber-500/10 border-amber-100 dark:border-amber-500/20 text-amber-600 dark:text-amber-400 hover:bg-amber-100'
                                                                     }`}
                                                             >
-                                                                <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${(user.status || 'active') === 'active' ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
-                                                                <span className="text-[10px] font-black uppercase tracking-widest">{(user.status || 'active') === 'active' ? 'Ativo' : 'Suspenso'}</span>
-                                                                <span className="material-icons-round text-xs">{(user.status || 'active') === 'active' ? 'check_circle' : 'block'}</span>
+                                                                <span className={`w-1.5 h-1.5 rounded-full ${user.status === 'active' ? 'bg-emerald-500 animate-pulse' : user.status === 'suspended' ? 'bg-rose-500' : 'bg-amber-500'}`}></span>
+                                                                <span className="text-[10px] font-black uppercase tracking-widest">
+                                                                    {user.status === 'active' ? 'Ativo' : user.status === 'suspended' ? 'Suspenso' : 'Expirado'}
+                                                                </span>
+                                                                <span className="material-icons-round text-xs">{user.status === 'active' ? 'check_circle' : 'block'}</span>
                                                             </button>
                                                         </td>
                                                         <td className="py-5 px-6">
@@ -684,15 +691,18 @@ const AdminView: React.FC = () => {
                                                 <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
                                                     <span className="material-icons-round text-xs">power_settings_new</span> Status da Conta
                                                 </label>
-                                                <div className="grid grid-cols-2 gap-3">
+                                                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
                                                     {[
                                                         { id: 'active', l: 'Ativo', c: 'emerald' },
-                                                        { id: 'inactive', l: 'Suspenso', c: 'rose' }
+                                                        { id: 'suspended', l: 'Suspenso', c: 'rose' },
+                                                        { id: 'expired', l: 'Expirado', c: 'amber' }
                                                     ].map(s => (
                                                         <button
                                                             key={s.id}
                                                             onClick={() => setEditingUser({ ...editingUser, status: s.id })}
-                                                            className={`py-4 rounded-2xl border-2 transition-all font-black text-[10px] uppercase tracking-widest ${editingUser.status === s.id ? `bg-${s.c}-500 border-${s.c}-500 text-white shadow-lg shadow-${s.c}-500/30` : 'bg-slate-50 dark:bg-slate-900 border-transparent text-slate-500 hover:border-slate-200'}`}
+                                                            className={`py-4 rounded-2xl border-2 transition-all font-black text-[10px] uppercase tracking-widest ${editingUser.status === s.id
+                                                                ? `bg-${s.c}-500 border-${s.c}-500 text-white shadow-lg shadow-${s.c}-500/30`
+                                                                : 'bg-slate-50 dark:bg-slate-900 border-transparent text-slate-500 hover:border-slate-200'}`}
                                                         >
                                                             {s.l}
                                                         </button>

@@ -255,7 +255,7 @@ app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async
         try {
             console.log(`🚫 [STRIPE WEBHOOK] Desativando assinatura: ${subscription.id}`);
             await pool.execute(
-                "UPDATE users SET status = 'inactive' WHERE stripe_subscription_id = ?",
+                "UPDATE users SET status = 'expired' WHERE stripe_subscription_id = ?",
                 [subscription.id]
             );
         } catch (err) {
@@ -282,7 +282,7 @@ let pool;
 async function forceSanitize() {
     try {
         if (!pool) return;
-        await pool.execute("UPDATE users SET status = 'active' WHERE status IS NULL OR (status != 'active' AND status != 'inactive')");
+        await pool.execute("UPDATE users SET status = 'active' WHERE status IS NULL OR status NOT IN ('active', 'suspended', 'expired', 'inactive', 'pending_activation')");
         await pool.execute("UPDATE users SET plan = 'Professional' WHERE plan IS NULL OR plan = ''");
         await pool.execute("UPDATE users SET role = 'user' WHERE role IS NULL OR role = ''");
         await pool.execute("UPDATE users SET role = 'admin' WHERE email = 'jenilson@outlook.com.br'");
@@ -670,11 +670,21 @@ const authenticateToken = (req, res, next) => {
             const allowedPaths = ['/api/user/subscription', '/api/plans', '/api/stripe/create-checkout-session', '/api/auth/me', '/api/admin/settings'];
             const isAllowed = allowedPaths.some(path => req.url.startsWith(path));
 
-            if (user.status === 'inactive' && user.role !== 'admin' && !isAllowed) {
-                console.warn(`🚫 [BLOCK] Usuário ${user.id} tentando acessar ${req.url} com plano expirado.`);
+            const isBlocked = ['inactive', 'suspended', 'expired'].includes(user.status);
+            if (isBlocked && user.role !== 'admin' && !isAllowed) {
+                console.warn(`🚫 [BLOCK] Usuário ${user.id} (${user.email}) tentando acessar ${req.url} com status: ${user.status}.`);
+
+                let errorMessage = 'Sua assinatura expirou. Por favor, renove para continuar.';
+                let errorCode = 'SUBSCRIPTION_EXPIRED';
+
+                if (user.status === 'suspended') {
+                    errorMessage = 'Sua conta foi suspensa pela administração. Entre em contato com o suporte.';
+                    errorCode = 'ACCOUNT_SUSPENDED';
+                }
+
                 return res.status(403).json({
-                    error: 'Sua assinatura expirou. Por favor, renove para continuar usando todos os recursos.',
-                    code: 'SUBSCRIPTION_EXPIRED',
+                    error: errorMessage,
+                    code: errorCode,
                     redirect: '/my-plan'
                 });
             }
@@ -965,7 +975,7 @@ const cleanupTrials = async () => {
         // Usuarios 'Teste Grátis' com data passada -> Muda para 'Inativo' ou 'Expirado'
         // Por simplicidade, vamos apenas mudar o status ou plano se necessário
         const [result] = await pool.execute(
-            "UPDATE users SET status = 'inactive' WHERE plan = 'Teste Grátis' AND trial_ends_at < NOW() AND status = 'active'"
+            "UPDATE users SET status = 'expired' WHERE plan = 'Teste Grátis' AND trial_ends_at < NOW() AND status = 'active'"
         );
         if (result.affectedRows > 0) {
             console.log(`✅ [CRON] ${result.affectedRows} trials expirados foram desativados.`);
