@@ -3001,6 +3001,7 @@ app.post('/api/webhook/evolution', async (req, res) => {
                                 }
                             } // End of AI Response generation
                         } // End of AI Active Check
+                    } catch (aiErr) {
                         console.error(`❌ [AI WEBHOOK] Erro: ${aiErr.message}`);
                     }
                 }
