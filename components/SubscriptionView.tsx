@@ -176,13 +176,13 @@ const SubscriptionView: React.FC = () => {
                         <div>
                             <div className="flex items-center gap-2 px-3 py-1 bg-white/20 backdrop-blur-md rounded-full w-fit mb-4">
                                 <span className={`w-2 h-2 ${user.status === 'active' ? 'bg-emerald-400' : 'bg-white'} rounded-full ${user.status === 'active' ? 'animate-pulse' : ''} shadow-[0_0_8px_white]`}></span>
-                                <span className="text-[10px] font-black uppercase tracking-widest">{user.status === 'active' ? 'Assinatura Ativa' : 'Assinatura Expirada'}</span>
+                                <span className="text-[10px] font-black uppercase tracking-widest">{user.status === 'active' ? 'Assinatura Ativa' : 'Conta Suspensa'}</span>
                             </div>
                             <h2 className="text-4xl font-black tracking-tighter mb-2">{user.plan}</h2>
                             <p className="text-indigo-100 text-sm font-medium opacity-80">
                                 {user.status === 'active'
                                     ? (subInfo?.cancel_at_period_end ? "Sua assinatura será encerrada em breve." : "Sua conta está configurada para renovação automática.")
-                                    : "Seu acesso às funcionalidades está bloqueado. Escolha um plano abaixo para reativar."}
+                                    : "Seu acesso está temporariamente bloqueado por falta de pagamento ou suspensão administrativa."}
                             </p>
                         </div>
                         <div className="hidden sm:flex items-center justify-center w-20 h-20 bg-white/10 backdrop-blur-xl rounded-3xl border border-white/20 rotate-12">

@@ -496,154 +496,238 @@ const AdminView: React.FC = () => {
 
                 {activeTab === 'users' && (
                     <div className="p-8 space-y-8 animate-in fade-in duration-500">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                             <div>
-                                <h3 className="text-2xl font-black dark:text-white uppercase tracking-tighter">Gestão de Usuários</h3>
+                                <h3 className="text-3xl font-black dark:text-white uppercase tracking-tighter mb-1">Gestão de Usuários</h3>
                                 <p className="text-slate-500 text-sm font-medium">Controle total sobre os membros da plataforma</p>
                             </div>
-                            <button className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-lg">Exportar CSV</button>
+                            <div className="flex items-center gap-3 w-full sm:w-auto">
+                                <div className="relative flex-1 sm:flex-initial">
+                                    <span className="material-icons-round absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-lg">search</span>
+                                    <input
+                                        type="text"
+                                        placeholder="Buscar usuário..."
+                                        className="w-full sm:w-64 bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-white/5 rounded-2xl pl-12 pr-4 py-3 text-xs font-bold dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                    />
+                                </div>
+                                <button className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-100 dark:border-white/5 px-5 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm flex items-center gap-2">
+                                    <span className="material-icons-round text-lg">download</span>
+                                    Exportar
+                                </button>
+                            </div>
                         </div>
 
                         {loadingUsers ? (
-                            <div className="py-20 text-center text-slate-400 font-bold uppercase tracking-widest animate-pulse">Carregando usuários reais...</div>
+                            <div className="py-32 flex flex-col items-center justify-center text-slate-400 gap-4">
+                                <div className="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
+                                <p className="font-black uppercase tracking-widest text-[10px]">Carregando usuários...</p>
+                            </div>
                         ) : (
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead>
-                                        <tr className="border-b border-slate-100 dark:border-white/5">
-                                            <th className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-left py-4 px-4">Usuário</th>
-                                            <th className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-left py-4 px-4">Plano</th>
-                                            <th className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-left py-4 px-4">Cargo</th>
-                                            <th className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-left py-4 px-4">Status</th>
-                                            <th className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-left py-4 px-4">Cadastro</th>
-                                            <th className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right py-4 px-4">Ações</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {users.map((user) => (
-                                            <tr key={user.id} className="border-b border-slate-50 dark:border-white/5 hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors">
-                                                <td className="py-4 px-4">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center font-black">
-                                                            {user.name.charAt(0)}
-                                                        </div>
-                                                        <div>
-                                                            <p className="text-sm font-black dark:text-white">{user.name}</p>
-                                                            <p className="text-xs text-slate-400 font-medium">{user.email}</p>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td className="py-4 px-4">
-                                                    <select
-                                                        value={user.plan}
-                                                        onChange={(e) => changeUserPlan(user, e.target.value)}
-                                                        className="bg-slate-100 dark:bg-slate-800 rounded-full px-3 py-1 text-[10px] font-black text-slate-600 dark:text-slate-400 uppercase border-none focus:ring-1 focus:ring-indigo-500 outline-none cursor-pointer"
-                                                    >
-                                                        {plans.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
-                                                    </select>
-                                                </td>
-                                                <td className="py-4 px-4">
-                                                    <span className={`inline-flex px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${user.role === 'admin' ? 'bg-indigo-500/10 text-indigo-500' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
-                                                        {user.role === 'admin' ? 'Administrador' : 'Usuário'}
-                                                    </span>
-                                                </td>
-                                                <td className="py-4 px-4">
-                                                    <button
-                                                        onClick={() => toggleUserStatus(user)}
-                                                        className="flex items-center gap-2 group"
-                                                    >
-                                                        <span className={`w-2 h-2 rounded-full ${(user.status || 'active') === 'active' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]'}`}></span>
-                                                        <span className="text-xs font-black dark:text-white uppercase tracking-tighter group-hover:underline">{(user.status || 'active') === 'active' ? 'Ativo' : 'Suspenso'}</span>
-                                                    </button>
-                                                </td>
-                                                <td className="py-4 px-4">
-                                                    <span className="text-sm text-slate-500 font-medium">
-                                                        {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
-                                                    </span>
-                                                </td>
-                                                <td className="py-4 px-4 text-right">
-                                                    <div className="flex items-center justify-end gap-2">
-                                                        <button
-                                                            onClick={() => openUserModal(user)}
-                                                            className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-indigo-500 transition-all flex items-center justify-center" title="Editar Usuário"
-                                                        >
-                                                            <span className="material-icons-round text-lg">edit</span>
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleDeleteUser(user.id)}
-                                                            className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-rose-500 transition-all flex items-center justify-center" title="Excluir Definitivamente"
-                                                        >
-                                                            <span className="material-icons-round text-lg">delete_forever</span>
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                            <div className="overflow-x-auto -mx-8 sm:mx-0">
+                                <div className="inline-block min-w-full align-middle px-8 sm:px-0">
+                                    <div className="overflow-hidden border border-slate-100 dark:border-white/5 rounded-3xl shadow-sm">
+                                        <table className="min-w-full divide-y divide-slate-100 dark:divide-white/5">
+                                            <thead className="bg-slate-50/50 dark:bg-white/5">
+                                                <tr>
+                                                    <th className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-left py-5 px-6">Usuário</th>
+                                                    <th className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-left py-5 px-6">Plano / Cargo</th>
+                                                    <th className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-left py-5 px-6">Status</th>
+                                                    <th className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-left py-5 px-6">Cadastro</th>
+                                                    <th className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-right py-5 px-6">Ações</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100 dark:divide-white/5 bg-white dark:bg-card-dark">
+                                                {users.map((user) => (
+                                                    <tr key={user.id} className="hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors group">
+                                                        <td className="py-5 px-6">
+                                                            <div className="flex items-center gap-4">
+                                                                <div className="relative">
+                                                                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 p-[2px] shadow-lg shadow-indigo-500/10">
+                                                                        <div className="w-full h-full rounded-[14px] bg-white dark:bg-slate-900 flex items-center justify-center font-black text-indigo-500">
+                                                                            {user.name.charAt(0).toUpperCase()}
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white dark:border-slate-900 ${user.status === 'inactive' ? 'bg-rose-500' : 'bg-emerald-500'}`}></div>
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-sm font-black dark:text-white group-hover:text-indigo-500 transition-colors uppercase tracking-tight">{user.name}</p>
+                                                                    <p className="text-[11px] text-slate-400 font-bold">{user.email}</p>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-5 px-6">
+                                                            <div className="flex flex-col gap-1.5">
+                                                                <select
+                                                                    value={user.plan}
+                                                                    onChange={(e) => changeUserPlan(user, e.target.value)}
+                                                                    className="bg-indigo-50 dark:bg-indigo-500/10 rounded-lg px-2 py-0.5 text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase border-none focus:ring-1 focus:ring-indigo-500 outline-none cursor-pointer w-fit"
+                                                                >
+                                                                    {plans.map(p => <option key={p.id} value={p.name} className="dark:bg-slate-900">{p.name}</option>)}
+                                                                </select>
+                                                                <span className={`text-[9px] font-black uppercase tracking-widest ${user.role === 'admin' ? 'text-amber-500' : 'text-slate-400 opacity-60'}`}>
+                                                                    {user.role === 'admin' ? '💻 Administrador' : '👤 Usuário'}
+                                                                </span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-5 px-6">
+                                                            <button
+                                                                onClick={() => toggleUserStatus(user)}
+                                                                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all ${(user.status || 'active') === 'active'
+                                                                        ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-100 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100'
+                                                                        : 'bg-rose-50 dark:bg-rose-500/10 border-rose-100 dark:border-rose-500/20 text-rose-600 dark:text-rose-400 hover:bg-rose-100'
+                                                                    }`}
+                                                            >
+                                                                <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${(user.status || 'active') === 'active' ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
+                                                                <span className="text-[10px] font-black uppercase tracking-widest">{(user.status || 'active') === 'active' ? 'Ativo' : 'Suspenso'}</span>
+                                                                <span className="material-icons-round text-xs">{(user.status || 'active') === 'active' ? 'check_circle' : 'block'}</span>
+                                                            </button>
+                                                        </td>
+                                                        <td className="py-5 px-6">
+                                                            <div className="flex flex-col">
+                                                                <span className="text-xs font-bold dark:text-white uppercase tracking-tighter">
+                                                                    {user.created_at ? new Date(user.created_at).toLocaleDateString('pt-BR') : '---'}
+                                                                </span>
+                                                                <span className="text-[9px] font-black text-slate-400 uppercase opacity-60">Criado em</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-5 px-6 text-right">
+                                                            <div className="flex items-center justify-end gap-2 text-slate-400">
+                                                                <button
+                                                                    onClick={() => openUserModal(user)}
+                                                                    className="w-10 h-10 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-white/5 hover:border-indigo-500 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-all flex items-center justify-center group/btn"
+                                                                >
+                                                                    <span className="material-icons-round text-lg group-hover/btn:scale-110 transition-transform">edit_note</span>
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleDeleteUser(user.id)}
+                                                                    className="w-10 h-10 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-white/5 hover:border-rose-500 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-all flex items-center justify-center group/btn"
+                                                                >
+                                                                    <span className="material-icons-round text-lg group-hover/btn:scale-110 transition-transform">delete_sweep</span>
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
                             </div>
                         )}
 
                         {/* User Edit Modal */}
                         {isUserModalOpen && editingUser && (
-                            <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-                                <div className="bg-white dark:bg-card-dark w-full max-w-xl rounded-huge shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
-                                    <div className="p-6 border-b border-slate-100 dark:border-white/5 flex items-center justify-between">
-                                        <div>
-                                            <h4 className="text-sm font-black uppercase tracking-widest dark:text-white">Editar Usuário: {editingUser.name}</h4>
-                                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Ajuste as informações e permissões do usuário</p>
+                            <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-xl animate-in fade-in duration-300">
+                                <div className="bg-white dark:bg-card-dark w-full max-w-xl rounded-[40px] shadow-3xl border border-white/20 dark:border-white/5 overflow-hidden animate-in zoom-in-95 duration-300">
+                                    <div className="p-8 border-b border-slate-100 dark:border-white/5 flex items-center justify-between relative bg-gradient-to-r from-indigo-50 to-transparent dark:from-indigo-500/5">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-14 h-14 rounded-3xl bg-indigo-600 flex items-center justify-center shadow-2xl shadow-indigo-600/20">
+                                                <span className="material-icons-round text-white text-3xl">manage_accounts</span>
+                                            </div>
+                                            <div>
+                                                <h4 className="text-xl font-black dark:text-white tracking-tighter uppercase">{editingUser.name || 'Novo Usuário'}</h4>
+                                                <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] opacity-80">Editar Permissões & Dados</p>
+                                            </div>
                                         </div>
-                                        <button onClick={() => setIsUserModalOpen(false)} className="text-slate-400 hover:text-rose-500 transition-colors">
+                                        <button
+                                            onClick={() => setIsUserModalOpen(false)}
+                                            className="w-10 h-10 rounded-2xl bg-white dark:bg-slate-800 text-slate-400 hover:text-rose-500 transition-all shadow-sm border border-slate-100 dark:border-white/5 flex items-center justify-center"
+                                        >
                                             <span className="material-icons-round">close</span>
                                         </button>
                                     </div>
-                                    <div className="p-8 space-y-6 max-h-[70vh] overflow-y-auto scrollbar-hide">
-                                        <div className="space-y-1.5">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome</label>
-                                            <input value={editingUser.name} onChange={e => setEditingUser({ ...editingUser, name: e.target.value })} type="text" className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white outline-none focus:ring-2 focus:ring-indigo-500" />
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email</label>
-                                            <input value={editingUser.email} onChange={e => setEditingUser({ ...editingUser, email: e.target.value })} type="email" className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white outline-none focus:ring-2 focus:ring-indigo-500" />
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-4">
+
+                                    <div className="p-10 space-y-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                             <div className="space-y-2">
-                                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Cargo</label>
-                                                <select
-                                                    value={editingUser.role}
-                                                    onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value as 'user' | 'admin' })}
-                                                    className="w-full bg-slate-50 dark:bg-white/5 border-none rounded-2xl px-6 py-4 text-sm dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-bold"
-                                                >
-                                                    <option value="user" className="dark:bg-slate-800">Usuário Comum</option>
-                                                    <option value="admin" className="dark:bg-slate-800">Administrador</option>
-                                                </select>
+                                                <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                                    <span className="material-icons-round text-xs">person</span> Nome do Usuário
+                                                </label>
+                                                <input
+                                                    value={editingUser.name}
+                                                    onChange={e => setEditingUser({ ...editingUser, name: e.target.value })}
+                                                    type="text"
+                                                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-white/5 rounded-[22px] px-6 py-4 text-sm font-bold dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                                />
                                             </div>
                                             <div className="space-y-2">
-                                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Status</label>
-                                                <select
-                                                    value={editingUser.status}
-                                                    onChange={(e) => setEditingUser({ ...editingUser, status: e.target.value as 'active' | 'inactive' })}
-                                                    className="w-full bg-slate-50 dark:bg-white/5 border-none rounded-2xl px-6 py-4 text-sm dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-bold"
-                                                >
-                                                    <option value="active" className="dark:bg-slate-800">Ativo</option>
-                                                    <option value="inactive" className="dark:bg-slate-800">Inativo</option>
-                                                </select>
+                                                <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                                    <span className="material-icons-round text-xs">alternate_email</span> E-mail de Acesso
+                                                </label>
+                                                <input
+                                                    value={editingUser.email}
+                                                    onChange={e => setEditingUser({ ...editingUser, email: e.target.value })}
+                                                    type="email"
+                                                    className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-white/5 rounded-[22px] px-6 py-4 text-sm font-bold dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                                                />
                                             </div>
                                         </div>
-                                        <div className="space-y-1.5 pt-2">
-                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Fim do Teste Grátis (Trial Ends)</label>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                            <div className="space-y-4">
+                                                <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                                    <span className="material-icons-round text-xs">stars</span> Cargo & Acesso
+                                                </label>
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    {['user', 'admin'].map(r => (
+                                                        <button
+                                                            key={r}
+                                                            onClick={() => setEditingUser({ ...editingUser, role: r })}
+                                                            className={`py-4 rounded-2xl border-2 transition-all font-black text-[10px] uppercase tracking-widest ${editingUser.role === r ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-600/30' : 'bg-slate-50 dark:bg-slate-900 border-transparent text-slate-500 hover:border-slate-200'}`}
+                                                        >
+                                                            {r === 'admin' ? 'Admin' : 'Membro'}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            <div className="space-y-4">
+                                                <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                                                    <span className="material-icons-round text-xs">power_settings_new</span> Status da Conta
+                                                </label>
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    {[
+                                                        { id: 'active', l: 'Ativo', c: 'emerald' },
+                                                        { id: 'inactive', l: 'Suspenso', c: 'rose' }
+                                                    ].map(s => (
+                                                        <button
+                                                            key={s.id}
+                                                            onClick={() => setEditingUser({ ...editingUser, status: s.id })}
+                                                            className={`py-4 rounded-2xl border-2 transition-all font-black text-[10px] uppercase tracking-widest ${editingUser.status === s.id ? `bg-${s.c}-500 border-${s.c}-500 text-white shadow-lg shadow-${s.c}-500/30` : 'bg-slate-50 dark:bg-slate-900 border-transparent text-slate-500 hover:border-slate-200'}`}
+                                                        >
+                                                            {s.l}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-3 p-6 bg-slate-50 dark:bg-slate-900 rounded-[30px] border border-slate-100 dark:border-white/5">
+                                            <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                                                <span className="material-icons-round text-xs text-amber-500">lock_open</span> Expiração do Teste / Período
+                                            </label>
                                             <input
                                                 type="datetime-local"
                                                 value={editingUser.trial_ends_at ? new Date(new Date(editingUser.trial_ends_at).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ''}
                                                 onChange={e => setEditingUser({ ...editingUser, trial_ends_at: e.target.value })}
-                                                className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                                                className="w-full bg-white dark:bg-black/20 border-none rounded-2xl px-6 py-4 text-sm font-bold dark:text-white outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                                             />
-                                            <p className="text-[9px] text-slate-400 font-bold uppercase ml-1 italic">* Deixe vazio se não for um usuário em teste.</p>
+                                            <p className="text-[9px] text-slate-400 font-black uppercase opacity-60">* Este campo só é relevante para usuários no plano "Teste Grátis".</p>
                                         </div>
                                     </div>
-                                    <div className="p-6 bg-white dark:bg-card-dark border-t border-slate-100 dark:border-white/5 flex gap-4">
-                                        <button onClick={() => setIsUserModalOpen(false)} className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 font-black text-xs uppercase tracking-widest rounded-xl hover:bg-slate-200 transition-all">Cancelar</button>
-                                        <button onClick={saveUserChanges} className="flex-1 py-3 bg-indigo-600 text-white font-black text-xs uppercase tracking-widest rounded-xl shadow-lg shadow-indigo-600/30 hover:bg-indigo-700 transition-all">Salvar Alterações</button>
+
+                                    <div className="p-8 bg-slate-50 dark:bg-white/5 border-t border-slate-100 dark:border-white/5 flex gap-4">
+                                        <button
+                                            onClick={() => setIsUserModalOpen(false)}
+                                            className="flex-1 py-4 bg-white dark:bg-card-dark text-slate-500 dark:text-slate-400 border border-slate-100 dark:border-white/5 font-black text-xs uppercase tracking-[0.2em] rounded-2xl hover:bg-slate-50 transition-all"
+                                        >
+                                            Descartar
+                                        </button>
+                                        <button
+                                            onClick={saveUserChanges}
+                                            className="flex-2 py-4 bg-indigo-600 text-white font-black text-xs uppercase tracking-[0.2em] rounded-2xl shadow-2xl shadow-indigo-600/30 hover:bg-indigo-700 transition-all active:scale-95"
+                                        >
+                                            Atualizar Usuário
+                                        </button>
                                     </div>
                                 </div>
                             </div>

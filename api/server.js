@@ -1035,11 +1035,17 @@ app.delete('/api/admin/plans/:id', authenticateAdmin, async (req, res) => {
 });
 
 app.put('/api/admin/users/:id', authenticateAdmin, async (req, res) => {
-    const { status, plan, role } = req.body;
+    const { status, plan, role, name, email } = req.body;
     try {
-        await pool.execute('UPDATE users SET status = ?, plan = ?, role = ?, updated_at = NOW() WHERE id = ?', [status, plan, role, req.params.id]);
+        await pool.execute(
+            'UPDATE users SET status = ?, plan = ?, role = ?, name = ?, email = ?, updated_at = NOW() WHERE id = ?',
+            [status, plan, role, name, email, req.params.id]
+        );
         res.json({ message: 'OK' });
-    } catch (err) { res.status(500).json({ error: 'Erro' }); }
+    } catch (err) {
+        console.error('❌ Erro PUT /api/admin/users/:id:', err);
+        res.status(500).json({ error: 'Erro ao atualizar usuário' });
+    }
 });
 
 app.delete('/api/admin/users/:id', authenticateAdmin, async (req, res) => {
