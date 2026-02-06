@@ -304,8 +304,19 @@ const SubscriptionView: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {plans.map((p: any) => {
                         const isCurrent = p.name === user.plan;
+                        const isFree = p.name === 'Teste Grátis';
+
+                        // Define benefits explicitly or use from DB if available
+                        const benefits = p.features && typeof p.features === 'string'
+                            ? JSON.parse(p.features)
+                            : p.name === 'Teste Grátis'
+                                ? ['1 Instância', '100 mensagens/mês', 'Sem acesso a API', 'Suporte Básico']
+                                : p.name.includes('Master')
+                                    ? ['3 Instâncias', 'Mensagens Ilimitadas', 'IA Avançada (GPT-4)', 'Suporte Prioritário', 'API Completa']
+                                    : ['2 Instâncias', '10.000 mensagens/mês', 'Chatbot Básico', 'Suporte por Email'];
+
                         return (
-                            <div key={p.id} className={`bg-white dark:bg-card-dark rounded-huge p-6 border ${isCurrent ? 'border-primary shadow-primary/10 transition-all' : 'border-slate-100 dark:border-white/5'} shadow-lg group relative overflow-hidden`}>
+                            <div key={p.id} className={`bg-white dark:bg-card-dark rounded-huge p-6 border ${isCurrent ? 'border-primary shadow-primary/10 transition-all' : 'border-slate-100 dark:border-white/5'} shadow-lg group relative overflow-hidden flex flex-col`}>
                                 {isCurrent && (
                                     <div className="absolute top-0 right-0 bg-primary text-white text-[9px] font-black uppercase px-4 py-1.5 rounded-bl-2xl tracking-widest animate-in slide-in-from-right-full">
                                         Plano Atual
@@ -315,16 +326,26 @@ const SubscriptionView: React.FC = () => {
                                     <span className="material-icons-round">{p.name.includes('IA') ? 'auto_fix_high' : 'rocket_launch'}</span>
                                 </div>
                                 <h4 className="text-lg font-black dark:text-white mb-2 uppercase">{p.name}</h4>
-                                <div className="flex items-baseline gap-1 mb-8">
+                                <div className="flex items-baseline gap-1 mb-6">
                                     <span className="text-3xl font-black dark:text-white">R$ {Math.floor(p.price)}</span>
                                     <span className="text-sm text-slate-400 font-bold">/mês</span>
                                 </div>
+
+                                <ul className="mb-8 space-y-3 flex-1">
+                                    {benefits.map((benefit: string, idx: number) => (
+                                        <li key={idx} className="flex items-center gap-2 text-xs font-medium text-slate-600 dark:text-slate-400">
+                                            <span className={`material-icons-round text-[14px] ${isCurrent ? 'text-emerald-500' : 'text-primary'}`}>check_circle</span>
+                                            {benefit}
+                                        </li>
+                                    ))}
+                                </ul>
+
                                 <button
-                                    disabled={isCurrent}
+                                    disabled={isCurrent || isFree}
                                     onClick={() => handleUpgrade(p.name)}
-                                    className={`w-full py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${isCurrent ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed' : 'bg-primary text-white hover:shadow-indigo-500/20 active:scale-95'}`}
+                                    className={`w-full py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${isCurrent || isFree ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed' : 'bg-primary text-white hover:shadow-indigo-500/20 active:scale-95'}`}
                                 >
-                                    {isCurrent ? 'Ativo no momento' : 'Selecionar Plano'}
+                                    {isCurrent ? 'Ativo no momento' : isFree ? 'Indisponível' : 'Selecionar Plano'}
                                 </button>
                             </div>
                         );

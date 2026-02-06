@@ -662,6 +662,14 @@ const authenticateToken = (req, res, next) => {
             if (rows.length === 0) return res.status(401).json({ error: 'Usuário não encontrado' });
 
             const user = rows[0];
+
+            // SELF-HEALING: Se status 'expired' mas trial ainda válido, reativar
+            if (user.status === 'expired' && user.plan === 'Teste Grátis' && user.trial_ends_at && new Date(user.trial_ends_at) > new Date()) {
+                console.log(`🚑 [SELF-HEAL] Reativando usuário ${user.email} (Trial válido até ${user.trial_ends_at})`);
+                await pool.execute("UPDATE users SET status = 'active', is_blocked = FALSE WHERE id = ?", [user.id]);
+                user.status = 'active'; // Atualizar objeto local para o request atual
+            }
+
             req.user = user;
 
             // Log discreto para cada request autenticada
@@ -701,7 +709,7 @@ const authenticateToken = (req, res, next) => {
 // --- HELPER DE LIMITES ---
 async function checkUserLimit(userId, limitType) {
     try {
-        const [userRows] = await pool.execute("SELECT plan, role FROM users WHERE id = ?", [userId]);
+        const [userRows] = await pool.execute("SELECT plan, role, status FROM users WHERE id = ?", [userId]);
         if (userRows.length === 0) return { allowed: false, error: 'Usuário não encontrado' };
 
         const user = userRows[0];
