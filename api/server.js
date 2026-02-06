@@ -96,23 +96,30 @@ app.get('/api/media/proxy', async (req, res) => {
     if (!url) return res.status(400).send('URL is required');
 
     try {
-        console.log(`[PROXY] Buscando mídia: ${url.substring(0, 50)}...`);
+        console.log(`[PROXY] Buscando: ${url.substring(0, 80)}...`);
         const response = await axios({
             method: 'get',
             url: url,
             responseType: 'stream',
-            timeout: 10000,
+            timeout: 20000,
+            validateStatus: false, // Permitir capturar erros 404/403
             headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Accept': '*/*'
             }
         });
 
-        res.set('Content-Type', response.headers['content-type']);
+        if (response.status !== 200) {
+            console.error(`[PROXY ERROR] Servidor remoto retornou ${response.status} para ${url}`);
+            return res.status(response.status).send(`Remote server error: ${response.status}`);
+        }
+
+        res.set('Content-Type', response.headers['content-type'] || 'application/octet-stream');
         res.set('Cache-Control', 'public, max-age=86400');
         response.data.pipe(res);
     } catch (err) {
-        console.error(`[PROXY ERROR] Falha ao buscar ${url}:`, err.message);
-        res.status(500).send('Error fetching media');
+        console.error(`[PROXY CRITICAL] Falha ao buscar ${url}:`, err.message);
+        res.status(500).send('Error fetching media: ' + err.message);
     }
 });
 
@@ -1534,8 +1541,13 @@ app.post('/api/messages/send-media', authenticateToken, upload.single('file'), a
         console.log(`✅ [MEDIA] Enviado com sucesso: ${msgId}`);
         res.json({ success: true, messageId: msgId, mediaUrl: fileUrl });
     } catch (err) {
-        console.error('❌ [MEDIA] Erro ao enviar mídia:', err);
-        res.status(500).json({ error: 'Erro ao enviar mídia', details: err.message });
+        console.error('❌ [MEDIA CRITICAL ERROR] Full Stack:', err.stack);
+        console.error('❌ [MEDIA] Details:', {
+            message: err.message,
+            file: req.file ? req.file.filename : 'no-file',
+            contactId: req.body.contactId
+        });
+        res.status(500).json({ error: 'Erro ao enviar mídia', details: err.message, stack: err.stack });
     }
 });
 
@@ -1589,8 +1601,8 @@ app.post('/api/messages/send-audio', authenticateToken, async (req, res) => {
         console.log(`✅ [AUDIO] Enviado com sucesso: ${msgId}`);
         res.json({ success: true, messageId: msgId, audioUrl });
     } catch (err) {
-        console.error('❌ [AUDIO] Erro ao enviar áudio:', err);
-        res.status(500).json({ error: 'Erro ao enviar áudio', details: err.message });
+        console.error('❌ [AUDIO CRITICAL ERROR] Full Stack:', err.stack);
+        res.status(500).json({ error: 'Erro ao enviar áudio', details: err.message, stack: err.stack });
     }
 });
 

@@ -431,7 +431,7 @@ const ChatView: React.FC = () => {
         }
 
         // Apply media proxy if needed
-        if (mediaUrl && !mediaUrl.startsWith('data:')) {
+        if (mediaUrl && !mediaUrl.startsWith('data:') && !mediaUrl.startsWith('blob:')) {
             const settings = JSON.parse(localStorage.getItem('myzap_settings') || '{}');
             const baseUrl = settings.app_url || window.location.origin;
             const currentOrigin = window.location.origin;
