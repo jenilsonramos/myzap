@@ -649,17 +649,88 @@ const getStripe = async () => {
 const authenticateToken = (req, res, next) => {
     const token = req.headers['authorization']?.split(' ')[1];
     if (!token) return res.sendStatus(401);
-    jwt.verify(token, process.env.JWT_SECRET || 'myzap_secret_key', (err, user) => {
+    jwt.verify(token, process.env.JWT_SECRET || 'myzap_secret_key', async (err, decoded) => {
         if (err) {
             console.log(`❌ [AUTH] Token inválido ou expirado: ${err.message}`);
             return res.status(403).json({ error: 'Sessão expirada ou token inválido. Por favor, faça login novamente.', code: 'TOKEN_INVALID' });
         }
-        req.user = user;
-        // Log discreto para cada request autenticada
-        console.log(`👤 [USER] ${user.id} (${user.email}) -> ${req.method} ${req.url}`);
-        next();
+
+        try {
+            // Re-fetch user from DB to get the most recent status and plan
+            const [rows] = await pool.execute('SELECT id, email, name, role, status, plan, trial_ends_at FROM users WHERE id = ?', [decoded.id]);
+            if (rows.length === 0) return res.status(401).json({ error: 'Usuário não encontrado' });
+
+            const user = rows[0];
+            req.user = user;
+
+            // Log discreto para cada request autenticada
+            console.log(`👤 [USER] ${user.id} (${user.email}) -> ${req.method} ${req.url} [Plan: ${user.plan}, Status: ${user.status}]`);
+
+            // SE estiver INATIVO, bloqueia quase tudo (exceto o necessário para pagar/ver plano)
+            const allowedPaths = ['/api/user/subscription', '/api/plans', '/api/stripe/create-checkout-session', '/api/auth/me', '/api/admin/settings'];
+            const isAllowed = allowedPaths.some(path => req.url.startsWith(path));
+
+            if (user.status === 'inactive' && user.role !== 'admin' && !isAllowed) {
+                console.warn(`🚫 [BLOCK] Usuário ${user.id} tentando acessar ${req.url} com plano expirado.`);
+                return res.status(403).json({
+                    error: 'Sua assinatura expirou. Por favor, renove para continuar usando todos os recursos.',
+                    code: 'SUBSCRIPTION_EXPIRED',
+                    redirect: '/my-plan'
+                });
+            }
+
+            next();
+        } catch (dbErr) {
+            console.error('❌ [AUTH] Erro ao validar usuário no banco:', dbErr);
+            res.status(500).json({ error: 'Erro interno ao validar sessão' });
+        }
     });
 };
+
+// --- HELPER DE LIMITES ---
+async function checkUserLimit(userId, limitType) {
+    try {
+        const [userRows] = await pool.execute("SELECT plan, role FROM users WHERE id = ?", [userId]);
+        if (userRows.length === 0) return { allowed: false, error: 'Usuário não encontrado' };
+
+        const user = userRows[0];
+        if (user.role === 'admin') return { allowed: true };
+
+        const [planRows] = await pool.execute("SELECT * FROM plans WHERE name = ?", [user.plan]);
+        if (planRows.length === 0) return { allowed: false, error: 'Plano não encontrado' };
+
+        const plan = planRows[0];
+        let currentUsage = 0;
+
+        if (limitType === 'instances') {
+            const [rows] = await pool.query("SELECT COUNT(*) as total FROM whatsapp_accounts WHERE user_id = ?", [userId]);
+            currentUsage = rows[0].total;
+            if (currentUsage >= plan.instances && plan.instances < 999) {
+                return { allowed: false, error: `Limite de instâncias atingido (${plan.instances}). Faça upgrade do seu plano.`, code: 'LIMIT_INSTANCES' };
+            }
+        } else if (limitType === 'messages') {
+            const [rows] = await pool.query("SELECT COUNT(*) as total FROM messages WHERE user_id = ?", [userId]);
+            currentUsage = rows[0].total;
+            if (currentUsage >= plan.messages && plan.messages < 1000000) {
+                return { allowed: false, error: `Limite de mensagens atingido (${plan.messages}). Faça upgrade do seu plano.`, code: 'LIMIT_MESSAGES' };
+            }
+        } else if (limitType === 'flows') {
+            const [rows] = await pool.query("SELECT COUNT(*) as total FROM flows WHERE user_id = ?", [userId]);
+            currentUsage = rows[0].total;
+            // Usando ai_nodes como proxy de limite de fluxos se não houver um específico
+            const flowLimit = plan.ai_nodes || 5;
+            if (currentUsage >= flowLimit && flowLimit < 999) {
+                return { allowed: false, error: `Limite de fluxos atingido (${flowLimit}). Faça upgrade do seu plano.`, code: 'LIMIT_FLOWS' };
+            }
+        }
+
+        return { allowed: true };
+    } catch (err) {
+        console.error('❌ [LIMIT CHECK] Erro:', err);
+        return { allowed: false, error: 'Erro interno ao verificar limites' };
+    }
+}
+
 
 const authenticateAdmin = (req, res, next) => {
     authenticateToken(req, res, () => {
@@ -1460,6 +1531,12 @@ app.get('/api/analytics/debug', authenticateToken, async (req, res) => {
 app.post('/api/messages/send', authenticateToken, async (req, res) => {
     const { contactId, content } = req.body;
     try {
+        // --- VERIFICAR LIMITE DE MENSAGENS ---
+        const limit = await checkUserLimit(req.user.id, 'messages');
+        if (!limit.allowed) return res.status(403).json({ error: limit.error, code: limit.code });
+
+        // 1. Achar contato e pegar instance_name
+
         // 1. Achar contato e pegar instance_name
         const [contacts] = await pool.query("SELECT remote_jid, instance_name FROM contacts WHERE id = ? AND user_id = ?", [contactId, req.user.id]);
         if (contacts.length === 0) return res.status(404).json({ error: 'Contato não encontrado' });
@@ -1514,7 +1591,12 @@ app.post('/api/messages/send', authenticateToken, async (req, res) => {
 // --- ENVIO DE MÍDIA (Imagem, Vídeo, Documento) ---
 app.post('/api/messages/send-media', authenticateToken, upload.single('file'), async (req, res) => {
     try {
+        // --- VERIFICAR LIMITE DE MENSAGENS ---
+        const limit = await checkUserLimit(req.user.id, 'messages');
+        if (!limit.allowed) return res.status(403).json({ error: limit.error, code: limit.code });
+
         const { contactId } = req.body;
+
         const file = req.file;
 
         if (!contactId || !file) {
@@ -1580,7 +1662,12 @@ app.post('/api/messages/send-media', authenticateToken, upload.single('file'), a
 // --- ENVIO DE ÁUDIO (Gravação do microfone) ---
 app.post('/api/messages/send-audio', authenticateToken, async (req, res) => {
     try {
+        // --- VERIFICAR LIMITE DE MENSAGENS ---
+        const limit = await checkUserLimit(req.user.id, 'messages');
+        if (!limit.allowed) return res.status(403).json({ error: limit.error, code: limit.code });
+
         const { contactId, audioBase64 } = req.body;
+
 
         if (!contactId || !audioBase64) {
             return res.status(400).json({ error: 'contactId e audioBase64 são obrigatórios' });
@@ -2663,6 +2750,17 @@ app.post('/api/webhook/evolution', async (req, res) => {
 
             logDebug(`✅ USER ID: ${userId}`);
 
+            // --- BLOQUEIO POR ASSINATURA NO WEBHOOK ---
+            const [userStatusRow] = await pool.query("SELECT status, role FROM users WHERE id = ?", [userId]);
+            if (userStatusRow.length > 0) {
+                const user = userStatusRow[0];
+                if (user.status === 'inactive' && user.role !== 'admin') {
+                    logDebug(`🚫 [SUBSCRIPTION] BLOQUEIO: Usuário ${userId} está inativo. Resposta ignorada.`);
+                    return res.status(200).send('OK');
+                }
+            }
+
+
             const remoteJid = msg.key.remoteJid;
             const fromMe = msg.key.fromMe ? 1 : 0;
             const pushName = msg.pushName || 'Desconhecido';
@@ -2919,7 +3017,12 @@ app.post('/api/instances', authenticateToken, async (req, res) => {
     if (!instanceName) return res.status(400).json({ error: 'Nome da instância obrigatório' });
 
     try {
+        // --- VERIFICAR LIMITE DE INSTÂNCIAS ---
+        const limit = await checkUserLimit(req.user.id, 'instances');
+        if (!limit.allowed) return res.status(403).json({ error: limit.error, code: limit.code });
+
         const evo = await getEvolutionService();
+
         if (!evo) return res.status(500).json({ error: 'Evolution API não configurada' });
 
         // VERIFICAÇÃO DE DISPONIBILIDADE NO DB LOCAL

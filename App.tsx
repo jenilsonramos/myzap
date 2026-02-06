@@ -57,48 +57,9 @@ const AppContent: React.FC = () => {
     audioRef.current.play().catch(() => { });
   }, []);
 
-  React.useEffect(() => {
-    if (!isAuthenticated) return;
+  const [status, setStatus] = useState<string>('active');
 
-    const checkUnread = async () => {
-      try {
-        const token = localStorage.getItem('myzap_token');
-        const res = await fetch('/api/contacts', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          const totalUnread = data.reduce((sum: number, c: any) => sum + (c.unread_count || 0), 0);
-
-          if (previousUnreadRef.current !== -1 && totalUnread > previousUnreadRef.current) {
-            playNotificationSound();
-          }
-          previousUnreadRef.current = totalUnread;
-        }
-      } catch (err) {
-        console.error('Erro ao verificar notificações:', err);
-      }
-    };
-
-    const interval = setInterval(checkUnread, 10000);
-    checkUnread(); // Primeira execução
-    return () => clearInterval(interval);
-  }, [isAuthenticated, playNotificationSound]);
-
-  const [selectedFlowId, setSelectedFlowId] = useState<string | null>(null);
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
-
-  const handleLogin = (data: any) => {
-    console.log('Login Success:', data);
-    setIsAuthenticated(true);
-    navigate('/analytics');
-  };
-
-  const handleSignup = (data: any) => {
-    console.log('Signup Action (Success via AuthView):', data);
-    // O signup chama o alert e redireciona para login no AuthView,
-    // então aqui apenas mantemos por compatibilidade de prop.
-  };
 
   const confirmLogout = useCallback(() => {
     setIsLogoutModalOpen(false);
@@ -127,6 +88,85 @@ const AppContent: React.FC = () => {
       return newVal;
     });
   }, []);
+
+  React.useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const checkUserStatus = async () => {
+      try {
+        const token = localStorage.getItem('myzap_token');
+        const res = await fetch('/api/auth/me', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setStatus(data.status);
+          localStorage.setItem('myzap_user', JSON.stringify(data));
+
+          // Se estiver inativo e não estiver na página de plano, redireciona
+          const isUserAdmin = data.role === 'admin';
+          const onPlanPage = location.pathname === '/my-plan';
+
+          if (data.status === 'inactive' && !isUserAdmin && !onPlanPage) {
+            navigate('/my-plan');
+            showToast('Sua assinatura expirou. Acesse "Meu Plano" para renovar.', 'warning');
+          }
+        } else if (res.status === 401 || res.status === 403) {
+          // Token expirado ou inválido
+          confirmLogout();
+        }
+      } catch (err) {
+        console.error('Erro ao validar status do usuário:', err);
+      }
+    };
+
+    checkUserStatus();
+    const statusInterval = setInterval(checkUserStatus, 60000); // Checa a cada minuto
+    return () => clearInterval(statusInterval);
+  }, [isAuthenticated, location.pathname, navigate, showToast, confirmLogout]);
+
+  React.useEffect(() => {
+    if (!isAuthenticated || status === 'inactive') return;
+
+    const checkUnread = async () => {
+      try {
+        const token = localStorage.getItem('myzap_token');
+        const res = await fetch('/api/contacts', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const totalUnread = data.reduce((sum: number, c: any) => sum + (c.unread_count || 0), 0);
+
+          if (previousUnreadRef.current !== -1 && totalUnread > previousUnreadRef.current) {
+            playNotificationSound();
+          }
+          previousUnreadRef.current = totalUnread;
+        }
+      } catch (err) {
+        console.error('Erro ao verificar notificações:', err);
+      }
+    };
+
+    const interval = setInterval(checkUnread, 10000);
+    checkUnread(); // Primeira execução
+    return () => clearInterval(interval);
+  }, [isAuthenticated, playNotificationSound, status]);
+
+
+  const [selectedFlowId, setSelectedFlowId] = useState<string | null>(null);
+
+  const handleLogin = (data: any) => {
+    console.log('Login Success:', data);
+    setIsAuthenticated(true);
+    navigate('/analytics');
+  };
+
+  const handleSignup = (data: any) => {
+    console.log('Signup Action (Success via AuthView):', data);
+    // O signup chama o alert e redireciona para login no AuthView,
+    // então aqui apenas mantemos por compatibilidade de prop.
+  };
 
   const getCurrentView = () => {
     const path = location.pathname.substring(1).toUpperCase();

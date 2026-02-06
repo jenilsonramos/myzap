@@ -171,27 +171,27 @@ const SubscriptionView: React.FC = () => {
         <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
             {/* Subscription Detail Section */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                <div className="lg:col-span-8 bg-gradient-to-br from-indigo-600 to-indigo-800 rounded-huge p-8 text-white relative overflow-hidden flex flex-col justify-between min-h-[250px] shadow-2xl shadow-indigo-600/20">
+                <div className={`lg:col-span-8 bg-gradient-to-br ${user.status === 'active' ? 'from-indigo-600 to-indigo-800 shadow-indigo-600/20' : 'from-rose-600 to-rose-800 shadow-rose-600/20'} rounded-huge p-8 text-white relative overflow-hidden flex flex-col justify-between min-h-[250px] shadow-2xl transition-colors duration-500`}>
                     <div className="flex items-start justify-between relative z-10">
                         <div>
                             <div className="flex items-center gap-2 px-3 py-1 bg-white/20 backdrop-blur-md rounded-full w-fit mb-4">
-                                <span className={`w-2 h-2 ${user.status === 'active' ? 'bg-emerald-400' : 'bg-rose-400'} rounded-full animate-pulse shadow-[0_0_8px_white]`}></span>
-                                <span className="text-[10px] font-black uppercase tracking-widest">{user.status === 'active' ? 'Assinatura Ativa' : 'Inativa'}</span>
+                                <span className={`w-2 h-2 ${user.status === 'active' ? 'bg-emerald-400' : 'bg-white'} rounded-full ${user.status === 'active' ? 'animate-pulse' : ''} shadow-[0_0_8px_white]`}></span>
+                                <span className="text-[10px] font-black uppercase tracking-widest">{user.status === 'active' ? 'Assinatura Ativa' : 'Assinatura Expirada'}</span>
                             </div>
                             <h2 className="text-4xl font-black tracking-tighter mb-2">{user.plan}</h2>
                             <p className="text-indigo-100 text-sm font-medium opacity-80">
-                                {subInfo?.cancel_at_period_end
-                                    ? "Sua assinatura será encerrada em breve."
-                                    : "Sua conta está configurada para renovação automática."}
+                                {user.status === 'active'
+                                    ? (subInfo?.cancel_at_period_end ? "Sua assinatura será encerrada em breve." : "Sua conta está configurada para renovação automática.")
+                                    : "Seu acesso às funcionalidades está bloqueado. Escolha um plano abaixo para reativar."}
                             </p>
                         </div>
                         <div className="hidden sm:flex items-center justify-center w-20 h-20 bg-white/10 backdrop-blur-xl rounded-3xl border border-white/20 rotate-12">
-                            <span className="material-icons-round text-5xl">workspace_premium</span>
+                            <span className="material-icons-round text-5xl">{user.status === 'active' ? 'workspace_premium' : 'lock_clock'}</span>
                         </div>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-4 mt-8 relative z-10">
-                        {subInfo?.active && !subInfo.cancel_at_period_end && (
+                        {user.status === 'active' && subInfo?.active && !subInfo.cancel_at_period_end && (
                             <button
                                 onClick={() => setShowCancelModal(true)}
                                 className="bg-rose-500/20 backdrop-blur-md border border-rose-500/30 text-rose-100 px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-wider hover:bg-rose-500/30 transition-all active:scale-95"
@@ -199,20 +199,30 @@ const SubscriptionView: React.FC = () => {
                                 Cancelar Renovação
                             </button>
                         )}
+                        {user.status === 'inactive' && (
+                            <div className="px-4 py-2 bg-white/20 backdrop-blur-md rounded-xl border border-white/30 text-[10px] font-black uppercase tracking-wider">
+                                Renovação Necessária
+                            </div>
+                        )}
                         <p className="text-[10px] font-bold text-white/60">
                             {subInfo?.current_period_end
-                                ? `Próxima Cobrança: ${new Date(subInfo.current_period_end * 1000).toLocaleDateString()}`
-                                : "Cobrança Automática Ativada"}
+                                ? `Ciclo termina em: ${new Date(subInfo.current_period_end * 1000).toLocaleDateString()}`
+                                : (user.status === 'active' ? "Cobrança Automática Ativada" : "Plano Expirado")}
                         </p>
                     </div>
                     <div className="absolute -bottom-20 -right-20 w-80 h-80 bg-white/10 rounded-full blur-3xl"></div>
                 </div>
 
                 <div className="lg:col-span-4 bg-white dark:bg-card-dark rounded-huge p-8 border border-slate-100 dark:border-white/5 shadow-xl flex flex-col items-center justify-center text-center">
-                    <span className="material-icons-round text-indigo-500 text-5xl mb-4">autorenew</span>
-                    <h4 className="text-lg font-black dark:text-white mb-2">Renovação Automática</h4>
-                    <p className="text-xs text-slate-500 font-medium px-4">As cobranças serão feitas no cartão utilizado no ato da compra.</p>
+                    <span className={`material-icons-round ${user.status === 'active' ? 'text-indigo-500' : 'text-rose-500'} text-5xl mb-4`}>{user.status === 'active' ? 'autorenew' : 'credit_card_off'}</span>
+                    <h4 className="text-lg font-black dark:text-white mb-2">{user.status === 'active' ? 'Renovação Automática' : 'Pagamento Pendente'}</h4>
+                    <p className="text-xs text-slate-500 font-medium px-4">
+                        {user.status === 'active'
+                            ? 'As cobranças serão feitas no cartão utilizado no ato da compra.'
+                            : 'Selecione um plano abaixo para normalizar sua conta.'}
+                    </p>
                 </div>
+
             </div>
 
             {/* Usage Limits Section */}
