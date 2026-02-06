@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useToast } from './ToastContext';
+import Modal from './Modal';
 
 const AIIntegrationView: React.FC = () => {
     const { showToast } = useToast();
@@ -14,6 +15,7 @@ const AIIntegrationView: React.FC = () => {
         max_tokens: 1000,
         ai_active: false
     });
+    const [isConfirmModalOpen, setConfirmModalOpen] = useState(false);
 
     useEffect(() => {
         const fetchSettings = async () => {
@@ -30,7 +32,8 @@ const AIIntegrationView: React.FC = () => {
                         ...prev,
                         ...data,
                         temperature: data.temperature ? parseFloat(data.temperature) : 0.7,
-                        max_tokens: data.max_tokens ? parseInt(data.max_tokens) : 1000
+                        max_tokens: data.max_tokens ? parseInt(data.max_tokens) : 1000,
+                        ai_active: data.ai_active === 'true' || data.ai_active === true || data.ai_active === 1
                     }));
                 }
             } catch (error) {
@@ -40,7 +43,7 @@ const AIIntegrationView: React.FC = () => {
         fetchSettings();
     }, []);
 
-    const handleSave = async () => {
+    const saveSettings = async (newSettings = aiSettings) => {
         try {
             const token = localStorage.getItem('myzap_token');
             const res = await fetch('/api/settings/ai', {
@@ -49,17 +52,39 @@ const AIIntegrationView: React.FC = () => {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 },
-                body: JSON.stringify(aiSettings)
+                body: JSON.stringify(newSettings)
             });
 
             if (res.ok) {
                 showToast('Configurações de IA salvas com sucesso!', 'success');
+                return true;
             } else {
                 showToast('Erro ao salvar configurações', 'error');
+                return false;
             }
         } catch (error) {
             showToast('Erro de conexão', 'error');
+            return false;
         }
+    };
+
+    const handleSave = () => saveSettings(aiSettings);
+
+    const handleToggleAI = async (isChecked: boolean) => {
+        if (isChecked) {
+            setConfirmModalOpen(true);
+        } else {
+            const newSettings = { ...aiSettings, ai_active: false };
+            setAiSettings(newSettings);
+            await saveSettings(newSettings);
+        }
+    };
+
+    const confirmActivation = async () => {
+        const newSettings = { ...aiSettings, ai_active: true };
+        setAiSettings(newSettings);
+        setConfirmModalOpen(false);
+        await saveSettings(newSettings);
     };
 
     const providers = [
@@ -77,6 +102,18 @@ const AIIntegrationView: React.FC = () => {
 
     return (
         <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
+            {/* Confirmation Modal */}
+            <Modal
+                isOpen={isConfirmModalOpen}
+                onClose={() => setConfirmModalOpen(false)}
+                onConfirm={confirmActivation}
+                title="Ativar IA Exclusiva?"
+                message="Ao ativar a IA, todos os Chatbots de Palavra-Chave e Fluxos ativos serão pausados automaticamente para evitar conflitos na resposta."
+                confirmLabel="Sim, Ativar"
+                cancelLabel="Cancelar"
+                type="warning"
+            />
+
             {/* Provider Selection Cards */}
             <div className="flex items-center justify-between bg-emerald-500/10 border border-emerald-500/20 p-6 rounded-3xl mb-4">
                 <div className="flex items-center gap-4">
@@ -94,17 +131,7 @@ const AIIntegrationView: React.FC = () => {
                             type="checkbox"
                             className="sr-only peer"
                             checked={!!aiSettings.ai_active}
-                            onChange={(e) => {
-                                const newValue = e.target.checked;
-                                if (newValue) {
-                                    // Show warning before enabling
-                                    if (confirm("⚠️ ATENÇÃO: Ao ativar a IA, todos os outros Chatbots e Fluxos serão DESATIVADOS automaticamente para evitar conflitos. Deseja continuar?")) {
-                                        setAiSettings({ ...aiSettings, ai_active: true });
-                                    }
-                                } else {
-                                    setAiSettings({ ...aiSettings, ai_active: false });
-                                }
-                            }}
+                            onChange={(e) => handleToggleAI(e.target.checked)}
                         />
                         <div className="w-14 h-8 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 dark:peer-focus:ring-emerald-800 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-7 after:w-7 after:transition-all dark:border-gray-600 peer-checked:bg-emerald-500"></div>
                     </label>
