@@ -3143,6 +3143,45 @@ app.get('/api/health', (req, res) => {
 
 // ========== NOVAS FUNCIONALIDADES ==========
 
+// --- GERENCIAMENTO DE CONTATOS ---
+app.get('/api/contacts', authenticateToken, async (req, res) => {
+    try {
+        const [rows] = await pool.query(
+            "SELECT id, remote_jid as phone, name, profile_pic as avatar, unread_count, status, last_seen, instance_name, created_at, groups_json FROM contacts WHERE user_id = ? ORDER BY created_at DESC",
+            [req.user.id]
+        );
+
+        // Formatar resposta para o frontend
+        const contacts = rows.map(c => ({
+            ...c,
+            lastSeen: c.last_seen || 'Offline', // Placeholder se não houver coluna
+            groups: c.groups_json ? JSON.parse(c.groups_json) : []
+        }));
+
+        res.json(contacts);
+    } catch (err) {
+        console.error('Erro ao listar contatos:', err);
+        res.status(500).json({ error: 'Erro ao buscar contatos' });
+    }
+});
+
+app.put('/api/contacts/:id', authenticateToken, async (req, res) => {
+    try {
+        const { name, notes } = req.body; // Aceita notas se adicionarmos a coluna depois
+        const { id } = req.params;
+
+        await pool.query(
+            "UPDATE contacts SET name = ? WHERE id = ? AND user_id = ?",
+            [name, id, req.user.id]
+        );
+
+        res.json({ success: true, message: 'Contato atualizado' });
+    } catch (err) {
+        console.error('Erro ao atualizar contato:', err);
+        res.status(500).json({ error: 'Erro ao atualizar contato' });
+    }
+});
+
 // --- CONTADOR DE MENSAGENS NÃO LIDAS ---
 app.post('/api/contacts/:id/read', authenticateToken, async (req, res) => {
     try {
