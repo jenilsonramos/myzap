@@ -70,23 +70,28 @@ const AppContent: React.FC = () => {
 
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
-      return document.documentElement.classList.contains('dark');
+      const savedTheme = localStorage.getItem('myzap_theme');
+      if (savedTheme) return savedTheme === 'dark';
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
     }
     return false;
   });
 
+  React.useEffect(() => {
+    const root = document.documentElement;
+    if (isDarkMode) {
+      root.classList.add('dark');
+      root.classList.remove('light');
+      localStorage.setItem('myzap_theme', 'dark');
+    } else {
+      root.classList.remove('dark');
+      root.classList.add('light');
+      localStorage.setItem('myzap_theme', 'light');
+    }
+  }, [isDarkMode]);
+
   const toggleTheme = useCallback(() => {
-    setIsDarkMode((prev) => {
-      const newVal = !prev;
-      if (newVal) {
-        document.documentElement.classList.add('dark');
-        document.documentElement.classList.remove('light');
-      } else {
-        document.documentElement.classList.remove('dark');
-        document.documentElement.classList.add('light');
-      }
-      return newVal;
-    });
+    setIsDarkMode((prev) => !prev);
   }, []);
 
   React.useEffect(() => {
