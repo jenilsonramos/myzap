@@ -103,13 +103,17 @@ const AppContent: React.FC = () => {
           setStatus(data.status);
           localStorage.setItem('myzap_user', JSON.stringify(data));
 
-          // Se estiver inativo e não estiver na página de plano, redireciona
+          // Se estiver inativo/suspenso/expirado e não estiver na página de plano, redireciona
           const isUserAdmin = data.role === 'admin';
           const onPlanPage = location.pathname === '/my-plan';
+          const isBlocked = ['inactive', 'suspended', 'expired'].includes(data.status);
 
-          if (data.status === 'inactive' && !isUserAdmin && !onPlanPage) {
+          if (isBlocked && !isUserAdmin && !onPlanPage) {
             navigate('/my-plan');
-            showToast('Sua assinatura expirou. Acesse "Meu Plano" para renovar.', 'warning');
+            const blockerMsg = data.status === 'suspended'
+              ? 'Sua conta foi suspensa pela administração.'
+              : 'Sua assinatura expirou. Acesse "Meu Plano" para renovar.';
+            showToast(blockerMsg, 'warning');
           }
         } else if (res.status === 401 || res.status === 403) {
           // Token expirado ou inválido
@@ -126,7 +130,8 @@ const AppContent: React.FC = () => {
   }, [isAuthenticated, location.pathname, navigate, showToast, confirmLogout]);
 
   React.useEffect(() => {
-    if (!isAuthenticated || status === 'inactive') return;
+    const isBlocked = ['inactive', 'suspended', 'expired'].includes(status || '');
+    if (!isAuthenticated || isBlocked) return;
 
     const checkUnread = async () => {
       try {

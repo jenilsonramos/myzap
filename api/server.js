@@ -706,6 +706,14 @@ async function checkUserLimit(userId, limitType) {
         const user = userRows[0];
         if (user.role === 'admin') return { allowed: true };
 
+        // --- BLOQUEIO POR STATUS ---
+        if (user.status !== 'active') {
+            const statusMsg = user.status === 'suspended'
+                ? 'Sua conta está suspensa. Entre em contato com o suporte.'
+                : 'Sua assinatura expirou. Renove seu plano para continuar.';
+            return { allowed: false, error: statusMsg, code: 'STATUS_BLOCKED' };
+        }
+
         const [planRows] = await pool.execute("SELECT * FROM plans WHERE name = ?", [user.plan]);
         if (planRows.length === 0) return { allowed: false, error: 'Plano não encontrado' };
 
@@ -2766,12 +2774,12 @@ app.post('/api/webhook/evolution', async (req, res) => {
 
             logDebug(`✅ USER ID: ${userId}`);
 
-            // --- BLOQUEIO POR ASSINATURA NO WEBHOOK ---
             const [userStatusRow] = await pool.query("SELECT status, role FROM users WHERE id = ?", [userId]);
             if (userStatusRow.length > 0) {
                 const user = userStatusRow[0];
-                if (user.status === 'inactive' && user.role !== 'admin') {
-                    logDebug(`🚫 [SUBSCRIPTION] BLOQUEIO: Usuário ${userId} está inativo. Resposta ignorada.`);
+                const isBlocked = ['inactive', 'suspended', 'expired'].includes(user.status);
+                if (isBlocked && user.role !== 'admin') {
+                    logDebug(`🚫 [SUBSCRIPTION] BLOQUEIO: Usuário ${userId} está com status ${user.status}. Resposta ignorada.`);
                     return res.status(200).send('OK');
                 }
             }
