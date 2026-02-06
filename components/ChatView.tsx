@@ -360,9 +360,23 @@ const ChatView: React.FC = () => {
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
                 body: JSON.stringify({ text: newMessage, tone })
             });
+
             const data = await res.json();
+
+            if (!res.ok) {
+                if (data.code === 'AI_NOT_CONFIGURED') {
+                    alert('⚠️ IA não configurada!\n\nPor favor, adicione sua API Key do Gemini nas configurações de Integração.');
+                } else {
+                    alert('Erro ao processar IA: ' + (data.error || 'Desconhecido'));
+                }
+                return;
+            }
+
             if (data.improved) setNewMessage(data.improved);
-        } catch (err) { }
+        } catch (err) {
+            console.error(err);
+            alert('Erro de conexão ao tentar usar a IA.');
+        }
     };
 
 
@@ -821,11 +835,18 @@ const ChatView: React.FC = () => {
                                                 <button className="w-11 h-11 bg-white/50 dark:bg-slate-700/50 text-primary hover:bg-white rounded-full flex items-center justify-center transition-all shadow-sm" title="Melhorar com IA">
                                                     <span className="material-icons-round">auto_awesome</span>
                                                 </button>
-                                                <div className="absolute bottom-full right-0 mb-4 hidden group-hover/ai:flex flex-col gap-1.5 p-3 bg-white dark:bg-slate-800 rounded-3xl shadow-3xl border border-white dark:border-slate-700 min-w-[180px] animate-in slide-in-from-bottom-2">
+                                                <div className="absolute bottom-full right-0 mb-4 hidden group-hover/ai:flex flex-col gap-1.5 p-3 bg-white dark:bg-slate-800 rounded-3xl shadow-3xl border border-white dark:border-slate-700 min-w-[180px] animate-in slide-in-from-bottom-2 z-50">
                                                     <p className="px-3 pb-1 text-[10px] font-black uppercase text-slate-400 tracking-tighter">Estilo da IA:</p>
-                                                    {['Amigável', 'Profissional', 'Explicativo', 'Curto'].map(t => (
-                                                        <button key={t} onClick={() => improveText(t.toLowerCase())} className="px-4 py-2.5 text-[11px] font-bold text-slate-700 dark:text-slate-200 text-left hover:bg-primary/5 hover:text-primary rounded-xl transition-all">
-                                                            {t}
+                                                    {[
+                                                        { label: 'Tom Sério', key: 'serio' },
+                                                        { label: 'Educado', key: 'educado' },
+                                                        { label: 'Bravo', key: 'bravo' },
+                                                        { label: 'Engraçado', key: 'engracado' },
+                                                        { label: 'Profissional', key: 'profissional' },
+                                                        { label: 'Corrigir Ortografia', key: 'ortografia' }
+                                                    ].map(t => (
+                                                        <button key={t.key} onClick={() => improveText(t.key)} className="px-4 py-2.5 text-[11px] font-bold text-slate-700 dark:text-slate-200 text-left hover:bg-primary/5 hover:text-primary rounded-xl transition-all">
+                                                            {t.label}
                                                         </button>
                                                     ))}
                                                 </div>
