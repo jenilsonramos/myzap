@@ -3439,16 +3439,12 @@ app.post('/api/ai/improve-text', authenticateToken, async (req, res) => {
         const { text, tone } = req.body;
         if (!text) return res.status(400).json({ error: 'Texto obrigatório' });
 
-        const [rows] = await pool.query("SELECT setting_value FROM system_settings WHERE setting_key = 'gemini_api_key'");
-        const apiKey = rows[0]?.setting_value;
-
-        if (!apiKey) {
-            return res.status(400).json({
-                error: 'IA não configurada',
-                message: 'Configure sua API Key do Gemini nas Integrações de IA.',
-                code: 'AI_NOT_CONFIGURED'
-            });
-        }
+        // Buscar chaves de sistema
+        const [configRows] = await pool.query(
+            "SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ('openai_key', 'openai_model', 'google_key', 'google_model')"
+        );
+        const config = {};
+        configRows.forEach(r => config[r.setting_key] = r.setting_value);
 
         const tonePrompts = {
             serio: 'Reescreva o texto abaixo com um tom sério e formal:',
@@ -3460,17 +3456,46 @@ app.post('/api/ai/improve-text', authenticateToken, async (req, res) => {
         };
 
         const prompt = tonePrompts[tone] || tonePrompts.profissional;
+        let improvedText = '';
 
-        const response = await axios.post(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-            contents: [{ role: 'user', parts: [{ text: `${prompt}\n\n"${text}"\n\nRetorne APENAS o texto reescrito, sem explicações.` }] }]
-        });
-
-        const improvedText = response.data?.candidates?.[0]?.content?.parts?.[0]?.text || text;
+        // PRIORIDADE 1: OpenAI
+        if (config.openai_key && config.openai_key.startsWith('sk-')) {
+            console.log(`🤖 [IMPROVE TEXT] Usando OpenAI (Model: ${config.openai_model || 'gpt-4o'})`);
+            const response = await axios.post('https://api.openai.com/v1/chat/completions', {
+                model: config.openai_model || 'gpt-4o',
+                messages: [
+                    { role: 'system', content: 'Você é um assistente de escrita. Retorne APENAS o texto reescrito, sem aspas, explicações ou comentários.' },
+                    { role: 'user', content: `${prompt}\n\n"${text}"` }
+                ],
+                temperature: 0.7
+            }, {
+                headers: {
+                    'Authorization': `Bearer ${config.openai_key}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+            improvedText = response.data?.choices?.[0]?.message?.content || text;
+        }
+        // PRIORIDADE 2: Google Gemini
+        else if (config.google_key) {
+            console.log(`🤖 [IMPROVE TEXT] Usando Google Gemini (Model: ${config.google_model || 'gemini-1.5-flash'})`);
+            const response = await axios.post(`https://generativelanguage.googleapis.com/v1/models/${config.google_model || 'gemini-1.5-flash'}:generateContent?key=${config.google_key}`, {
+                contents: [{ role: 'user', parts: [{ text: `${prompt}\n\n"${text}"\n\nRetorne APENAS o texto reescrito, sem explicações.` }] }]
+            });
+            improvedText = response.data?.candidates?.[0]?.content?.parts?.[0]?.text || text;
+        }
+        else {
+            return res.status(400).json({
+                error: 'IA não configurada',
+                message: 'Configure sua API Key (OpenAI ou Gemini) nas Integrações de IA.',
+                code: 'AI_NOT_CONFIGURED'
+            });
+        }
 
         res.json({ original: text, improved: improvedText.trim() });
     } catch (err) {
-        console.error('Erro AI:', err);
-        res.status(500).json({ error: 'Erro ao processar IA' });
+        console.error('Erro AI:', err.response?.data || err.message);
+        res.status(500).json({ error: 'Erro ao processar IA', details: err.response?.data || err.message });
     }
 });
 

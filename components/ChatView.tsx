@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { useToast } from './ToastContext';
 import EmojiPicker, { EmojiClickData } from 'emoji-picker-react';
 
 // --- Interfaces ---
@@ -55,6 +56,7 @@ const formatFriendlyDate = (timestamp: number): string => {
 const ChatView: React.FC = () => {
     // --- State Management ---
     const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+    const { showToast } = useToast();
     const [contacts, setContacts] = useState<Contact[]>([]);
     const [messages, setMessages] = useState<Message[]>([]);
     const [newMessage, setNewMessage] = useState('');
@@ -169,7 +171,7 @@ const ChatView: React.FC = () => {
             setTransferModal(false);
             setSelectedContact(null);
             fetchContacts();
-            alert('Conversa transferida com sucesso!');
+            showToast('Conversa transferida com sucesso!', 'success');
         } catch (err) { }
     };
 
@@ -193,7 +195,7 @@ const ChatView: React.FC = () => {
             setRecordingTime(0);
             timerRef.current = setInterval(() => setRecordingTime(prev => prev + 1), 1000);
         } catch (err) {
-            alert('Não foi possível acessar o microfone.');
+            showToast('Não foi possível acessar o microfone.', 'error');
         }
     };
 
@@ -228,7 +230,7 @@ const ChatView: React.FC = () => {
                             fetchMessages(selectedContact.id);
                         } else {
                             setMessages(prev => prev.filter(m => m.id !== tempId));
-                            alert('Erro ao enviar áudio: ' + (data.error || 'Erro desconhecido'));
+                            showToast('Erro ao enviar áudio: ' + (data.error || 'Erro desconhecido'), 'error');
                         }
                     } catch (err) {
                         console.error('Erro ao enviar áudio:', err);
@@ -310,7 +312,7 @@ const ChatView: React.FC = () => {
                 fetchMessages(selectedContact.id);
             } else {
                 setMessages(prev => prev.filter(m => m.id !== tempId));
-                alert('Erro ao enviar arquivo: ' + (data.error || 'Erro desconhecido'));
+                showToast('Erro ao enviar arquivo: ' + (data.error || 'Erro desconhecido'), 'error');
             }
         } catch (err) {
             console.error('Erro ao enviar mídia:', err);
@@ -365,9 +367,9 @@ const ChatView: React.FC = () => {
 
             if (!res.ok) {
                 if (data.code === 'AI_NOT_CONFIGURED') {
-                    alert('⚠️ IA não configurada!\n\nPor favor, adicione sua API Key do Gemini nas configurações de Integração.');
+                    showToast('IA não configurada! Adicione sua API Key (OpenAI ou Gemini) nas Integrações.', 'warning');
                 } else {
-                    alert('Erro ao processar IA: ' + (data.error || 'Desconhecido'));
+                    showToast('Erro ao processar IA: ' + (data.error || 'Desconhecido'), 'error');
                 }
                 return;
             }
@@ -375,7 +377,7 @@ const ChatView: React.FC = () => {
             if (data.improved) setNewMessage(data.improved);
         } catch (err) {
             console.error(err);
-            alert('Erro de conexão ao tentar usar a IA.');
+            showToast('Erro de conexão ao tentar usar a IA.', 'error');
         }
     };
 
@@ -395,7 +397,7 @@ const ChatView: React.FC = () => {
                 setSelectedContact(updated);
                 setContacts(prev => prev.map(c => c.id === updated.id ? updated : c));
             }
-        } catch (err) { alert('Erro ao alternar IA'); }
+        } catch (err) { showToast('Erro ao alternar IA', 'error'); }
     };
 
     // --- Computed ---
