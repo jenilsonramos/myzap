@@ -835,6 +835,10 @@ const ChatView: React.FC = () => {
                                                 <button className="w-11 h-11 bg-white/50 dark:bg-slate-700/50 text-primary hover:bg-white rounded-full flex items-center justify-center transition-all shadow-sm" title="Melhorar com IA">
                                                     <span className="material-icons-round">auto_awesome</span>
                                                 </button>
+
+                                                {/* Invisible Bridge to prevent hover loss */}
+                                                <div className="absolute bottom-full right-0 w-full h-5 bg-transparent z-40" />
+
                                                 <div className="absolute bottom-full right-0 mb-4 hidden group-hover/ai:flex flex-col gap-1.5 p-3 bg-white dark:bg-slate-800 rounded-3xl shadow-3xl border border-white dark:border-slate-700 min-w-[180px] animate-in slide-in-from-bottom-2 z-50">
                                                     <p className="px-3 pb-1 text-[10px] font-black uppercase text-slate-400 tracking-tighter">Estilo da IA:</p>
                                                     {[
