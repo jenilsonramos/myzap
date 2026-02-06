@@ -431,14 +431,30 @@ const ChatView: React.FC = () => {
         }
 
         // Apply media proxy if needed
-        if (mediaUrl && !mediaUrl.startsWith('data:') && !mediaUrl.startsWith('http')) {
+        if (mediaUrl && !mediaUrl.startsWith('data:')) {
             const settings = JSON.parse(localStorage.getItem('myzap_settings') || '{}');
             const baseUrl = settings.app_url || window.location.origin;
-            // Handle both filename-only and relative paths
-            const path = mediaUrl.startsWith('/') ? mediaUrl : `/api/uploads/${mediaUrl}`;
-            mediaUrl = `${baseUrl.replace(/\/$/, '')}${path}`;
-        } else if (mediaUrl && (mediaUrl.includes('whatsapp.net') || mediaUrl.includes('.enc') || mediaUrl.includes('mmg.whatsapp.net'))) {
-            mediaUrl = `/api/media/proxy?url=${encodeURIComponent(mediaUrl)}`;
+            const currentOrigin = window.location.origin;
+
+            // Handle localhost replacement if strictly different from current origin
+            if (mediaUrl.includes('localhost') && !currentOrigin.includes('localhost')) {
+                mediaUrl = mediaUrl.replace(/https?:\/\/localhost(:\d+)?/, currentOrigin.replace(/\/$/, ''));
+            }
+
+            if (!mediaUrl.startsWith('http')) {
+                // Handle both filename-only and relative paths
+                const path = mediaUrl.startsWith('/') ? mediaUrl : `/api/uploads/${mediaUrl}`;
+                mediaUrl = `${baseUrl.replace(/\/$/, '')}${path}`;
+            }
+        }
+
+        // WhatsApp Media Proxy Logic
+        if (mediaUrl && (mediaUrl.includes('whatsapp.net') || mediaUrl.includes('.enc') || mediaUrl.includes('mmg.whatsapp.net') || mediaUrl.startsWith('/mms/'))) {
+            let fullUrl = mediaUrl;
+            if (mediaUrl.startsWith('/mms/')) {
+                fullUrl = `https://mmg.whatsapp.net${mediaUrl}`;
+            }
+            mediaUrl = `/api/media/proxy?url=${encodeURIComponent(fullUrl)}`;
         }
 
         return { content, type, mediaUrl };
@@ -464,7 +480,13 @@ const ChatView: React.FC = () => {
                     )}
                     {type === 'audio' && mediaUrl && (
                         <div className="min-w-[240px] py-2 px-1">
-                            <audio src={mediaUrl} controls className={`w-full h-8 ${isMe ? 'filter invert brightness-200 contrast-100' : ''}`} />
+                            <audio
+                                src={mediaUrl}
+                                controls
+                                preload="metadata"
+                                className={`w-full h-8 ${isMe ? 'filter invert brightness-200 contrast-100' : ''}`}
+                                onError={(e) => console.error('[AUDIO] Erro ao carregar:', mediaUrl)}
+                            />
                             <div className="flex justify-between mt-1 text-[9px] uppercase font-bold opacity-50">
                                 <span>Mensagem de Voz</span>
                             </div>

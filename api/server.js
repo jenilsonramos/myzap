@@ -121,7 +121,8 @@ async function getAppUrl() {
     try {
         const [rows] = await pool.query("SELECT setting_value FROM system_settings WHERE setting_key = 'app_url'");
         if (rows.length > 0 && rows[0].setting_value) {
-            return rows[0].setting_value.replace(/\/$/, '');
+            // Limpa caracteres de lixo como '%' que podem vir de migrações ou erros manuais
+            return rows[0].setting_value.trim().replace(/%$/, '').replace(/\/$/, '');
         }
     } catch (e) { }
     return (process.env.API_URL || 'http://localhost:5000').replace(/\/$/, '');
@@ -2638,19 +2639,19 @@ app.post('/api/webhook/evolution', async (req, res) => {
             } else if (msg.message?.imageMessage) {
                 content = msg.message.imageMessage.caption || '';
                 type = 'image';
-                mediaUrl = msg.message.imageMessage.url;
+                mediaUrl = msg.message.imageMessage.url || msg.message.imageMessage.directPath;
             } else if (msg.message?.videoMessage) {
                 content = msg.message.videoMessage.caption || '';
                 type = 'video';
-                mediaUrl = msg.message.videoMessage.url;
+                mediaUrl = msg.message.videoMessage.url || msg.message.videoMessage.directPath;
             } else if (msg.message?.audioMessage) {
                 content = '';
                 type = 'audio';
-                mediaUrl = msg.message.audioMessage.url;
+                mediaUrl = msg.message.audioMessage.url || msg.message.audioMessage.directPath;
             } else if (msg.message?.documentMessage) {
                 content = msg.message.documentMessage.title || msg.message.documentMessage.caption || '';
                 type = 'document';
-                mediaUrl = msg.message.documentMessage.url;
+                mediaUrl = msg.message.documentMessage.url || msg.message.documentMessage.directPath;
             } else if (msg.message?.buttonsResponseMessage) {
                 content = msg.message.buttonsResponseMessage.selectedButtonId;
                 type = 'text';
