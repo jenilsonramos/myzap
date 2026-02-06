@@ -405,6 +405,7 @@ async function setupTables() {
         await pool.query("ALTER TABLE contacts ADD COLUMN status VARCHAR(20) DEFAULT 'open' AFTER profile_pic").catch(() => { });
         await pool.query("ALTER TABLE contacts MODIFY COLUMN status VARCHAR(20) DEFAULT 'open'").catch(() => { });
         await pool.query("ALTER TABLE contacts ADD COLUMN is_blocked BOOLEAN DEFAULT FALSE").catch(() => { });
+        await pool.query("ALTER TABLE contacts ADD COLUMN ai_paused BOOLEAN DEFAULT FALSE").catch(() => { });
         await pool.query("ALTER TABLE contacts ADD UNIQUE KEY unique_contact (user_id, remote_jid)").catch(() => { });
 
         await pool.query(`
@@ -1438,11 +1439,47 @@ app.post('/api/contacts/:contactId/block', authenticateToken, async (req, res) =
         );
 
         res.json({ success: true, is_blocked: block });
+    } catch (err) { res.status(500).json({ error: 'Erro ao bloquear contato' }); }
+});
+
+app.patch('/api/contacts/:contactId/status', authenticateToken, async (req, res) => {
+    try {
+        const { status } = req.body;
+        const contactId = req.params.contactId;
+        const userId = req.user.id;
+
+        // 1. Atualizar status
+        let query = "UPDATE contacts SET status = ? WHERE id = ? AND user_id = ?";
+        const params = [status, contactId, userId];
+
+        // 2. Se fechar, remove o pause da IA (volta a responder)
+        if (status === 'closed') {
+            query = "UPDATE contacts SET status = ?, ai_paused = 0 WHERE id = ? AND user_id = ?";
+        }
+
+        await pool.query(query, params);
+        res.json({ success: true });
     } catch (err) {
-        console.error('Erro ao bloquear contato:', err);
-        res.status(500).json({ error: 'Erro ao bloquear contato' });
+        console.error(err);
+        res.status(500).json({ error: 'Erro ao atualizar status' });
     }
 });
+
+// Toggle AI Pause for Contact
+app.post('/api/contacts/:contactId/toggle-ai', authenticateToken, async (req, res) => {
+    try {
+        const { paused } = req.body; // true or false
+        await pool.query(
+            "UPDATE contacts SET ai_paused = ? WHERE id = ? AND user_id = ?",
+            [paused ? 1 : 0, req.params.contactId, req.user.id]
+        );
+        res.json({ success: true, ai_paused: paused });
+    } catch (err) {
+        console.error('Erro ao alternar IA:', err);
+        res.status(500).json({ error: 'Erro ao alternar status da IA' });
+    }
+});
+
 
 // Send audio message (Base64 from panel)
 // Endpoint de áudio consolidado foi movido para baixo (linha 1454 aprox) para evitar duplicatas.
@@ -2885,80 +2922,85 @@ app.post('/api/webhook/evolution', async (req, res) => {
                         const aiActive = aiSettingsRows.length > 0 && (aiSettingsRows[0].setting_value === 'true' || aiSettingsRows[0].setting_value === '1');
 
                         if (aiActive) {
-                            console.log(`🤖 [WEBHOOK] IA Ativa para User ${userId}. Processando resposta...`);
+                            // Verify if AI is paused for this contact
+                            const [cSettings] = await pool.query("SELECT ai_paused FROM contacts WHERE id = ?", [contactId]);
+                            if (cSettings.length > 0 && cSettings[0].ai_paused) {
+                                console.log(`🤖 [AI] Pausada para contato ${contactId}. Ignorando.`);
+                            } else {
+                                console.log(`🤖 [WEBHOOK] IA Ativa para User ${userId}. Processando resposta...`);
 
-                            // Send typing indicator
-                            const evo = await getEvolutionService();
-                            if (evo) {
-                                // await evo.sendTyping(instance, remoteJid); // Optional
+                                // Send typing indicator
+                                const evo = await getEvolutionService();
+                                if (evo) {
+                                    // await evo.sendTyping(instance, remoteJid); // Optional
 
-                                // Fetch AI config
-                                const [configRows] = await pool.query(
-                                    "SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ('openai_key', 'openai_model', 'google_key', 'google_model', 'system_prompt', 'temperature', 'max_tokens')"
-                                );
-                                const config = {};
-                                configRows.forEach(r => config[r.setting_key] = r.setting_value);
+                                    // Fetch AI config
+                                    const [configRows] = await pool.query(
+                                        "SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ('openai_key', 'openai_model', 'google_key', 'google_model', 'system_prompt', 'temperature', 'max_tokens')"
+                                    );
+                                    const config = {};
+                                    configRows.forEach(r => config[r.setting_key] = r.setting_value);
 
-                                let responseText = '';
+                                    let responseText = '';
 
-                                // Call OpenAI or Google logic here (Simplified for now - placeholders)
-                                // Ideally we should have a helper function `generateAIResponse(content, config)`
+                                    // Call OpenAI or Google logic here (Simplified for now - placeholders)
+                                    // Ideally we should have a helper function `generateAIResponse(content, config)`
 
-                                // Placeholder response logic:
-                                // responseText = await generateAIResponse(content, config);
+                                    // Placeholder response logic:
+                                    // responseText = await generateAIResponse(content, config);
 
-                                // For now, let's just log and skip other bots to prove exclusivity logic
-                                // To actually generate response, we need to import OpenAI/Google libraries or use fetch.
-                                // Assuming we'll implement `generateAIResponse` or similar helper.
+                                    // For now, let's just log and skip other bots to prove exclusivity logic
+                                    // To actually generate response, we need to import OpenAI/Google libraries or use fetch.
+                                    // Assuming we'll implement `generateAIResponse` or similar helper.
 
-                                // Implement actual AI call later or inline if libraries available.
-                                // Let's try to do a basic fetch implementation if possible, or just skip for now and confirm logic.
-                                // But user asked for "responder automaticamente". So I should implement the call.
+                                    // Implement actual AI call later or inline if libraries available.
+                                    // Let's try to do a basic fetch implementation if possible, or just skip for now and confirm logic.
+                                    // But user asked for "responder automaticamente". So I should implement the call.
 
-                                if (config.openai_key && config.openai_key.startsWith('sk-')) {
-                                    console.log(`🤖 [AI] Usando OpenAI...`);
-                                    const { default: OpenAI } = await import('openai');
-                                    const openai = new OpenAI({ apiKey: config.openai_key });
-                                    const completion = await openai.chat.completions.create({
-                                        messages: [
-                                            { role: "system", content: config.system_prompt || "You are a helpful assistant." },
-                                            { role: "user", content: content }
-                                        ],
-                                        model: config.openai_model || "gpt-3.5-turbo",
-                                        temperature: parseFloat(config.temperature) || 0.7,
-                                        max_tokens: parseInt(config.max_tokens) || 500,
-                                    });
-                                    responseText = completion.choices[0].message.content;
-                                    console.log(`🤖 [AI] Resposta da OpenAI gerada: ${responseText.slice(0, 30)}...`);
-                                } else if (config.google_key) {
-                                    console.log(`🤖 [AI] Usando Google Gemini...`);
-                                    const { GoogleGenerativeAI } = await import('@google/generative-ai');
-                                    const genAI = new GoogleGenerativeAI(config.google_key);
-                                    const model = genAI.getGenerativeModel({
-                                        model: config.google_model || "gemini-pro",
-                                        systemInstruction: config.system_prompt
-                                    });
-                                    const result = await model.generateContent(content);
-                                    responseText = result.response.text();
-                                    console.log(`🤖 [AI] Resposta do Gemini gerada: ${responseText.slice(0, 30)}...`);
-                                }
+                                    if (config.openai_key && config.openai_key.startsWith('sk-')) {
+                                        console.log(`🤖 [AI] Usando OpenAI...`);
+                                        const { default: OpenAI } = await import('openai');
+                                        const openai = new OpenAI({ apiKey: config.openai_key });
+                                        const completion = await openai.chat.completions.create({
+                                            messages: [
+                                                { role: "system", content: config.system_prompt || "You are a helpful assistant." },
+                                                { role: "user", content: content }
+                                            ],
+                                            model: config.openai_model || "gpt-3.5-turbo",
+                                            temperature: parseFloat(config.temperature) || 0.7,
+                                            max_tokens: parseInt(config.max_tokens) || 500,
+                                        });
+                                        responseText = completion.choices[0].message.content;
+                                        console.log(`🤖 [AI] Resposta da OpenAI gerada: ${responseText.slice(0, 30)}...`);
+                                    } else if (config.google_key) {
+                                        console.log(`🤖 [AI] Usando Google Gemini...`);
+                                        const { GoogleGenerativeAI } = await import('@google/generative-ai');
+                                        const genAI = new GoogleGenerativeAI(config.google_key);
+                                        const model = genAI.getGenerativeModel({
+                                            model: config.google_model || "gemini-pro",
+                                            systemInstruction: config.system_prompt
+                                        });
+                                        const result = await model.generateContent(content);
+                                        responseText = result.response.text();
+                                        console.log(`🤖 [AI] Resposta do Gemini gerada: ${responseText.slice(0, 30)}...`);
+                                    }
 
-                                if (responseText) {
-                                    await sendWhatsAppMessage(instance, remoteJid, responseText);
+                                    if (responseText) {
+                                        await sendWhatsAppMessage(instance, remoteJid, responseText);
 
-                                    // Log AI response
-                                    const aiMsgId = `AI-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-                                    await pool.query(`
+                                        // Log AI response
+                                        const aiMsgId = `AI-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+                                        await pool.query(`
                                         INSERT INTO messages (user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp, source)
                                         VALUES (?, ?, ?, ?, 1, ?, 'text', ?, 'ai')
                                     `, [userId, contactId, instance, aiMsgId, responseText, Math.floor(Date.now() / 1000)]);
 
-                                    // STOP HERE (Exclusive)
-                                    return res.status(200).send('OK');
+                                        // STOP HERE (Exclusive)
+                                        return res.status(200).send('OK');
+                                    }
                                 }
-                            }
-                        }
-                    } catch (aiErr) {
+                            } // End of AI Response generation
+                        } // End of AI Active Check
                         console.error(`❌ [AI WEBHOOK] Erro: ${aiErr.message}`);
                     }
                 }
