@@ -2461,7 +2461,7 @@ async function processMessageNode(node, context) {
 
 async function processDelayNode(node, context) {
     const delaySeconds = node.data.delay || 1;
-    console.log(`⏰ [FLOW] Waiting ${delaySeconds} seconds...`);
+    console.log(`⏰ [FLOW] Waiting ${delaySeconds} seconds for ${context.remoteJid}...`);
     await new Promise(resolve => setTimeout(resolve, delaySeconds * 1000));
 }
 
@@ -2499,11 +2499,23 @@ async function processQuestionNode(node, context) {
     `, [context.userId, context.remoteJid, node.data.variable || 'user_input', context.flowId, node.id]);
 }
 
-function processSetVariableNode(node, context) {
+async function processSetVariableNode(node, context) {
     const name = node.data.variableName || 'var';
     const value = replaceVariables(node.data.value || '', context);
     context.variables[name] = value;
+
     console.log(`📝 [FLOW] Set ${name} = ${value}`);
+
+    // Persistir no banco de dados (contacts)
+    try {
+        const number = context.remoteJid.replace('@s.whatsapp.net', '');
+        await pool.query(
+            "UPDATE contacts SET variables = JSON_SET(COALESCE(variables, '{}'), ?, ?) WHERE number = ? AND user_id = ?",
+            [`$.${name}`, value, number, context.userId]
+        );
+    } catch (err) {
+        console.error('❌ [FLOW] Error saving variable to DB:', err.message);
+    }
 }
 
 async function processActionNode(node, context) {
@@ -2574,22 +2586,72 @@ async function processAiAgentNode(node, context) {
 async function processApiNode(node, context) {
     const url = replaceVariables(node.data.url || '', context);
     const method = node.data.method || 'GET';
-    const body = replaceVariables(node.data.body || '{}', context);
+    const bodyRaw = node.data.body || '{}';
+    const body = replaceVariables(bodyRaw, context);
+
+    // Processar Headers Customizados
+    const customHeaders = {};
+    if (Array.isArray(node.data.headers)) {
+        node.data.headers.forEach(h => {
+            if (h.key && h.value) {
+                customHeaders[replaceVariables(h.key, context)] = replaceVariables(h.value, context);
+            }
+        });
+    }
+
+    console.log(`🌐 [FLOW] API Call: ${method} ${url}`);
 
     try {
         const response = await axios({
             url,
             method,
-            data: ['POST', 'PUT', 'PATCH'].includes(method) ? (typeof body === 'string' ? JSON.parse(body) : body) : undefined,
-            headers: { 'Content-Type': 'application/json' }
+            data: ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) ? (typeof body === 'string' && body.trim().startsWith('{') ? JSON.parse(body) : body) : undefined,
+            headers: {
+                'Content-Type': 'application/json',
+                ...customHeaders
+            },
+            timeout: 10000 // 10s timeout
         });
 
         const data = response.data;
-        context.variables.api_response = data; // Armazenar o objeto bruto para acesso aninhado
-        console.log(`🌐 [FLOW] API Response stored in api_response`);
+        context.variables.api_response = data; // Objeto bruto
+
+        console.log(`✅ [FLOW] API Success (${response.status})`);
+
+        // Processar Mapeamento de Resposta
+        if (Array.isArray(node.data.responseMapping)) {
+            for (const mapping of node.data.responseMapping) {
+                if (mapping.jsonPath && mapping.variableName) {
+                    // Usar a mesma lógica de busca de replaceVariables
+                    const parts = mapping.jsonPath.split('.');
+                    let val = data;
+                    for (const part of parts) {
+                        if (val === null || val === undefined) break;
+                        val = val[part];
+                    }
+
+                    if (val !== undefined) {
+                        context.variables[mapping.variableName] = val;
+                        console.log(`📌 [FLOW] Mapped ${mapping.jsonPath} -> ${mapping.variableName} = ${val}`);
+
+                        // Persistir no banco se necessário (contacts table)
+                        try {
+                            const number = context.remoteJid.replace('@s.whatsapp.net', '');
+                            await pool.query(
+                                "UPDATE contacts SET variables = JSON_SET(COALESCE(variables, '{}'), ?, ?) WHERE number = ? AND user_id = ?",
+                                [`$.${mapping.variableName}`, typeof val === 'object' ? JSON.stringify(val) : val, number, context.userId]
+                            );
+                        } catch (dbErr) {
+                            console.error('❌ [FLOW] Error persisting variable:', dbErr.message);
+                        }
+                    }
+                }
+            }
+        }
     } catch (err) {
-        console.error('API Node Error:', err.message);
-        context.variables.api_response = { error: err.message };
+        const errorMsg = err.response?.data ? JSON.stringify(err.response.data) : err.message;
+        console.error(`❌ [FLOW] API Error: ${err.message}`, errorMsg);
+        context.variables.api_response = { error: err.message, details: err.response?.data };
     }
 }
 
@@ -2755,10 +2817,8 @@ async function processInteractiveNode(node, context) {
 function replaceVariables(text, context) {
     if (!text || typeof text !== 'string') return text;
 
-    // Regex atualizada para suportar caminhos aninhados múltiplos (ex: api_response.data.cep)
-    return text.replace(/\{\{([\w\-\.]*)\}\}/g, (match, path) => {
-        if (!path) return match;
-
+    // Regex melhorada: suporte a espaços internos e caminhos com pontos/hífens
+    return text.replace(/\{\{\s*([\w\-\.]+)\s*\}\}/g, (match, path) => {
         const parts = path.split('.');
         let value = context.variables;
 
@@ -2767,32 +2827,45 @@ function replaceVariables(text, context) {
             value = value[part];
         }
 
-        return value !== undefined ? String(value) : match;
+        if (typeof value === 'object' && value !== null) {
+            return JSON.stringify(value);
+        }
+
+        // Retornar vazio se não encontrado, para evitar que o usuário veja as chaves brutas
+        return value !== undefined ? String(value) : "";
     });
 }
 
 function evaluateCondition(rule, context) {
     try {
-        // Simple evaluation - parse "variable == value" style
-        const match = rule.match(/(\w+)\s*(==|!=|>=|<=|>|<|contains)\s*['""]?(.+?)['""]?\s*$/);
+        // Suporte para caminhos aninhados (ex: api_response.city == 'SP')
+        const match = rule.match(/([\w\-\.]+)\s*(==|!=|>=|<=|>|<|contains)\s*['"]?(.+?)['"]?\s*$/);
         if (!match) return false;
 
-        const [, varName, operator, expected] = match;
-        const actual = String(context.variables[varName] || '').toLowerCase();
-        const expectedLower = expected.toLowerCase();
+        const [, path, operator, expectedValue] = match;
+
+        const parts = path.split('.');
+        let val = context.variables;
+        for (const part of parts) {
+            if (val === null || val === undefined) break;
+            val = val[part];
+        }
+
+        const actual = String(val || '').toLowerCase().trim();
+        const expected = String(expectedValue || '').toLowerCase().trim();
 
         switch (operator) {
-            case '==': return actual === expectedLower;
-            case '!=': return actual !== expectedLower;
+            case '==': return actual === expected;
+            case '!=': return actual !== expected;
+            case 'contains': return actual.includes(expected);
             case '>': return parseFloat(actual) > parseFloat(expected);
             case '<': return parseFloat(actual) < parseFloat(expected);
             case '>=': return parseFloat(actual) >= parseFloat(expected);
             case '<=': return parseFloat(actual) <= parseFloat(expected);
-            case 'contains': return actual.includes(expectedLower);
             default: return false;
         }
     } catch (err) {
-        console.error('Condition evaluation error:', err);
+        console.error('❌ [FLOW] Condition evaluation error:', err.message);
         return false;
     }
 }

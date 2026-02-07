@@ -690,6 +690,41 @@ const PropertiesPanel = ({ node, onUpdate, onClose, onDelete, onDuplicate, onUpl
     const glassInput = "w-full bg-white/50 dark:bg-black/20 border border-slate-200/50 dark:border-white/10 rounded-xl px-4 py-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 outline-none transition-all placeholder:text-slate-400";
     const glassSelect = "w-full bg-white/50 dark:bg-black/20 border border-slate-200/50 dark:border-white/10 rounded-xl px-4 py-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 outline-none transition-all";
     const labelStyle = "text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1.5 block";
+    const [apiTab, setApiTab] = useState('request');
+
+    const addHeader = () => {
+        const headers = (node.data.headers as any[]) || [];
+        onUpdate({ headers: [...headers, { key: '', value: '' }] });
+    };
+
+    const removeHeader = (index: number) => {
+        const headers = [...((node.data.headers as any[]) || [])];
+        headers.splice(index, 1);
+        onUpdate({ headers });
+    };
+
+    const updateHeader = (index: number, field: string, value: string) => {
+        const headers = [...((node.data.headers as any[]) || [])];
+        headers[index] = { ...headers[index], [field]: value };
+        onUpdate({ headers });
+    };
+
+    const addMapping = () => {
+        const mapping = (node.data.responseMapping as any[]) || [];
+        onUpdate({ responseMapping: [...mapping, { jsonPath: '', variableName: '' }] });
+    };
+
+    const removeMapping = (index: number) => {
+        const mapping = [...((node.data.responseMapping as any[]) || [])];
+        mapping.splice(index, 1);
+        onUpdate({ responseMapping: mapping });
+    };
+
+    const updateMapping = (index: number, field: string, value: string) => {
+        const mapping = [...((node.data.responseMapping as any[]) || [])];
+        mapping[index] = { ...mapping[index], [field]: value };
+        onUpdate({ responseMapping: mapping });
+    };
 
     return (
         <div className={`absolute right-6 top-24 w-96 rounded-[32px] z-50 flex flex-col max-h-[80vh] animate-slide-in-right ${glassPanel}`}>
@@ -967,24 +1002,104 @@ const PropertiesPanel = ({ node, onUpdate, onClose, onDelete, onDuplicate, onUpl
                 );
             case 'api':
                 return (
-                    <div className="space-y-5">
+                    <div className="space-y-4">
                         <HelpAlert type="api" />
-                        <div className="grid grid-cols-4 gap-2">
-                            <div className="col-span-1">
-                                <label className={labelStyle}>Método</label>
-                                <select className={`${glassSelect} px-2 font-bold`} value={node.data.method} onChange={(e) => onUpdate({ method: e.target.value })}>
-                                    <option>GET</option><option>POST</option><option>PUT</option><option>DELETE</option>
-                                </select>
-                            </div>
-                            <div className="col-span-3">
-                                <label className={labelStyle}>URL Endpoint</label>
-                                <input className={`${glassInput} font-mono text-xs`} placeholder="https://api..." value={node.data.url} onChange={(e) => onUpdate({ url: e.target.value })} />
-                            </div>
+
+                        {/* Custom Triple Tab */}
+                        <div className="flex bg-slate-100/50 dark:bg-white/5 p-1 rounded-xl gap-1">
+                            {['request', 'headers', 'mapping'].map((tab) => (
+                                <button
+                                    key={tab}
+                                    onClick={() => setApiTab(tab)}
+                                    className={`flex-1 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${apiTab === tab
+                                        ? 'bg-white dark:bg-slate-800 text-violet-600 dark:text-violet-400 shadow-sm'
+                                        : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                                        }`}
+                                >
+                                    {tab === 'request' ? 'Url' : tab === 'headers' ? 'Headers' : 'Mapear'}
+                                </button>
+                            ))}
                         </div>
-                        <div>
-                            <label className={labelStyle}>JSON Body</label>
-                            <textarea className={`${glassInput} font-mono text-xs h-32 leading-relaxed`} value={node.data.body} onChange={(e) => onUpdate({ body: e.target.value })} placeholder="{ 'key': 'value' }" />
-                        </div>
+
+                        {apiTab === 'request' && (
+                            <div className="space-y-4 animate-in fade-in slide-in-from-top-1 duration-200">
+                                <div className="grid grid-cols-4 gap-2">
+                                    <div className="col-span-1">
+                                        <label className={labelStyle}>Método</label>
+                                        <select className={`${glassSelect} px-2 font-bold !py-2.5`} value={node.data.method} onChange={(e) => onUpdate({ method: e.target.value })}>
+                                            <option>GET</option><option>POST</option><option>PUT</option><option>DELETE</option>
+                                        </select>
+                                    </div>
+                                    <div className="col-span-3">
+                                        <label className={labelStyle}>URL Endpoint</label>
+                                        <input className={`${glassInput} font-mono text-xs !py-2.5`} placeholder="https://api..." value={node.data.url} onChange={(e) => onUpdate({ url: e.target.value })} />
+                                    </div>
+                                </div>
+                                {node.data.method !== 'GET' && (
+                                    <div>
+                                        <label className={labelStyle}>JSON Body</label>
+                                        <textarea
+                                            className={`${glassInput} font-mono text-xs h-32 leading-relaxed`}
+                                            value={node.data.body}
+                                            onChange={(e) => onUpdate({ body: e.target.value })}
+                                            placeholder="{'key': 'value'}"
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {apiTab === 'headers' && (
+                            <div className="space-y-4 animate-in fade-in slide-in-from-top-1 duration-200">
+                                <div className="flex items-center justify-between">
+                                    <label className={labelStyle}>Headers Customizados</label>
+                                    <button onClick={addHeader} className="text-xs text-violet-600 font-bold flex items-center gap-1 hover:underline">
+                                        <span className="material-icons-round text-sm">add</span> Adicionar
+                                    </button>
+                                </div>
+                                <div className="space-y-2">
+                                    {((node.data.headers as any[]) || []).map((h: any, i: number) => (
+                                        <div key={i} className="flex gap-2 items-center">
+                                            <input className={`${glassInput} !px-2 !py-2 text-[10px]`} placeholder="Key" value={h.key} onChange={(e) => updateHeader(i, 'key', e.target.value)} />
+                                            <input className={`${glassInput} !px-2 !py-2 text-[10px]`} placeholder="Value" value={h.value} onChange={(e) => updateHeader(i, 'value', e.target.value)} />
+                                            <button onClick={() => removeHeader(i)} className="text-rose-500 hover:text-rose-700">
+                                                <span className="material-icons-round text-sm">delete</span>
+                                            </button>
+                                        </div>
+                                    ))}
+                                    {(!node.data.headers || (node.data.headers as any[]).length === 0) && (
+                                        <p className="text-[10px] text-slate-400 text-center py-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-dashed border-slate-200 dark:border-white/10">Nenhum header configurado</p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {apiTab === 'mapping' && (
+                            <div className="space-y-4 animate-in fade-in slide-in-from-top-1 duration-200">
+                                <div className="flex items-center justify-between">
+                                    <label className={labelStyle}>Mapear Resposta</label>
+                                    <button onClick={addMapping} className="text-xs text-violet-600 font-bold flex items-center gap-1 hover:underline">
+                                        <span className="material-icons-round text-sm">add</span> Adicionar
+                                    </button>
+                                </div>
+                                <div className="space-y-2">
+                                    {((node.data.responseMapping as any[]) || []).map((m: any, i: number) => (
+                                        <div key={i} className="flex gap-2 items-center">
+                                            <input className={`${glassInput} !px-2 !py-2 text-[10px] flex-[2] font-mono`} placeholder="caminho.json" value={m.jsonPath} onChange={(e) => updateMapping(i, 'jsonPath', e.target.value)} />
+                                            <div className="text-slate-400"><span className="material-icons-round text-sm">arrow_forward</span></div>
+                                            <input className={`${glassInput} !px-2 !py-2 text-[10px] flex-[2] font-bold`} placeholder="Variavel" value={m.variableName} onChange={(e) => updateMapping(i, 'variableName', e.target.value)} />
+                                            <button onClick={() => removeMapping(i)} className="text-rose-500 hover:text-rose-700">
+                                                <span className="material-icons-round text-sm">delete</span>
+                                            </button>
+                                        </div>
+                                    ))}
+                                    {(!node.data.responseMapping || (node.data.responseMapping as any[]).length === 0) && (
+                                        <p className="text-[10px] text-slate-400 text-center py-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-dashed border-slate-200 dark:border-white/10">Use para extrair dados da API</p>
+                                    )}
+                                </div>
+                                <p className="text-[9px] text-slate-400 leading-relaxed italic">Exemplo: para pegar a cidade na resposta {'{ "city": "SP" }'}, use path <b>city</b> e salve em <b>cidade_cliente</b>.</p>
+                            </div>
+                        )}
                     </div>
                 );
             case 'condition':
