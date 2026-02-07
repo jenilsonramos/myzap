@@ -27,25 +27,23 @@ async function migrate() {
         await pool.execute(createTableQuery);
         console.log('✅ Tabela system_settings verificada/criada com sucesso.');
 
-        // Inserir valores padrão se estiver vazio
-        const [rows] = await pool.execute('SELECT COUNT(*) as count FROM system_settings');
-        if (rows[0].count === 0) {
-            console.log('📥 Inserindo configurações padrão...');
-            const defaults = [
-                ['system_name', 'MyZap'],
-                ['primary_color', '#166534'],
-                ['logo_url', ''],
-                ['favicon_url', ''],
-                ['seo_title', 'MyZap - Automação WhatsApp'],
-                ['seo_description', 'Plataforma completa de gestão de automação do WhatsApp.'],
-                ['seo_keywords', 'whatsapp, bot, automação']
-            ];
+        // Inserir valores padrão (Garantir que existam mesmo se a tabela não estiver vazia)
+        console.log('📥 Verificando chaves de configuração...');
+        const defaults = [
+            ['system_name', 'MyZap'],
+            ['primary_color', '#166534'],
+            ['logo_url', ''],
+            ['favicon_url', ''],
+            ['seo_title', 'MyZap - Automação WhatsApp'],
+            ['seo_description', 'Plataforma completa de gestão de automação do WhatsApp.'],
+            ['seo_keywords', 'whatsapp, bot, automação']
+        ];
 
-            for (const [key, value] of defaults) {
-                await pool.execute('INSERT IGNORE INTO system_settings (setting_key, setting_value) VALUES (?, ?)', [key, value]);
-            }
-            console.log('✅ Configurações padrão inseridas.');
+        for (const [key, value] of defaults) {
+            // INSERT IGNORE ignora se a chave já existir, preservando o valor atual
+            await pool.execute('INSERT IGNORE INTO system_settings (setting_key, setting_value) VALUES (?, ?)', [key, value]);
         }
+        console.log('✅ Configurações de Branding garantidas.');
 
     } catch (err) {
         console.error('❌ Erro na migração de system_settings:', err);
