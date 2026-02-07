@@ -1585,60 +1585,62 @@ app.get('/api/analytics/dashboard', authenticateToken, async (req, res) => {
         // Ensure end date includes the whole day
         end.setHours(23, 59, 59, 999);
 
-        console.log(`📊 [ANALYTICS] Stats for ${userId}: ${start.toISOString()} to ${end.toISOString()}`);
-        console.log(`📊 [ANALYTICS] Range: ${start.toISOString()} to ${end.toISOString()}`);
+        // Convert to Unix Timestamp (Seconds) matching INSERT logic
+        const startTs = Math.floor(start.getTime() / 1000);
+        const endTs = Math.floor(end.getTime() / 1000);
 
-        // Debug: Check raw data
-        const [debugRows] = await pool.query("SELECT id, timestamp, created_at FROM messages WHERE user_id = ? ORDER BY id DESC LIMIT 5", [userId]);
-        console.log('🔍 [DEBUG] Sample Messages:', JSON.stringify(debugRows));
+        console.log(`📊 [ANALYTICS] Stats for ${userId}: ${start.toISOString()} to ${end.toISOString()}`);
+        console.log(`📊 [ANALYTICS] TS Range (Seconds): ${startTs} to ${endTs}`);
 
         // 1. Totais Gerais (Neste Período)
-        const [totalMsg] = await pool.query("SELECT COUNT(*) as count FROM messages WHERE user_id = ? AND created_at >= ? AND created_at <= ?", [userId, start, end]);
-        const [sentMsg] = await pool.query("SELECT COUNT(*) as count FROM messages WHERE user_id = ? AND key_from_me = 1 AND created_at >= ? AND created_at <= ?", [userId, start, end]);
+        // Using timestamp (seconds) confirmed by INSERT lines
+        const [totalMsg] = await pool.query("SELECT COUNT(*) as count FROM messages WHERE user_id = ? AND timestamp >= ? AND timestamp <= ?", [userId, startTs, endTs]);
+        const [sentMsg] = await pool.query("SELECT COUNT(*) as count FROM messages WHERE user_id = ? AND key_from_me = 1 AND timestamp >= ? AND timestamp <= ?", [userId, startTs, endTs]);
 
-        // Contatos (Total Geral)
+        // Contatos (Total Geral - sem filtro de data)
         const [contacts] = await pool.query("SELECT COUNT(*) as count FROM contacts WHERE user_id = ?", [userId]);
 
         // 2. Volume Diário (Para Gráfico de Barras)
+        // FROM_UNIXTIME takes seconds, so this is correct.
         const [daily] = await pool.query(`
             SELECT 
-                DATE_FORMAT(created_at, '%d/%m') as name, 
-                DATE(created_at) as day_date,
+                DATE_FORMAT(FROM_UNIXTIME(timestamp), '%d/%m') as name, 
+                DATE(FROM_UNIXTIME(timestamp)) as day_date,
                 COUNT(*) as value 
             FROM messages 
-            WHERE user_id = ? AND created_at >= ? AND created_at <= ?
-            GROUP BY DATE(created_at) 
+            WHERE user_id = ? AND timestamp >= ? AND timestamp <= ?
+            GROUP BY DATE(FROM_UNIXTIME(timestamp)) 
             ORDER BY day_date ASC
-        `, [userId, start, end]);
+        `, [userId, startTs, endTs]);
 
         // 3. Mapa de Calor por Hora (0-23)
         const [hourly] = await pool.query(`
             SELECT 
-                HOUR(created_at) as hour,
+                HOUR(FROM_UNIXTIME(timestamp)) as hour,
                 COUNT(*) as count
             FROM messages
-            WHERE user_id = ? AND created_at >= ? AND created_at <= ?
-            GROUP BY HOUR(created_at)
+            WHERE user_id = ? AND timestamp >= ? AND timestamp <= ?
+            GROUP BY HOUR(FROM_UNIXTIME(timestamp))
             ORDER BY hour ASC
-        `, [userId, start, end]);
+        `, [userId, startTs, endTs]);
 
         // 4. Distribuição (Enviadas vs Recebidas vs Erro)
-        const receivedCount = totalMsg[0].count - sentMsg[0].count;
+        const receivedCount = Math.max(0, totalMsg[0].count - sentMsg[0].count);
         const pieData = [
             { name: 'Recebidas', value: receivedCount, color: '#6366f1' }, // Indigo
             { name: 'Enviadas', value: sentMsg[0].count, color: '#22c55e' } // Green
         ];
 
         // Comparativo com período anterior (Simples)
-        const diff = end.getTime() - start.getTime(); // diff in ms
-        const prevEnd = new Date(start.getTime()); // prev end is current start
-        const prevStart = new Date(prevEnd.getTime() - diff); // prev start
+        const diffSeconds = endTs - startTs;
+        const prevEndTs = startTs; // Previous period ends where current begins
+        const prevStartTs = prevEndTs - diffSeconds;
 
-        const [prevTotal] = await pool.query("SELECT COUNT(*) as count FROM messages WHERE user_id = ? AND created_at >= ? AND created_at < ?", [userId, prevStart, prevEnd]);
+        const [prevTotal] = await pool.query("SELECT COUNT(*) as count FROM messages WHERE user_id = ? AND timestamp >= ? AND timestamp < ?", [userId, prevStartTs, prevEndTs]);
 
         const growth = prevTotal[0].count > 0
             ? Math.round(((totalMsg[0].count - prevTotal[0].count) / prevTotal[0].count) * 100)
-            : 100;
+            : (totalMsg[0].count > 0 ? 100 : 0);
 
         res.json({
             totalMessages: totalMsg[0].count,
@@ -1648,7 +1650,8 @@ app.get('/api/analytics/dashboard', authenticateToken, async (req, res) => {
             hourlyVolume: hourly,
             pieChart: pieData,
             growth: growth,
-            avgResponseTime: "N/A"
+            avgResponseTime: "N/A",
+            debug: { startTs, endTs, userId }
         });
 
     } catch (err) {
