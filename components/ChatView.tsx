@@ -568,8 +568,28 @@ const ChatView: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Cápsula de Tabs */}
+                {/* Cápsula de Tabs Principal (Chats vs Bloqueados) */}
                 {!isSidebarCollapsed && (
+                    <div className="px-6 mb-4">
+                        <div className="flex bg-slate-100 dark:bg-white/5 rounded-2xl p-1 gap-1">
+                            <button
+                                onClick={() => setActiveTab('chats')}
+                                className={`flex-1 py-1.5 rounded-xl text-xs font-black uppercase tracking-tighter transition-all ${activeTab === 'chats' ? 'bg-white dark:bg-slate-800 text-blue-500 shadow-sm' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600'}`}
+                            >
+                                Conversas
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('blocked')}
+                                className={`flex-1 py-1.5 rounded-xl text-xs font-black uppercase tracking-tighter transition-all ${activeTab === 'blocked' ? 'bg-white dark:bg-slate-800 text-rose-500 shadow-sm' : 'text-slate-400 dark:text-slate-500 hover:text-slate-600'}`}
+                            >
+                                Bloqueados
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Cápsula de Tabs de Status (Apenas se em Chats) */}
+                {!isSidebarCollapsed && activeTab === 'chats' && (
                     <div className="px-6 mb-6">
                         <div className="capsule-tab-container flex">
                             <button
@@ -607,6 +627,16 @@ const ChatView: React.FC = () => {
 
                 {/* Lista de Contatos */}
                 <div className="flex-1 overflow-y-auto no-scrollbar pb-4">
+                    {filteredContacts.length === 0 && (
+                        <div className="flex flex-col items-center justify-center h-40 opacity-30 px-6 text-center">
+                            <span className="material-icons-round text-4xl mb-2">
+                                {activeTab === 'blocked' ? 'privacy_tip' : 'chat_bubble_outline'}
+                            </span>
+                            <p className="text-xs font-bold uppercase tracking-widest industrial-mono">
+                                {activeTab === 'blocked' ? 'Nenhum contato bloqueado' : 'Sem conversas aqui'}
+                            </p>
+                        </div>
+                    )}
                     {filteredContacts.map(c => (
                         <div
                             key={c.id}

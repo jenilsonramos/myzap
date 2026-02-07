@@ -1536,7 +1536,7 @@ app.get('/api/contacts', authenticateToken, async (req, res) => {
         const params = [];
 
         // Restringir SEMPRE ao usuário logado, mesmo sendo Admin (Privacidade)
-        query += ' WHERE c.user_id = ? AND (c.is_blocked = 0 OR c.is_blocked IS NULL) ';
+        query += ' WHERE c.user_id = ? ';
         params.push(req.user.id);
 
         query += ' ORDER BY lastTime DESC';
