@@ -2426,6 +2426,8 @@ async function processNode(node, flowContent, context) {
             const nextNode = flowContent.nodes.find(n => n.id === nextEdge.target);
             if (nextNode) {
                 await processNode(nextNode, flowContent, context);
+            } else {
+                console.log(`⚠️ [FLOW] Next node ${nextEdge.target} not found for edge from ${node.id}. Flow might be corrupted or edited.`);
             }
         }
     }
@@ -2467,15 +2469,18 @@ async function processConditionNode(node, flowContent, context) {
     const rule = node.data.rule || '';
     const result = evaluateCondition(rule, context);
 
-    // Find edges - look for "true" and "false" handles or first/second edge
+    // Find edges for this node
     const edges = flowContent.edges.filter(e => e.source === node.id);
 
-    if (result && edges.length > 0) {
-        return edges[0].target; // True path
-    } else if (!result && edges.length > 1) {
-        return edges[1].target; // False path
+    // We prefer using sourceHandle if available for precision
+    let nextEdge;
+    if (result) {
+        nextEdge = edges.find(e => e.sourceHandle === 'true') || edges[0];
+    } else {
+        nextEdge = edges.find(e => e.sourceHandle === 'false') || edges[1];
     }
-    return null;
+
+    return nextEdge ? nextEdge.target : null;
 }
 
 async function processQuestionNode(node, context) {
@@ -2614,12 +2619,16 @@ async function processAbSplitNode(node, flowContent, context) {
     const random = Math.random() * 100;
 
     const edges = flowContent.edges.filter(e => e.source === node.id);
-    if (random < variantA && edges.length > 0) {
-        return edges[0].target;
-    } else if (edges.length > 1) {
-        return edges[1].target;
+    const result = random < variantA;
+
+    let nextEdge;
+    if (result) {
+        nextEdge = edges.find(e => e.sourceHandle === 'a') || edges[0];
+    } else {
+        nextEdge = edges.find(e => e.sourceHandle === 'b') || edges.find(e => e.sourceHandle === 'false') || edges[1];
     }
-    return null;
+
+    return nextEdge ? nextEdge.target : null;
 }
 
 async function processSwitchNode(node, flowContent, context) {
@@ -2627,14 +2636,23 @@ async function processSwitchNode(node, flowContent, context) {
     const cases = node.data.cases || [];
 
     const edges = flowContent.edges.filter(e => e.source === node.id);
+    const varLower = variable.toLowerCase();
 
+    // Check cases
     for (let i = 0; i < cases.length; i++) {
-        if (variable.toLowerCase().includes(cases[i].toLowerCase())) {
+        if (varLower.includes(cases[i].toLowerCase())) {
+            const nextEdge = edges.find(e => e.sourceHandle === `case-${i}`);
+            if (nextEdge) return nextEdge.target;
+            // Fallback to index if sourceHandle not present
             if (edges[i]) return edges[i].target;
         }
     }
 
-    // Default case (last edge)
+    // Default case
+    const defaultEdge = edges.find(e => e.sourceHandle === 'default');
+    if (defaultEdge) return defaultEdge.target;
+
+    // Fallback to last edge if more edges than cases
     if (edges.length > cases.length) {
         return edges[edges.length - 1].target;
     }

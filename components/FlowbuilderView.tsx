@@ -153,9 +153,15 @@ const FlowbuilderView: React.FC<FlowbuilderViewProps> = ({ flowId, onClose, isDa
     );
 
     const onSave = async () => {
+        // Limpeza de conexões órfãs antes de salvar
+        const validNodeIds = new Set(nodes.map(n => n.id));
+        const cleanedEdges = edges.filter(edge =>
+            validNodeIds.has(edge.source) && validNodeIds.has(edge.target)
+        );
+
         const flowData = {
             nodes,
-            edges,
+            edges: cleanedEdges,
             viewport: getViewport()
         };
 
@@ -174,6 +180,7 @@ const FlowbuilderView: React.FC<FlowbuilderViewProps> = ({ flowId, onClose, isDa
             });
 
             if (response.ok) {
+                setEdges(cleanedEdges); // Atualizar estado local com as bordas limpas
                 showToast('Fluxo salvo no banco de dados!', 'success');
             } else {
                 showToast('Erro ao salvar no servidor.', 'error');
@@ -331,6 +338,12 @@ const FlowbuilderView: React.FC<FlowbuilderViewProps> = ({ flowId, onClose, isDa
         setSelectedNode({ ...selectedNode, data: { ...selectedNode.data, ...newData } });
     };
 
+    const deleteNode = useCallback((nodeId: string) => {
+        setNodes((nds) => nds.filter((n) => n.id !== nodeId));
+        setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
+        setSelectedNode(null);
+    }, [setNodes, setEdges, setSelectedNode]);
+
     const duplicateNode = () => {
         if (!selectedNode) return;
 
@@ -381,8 +394,7 @@ const FlowbuilderView: React.FC<FlowbuilderViewProps> = ({ flowId, onClose, isDa
                         showToast('O nó de início não pode ser excluído.', 'warning');
                         return;
                     }
-                    setNodes((nds) => nds.filter((n) => n.id !== selectedNode.id));
-                    setSelectedNode(null);
+                    deleteNode(selectedNode.id);
                 }
             }
         };
@@ -556,8 +568,7 @@ const FlowbuilderView: React.FC<FlowbuilderViewProps> = ({ flowId, onClose, isDa
                             showToast('O nó de início não pode ser excluído.', 'warning');
                             return;
                         }
-                        setNodes(nds => nds.filter(n => n.id !== selectedNode.id));
-                        setSelectedNode(null);
+                        deleteNode(selectedNode.id);
                     }}
                     onDuplicate={duplicateNode}
                 />
