@@ -1329,6 +1329,25 @@ app.delete('/api/admin/users/:id', authenticateAdmin, async (req, res) => {
     }
 });
 
+app.post('/api/admin/users/:id/impersonate', authenticateAdmin, async (req, res) => {
+    try {
+        const [rows] = await pool.execute('SELECT * FROM users WHERE id = ?', [req.params.id]);
+        if (rows.length === 0) return res.status(404).json({ error: 'Usuário não encontrado' });
+
+        const user = rows[0];
+        const token = jwt.sign(
+            { id: user.id, email: user.email, role: user.role, name: user.name },
+            process.env.JWT_SECRET,
+            { expiresIn: '24h' }
+        );
+
+        res.json({ token, user: { ...user, password: '' } });
+    } catch (err) {
+        console.error('❌ Erro IMPERSONATE /api/admin/users/:id:', err);
+        res.status(500).json({ error: 'Erro ao realizar login como usuário' });
+    }
+});
+
 app.get('/api/admin/settings', authenticateAdmin, async (req, res) => {
     try {
         const [rows] = await pool.execute('SELECT setting_key, setting_value FROM system_settings');

@@ -227,6 +227,28 @@ const AdminView: React.FC = () => {
         }
     };
 
+    const handleImpersonate = async (user: any) => {
+        if (!confirm(`Deseja realmente fazer login como ${user.name}?`)) return;
+        try {
+            const response = await fetch(`/api/admin/users/${user.id}/impersonate`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('myzap_token')}` }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                localStorage.setItem('myzap_token', data.token);
+                localStorage.setItem('myzap_user', JSON.stringify(data.user));
+                // Force reload/redirect to dashboard
+                window.location.href = '/analytics';
+            } else {
+                showToast('Erro ao realizar login.', 'error');
+            }
+        } catch (err) {
+            showToast('Erro de conexão.', 'error');
+        }
+    };
+
     const changeUserPlan = async (user: any, newPlan: string) => {
         try {
             const response = await fetch(`/api/admin/users/${user.id}`, {
@@ -616,6 +638,13 @@ const AdminView: React.FC = () => {
                                                         </td>
                                                         <td className="py-5 px-6 text-right">
                                                             <div className="flex items-center justify-end gap-2 text-slate-400">
+                                                                <button
+                                                                    onClick={() => handleImpersonate(user)}
+                                                                    className="w-10 h-10 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-white/5 hover:border-emerald-500 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 transition-all flex items-center justify-center group/btn"
+                                                                    title="Logar como este usuário"
+                                                                >
+                                                                    <span className="material-icons-round text-lg group-hover/btn:scale-110 transition-transform">login</span>
+                                                                </button>
                                                                 <button
                                                                     onClick={() => openUserModal(user)}
                                                                     className="w-10 h-10 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-white/5 hover:border-indigo-500 hover:text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 transition-all flex items-center justify-center group/btn"
