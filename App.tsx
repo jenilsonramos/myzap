@@ -199,13 +199,13 @@ const AppContent: React.FC = () => {
   };
 
   if (location.pathname === '/') {
-    return <LandingView />;
+    return <LandingView isAuthenticated={isAuthenticated} />;
   }
 
   if (!isAuthenticated) {
     return (
       <Routes>
-        <Route path="/" element={<LandingView />} />
+        <Route path="/" element={<LandingView isAuthenticated={isAuthenticated} />} />
         <Route path="/login" element={
           <AuthView
             initialView="login"
@@ -318,7 +318,7 @@ const AppContent: React.FC = () => {
                 : <Navigate to="/analytics" replace />
             } />
             <Route path="/api-docs" element={<ApiDocsView />} />
-            <Route path="/" element={<LandingView />} />
+            <Route path="/" element={<LandingView isAuthenticated={isAuthenticated} />} />
             <Route path="*" element={<Navigate to="/analytics" replace />} />
           </Routes>
         </div>

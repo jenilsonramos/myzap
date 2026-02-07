@@ -1,7 +1,11 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const LandingView: React.FC = () => {
+interface LandingViewProps {
+    isAuthenticated: boolean;
+}
+
+const LandingView: React.FC<LandingViewProps> = ({ isAuthenticated }) => {
     const navigate = useNavigate();
 
     const plans = [
@@ -64,18 +68,30 @@ const LandingView: React.FC = () => {
                         </div>
 
                         <div className="flex items-center gap-4">
-                            <button
-                                onClick={() => navigate('/login')}
-                                className="text-sm font-bold hover:text-primary transition-colors"
-                            >
-                                Entrar
-                            </button>
-                            <button
-                                onClick={() => navigate('/cadastro')}
-                                className="bg-primary hover:bg-primary-hover text-white px-6 py-2.5 rounded-full text-sm font-bold transition-all shadow-lg shadow-primary/20 hover:scale-105 active:scale-95"
-                            >
-                                Criar Conta
-                            </button>
+                            {isAuthenticated ? (
+                                <button
+                                    onClick={() => navigate('/analytics')}
+                                    className="bg-primary hover:bg-primary-hover text-white px-8 py-2.5 rounded-full text-sm font-bold transition-all shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 flex items-center gap-2"
+                                >
+                                    <span className="material-icons-round text-sm">dashboard</span>
+                                    Acessar Painel
+                                </button>
+                            ) : (
+                                <>
+                                    <button
+                                        onClick={() => navigate('/login')}
+                                        className="text-sm font-bold hover:text-primary transition-colors px-4"
+                                    >
+                                        Entrar
+                                    </button>
+                                    <button
+                                        onClick={() => navigate('/cadastro')}
+                                        className="bg-primary hover:bg-primary-hover text-white px-8 py-2.5 rounded-full text-sm font-bold transition-all shadow-lg shadow-primary/20 hover:scale-105 active:scale-95"
+                                    >
+                                        Criar Conta
+                                    </button>
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -84,30 +100,32 @@ const LandingView: React.FC = () => {
             {/* Hero Section */}
             <section className="pt-32 pb-20 px-4">
                 <div className="max-w-7xl mx-auto text-center">
-                    <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full mb-8 animate-bounce-subtle">
-                        <span className="material-icons-round text-sm">celebration</span>
-                        <span className="text-xs font-black uppercase tracking-widest">7 Dias de Teste Grátis</span>
+                    <div className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-violet-600 text-white px-5 py-2 rounded-full mb-8 shadow-xl shadow-indigo-500/20">
+                        <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
+                        <span className="text-[10px] font-black uppercase tracking-widest">7 Dias de Teste Grátis</span>
                     </div>
 
                     <h1 className="text-5xl md:text-7xl font-black tracking-tighter leading-tight mb-6 bg-clip-text text-transparent bg-gradient-to-b from-slate-900 to-slate-600 dark:from-white dark:to-slate-400">
                         Revolucione seu Atendimento <br /> via <span className="text-primary italic">WhatsApp</span>
                     </h1>
 
-                    <p className="max-w-2xl mx-auto text-lg text-slate-500 dark:text-slate-400 mb-10">
+                    <p className="max-w-2xl mx-auto text-lg text-slate-500 dark:text-slate-400 mb-10 font-medium">
                         Conecte sua empresa ao futuro. Centralize conversas, automatize respostas e venda mais com a plataforma de automação líder do mercado.
                     </p>
 
                     <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                         <button
-                            onClick={() => navigate('/cadastro')}
+                            onClick={() => navigate(isAuthenticated ? '/analytics' : '/cadastro')}
                             className="w-full sm:w-auto bg-primary hover:bg-primary-hover text-white px-10 py-4 rounded-2xl text-lg font-black transition-all shadow-xl shadow-primary/25 flex items-center justify-center gap-2 group"
                         >
-                            Começar Agora
+                            {isAuthenticated ? 'Voltar ao Painel' : 'Começar Agora'}
                             <span className="material-icons-round group-hover:translate-x-1 transition-transform">arrow_forward</span>
                         </button>
-                        <button className="w-full sm:w-auto bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 px-10 py-4 rounded-2xl text-lg font-black hover:bg-slate-200 dark:hover:bg-slate-800 transition-all">
-                            Ver Demonstração
-                        </button>
+                        {!isAuthenticated && (
+                            <button className="w-full sm:w-auto bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 px-10 py-4 rounded-2xl text-lg font-black hover:bg-slate-200 dark:hover:bg-slate-800 transition-all font-bold">
+                                Ver Demonstração
+                            </button>
+                        )}
                     </div>
 
                     {/* Hero Decorative Image placeholder - using a styled div */}
