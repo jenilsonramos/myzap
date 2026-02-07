@@ -14,6 +14,77 @@ const WhatsAppCloudService = require('./WhatsAppCloudService');
 
 const app = express();
 
+const authenticateToken = (req, res, next) => {
+    let token = req.headers['authorization']?.split(' ')[1];
+    if (!token && req.query.token) token = req.query.token;
+
+    if (!token) return res.sendStatus(401);
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+        console.error('❌ [CRITICAL] JWT_SECRET não configurado no .env!');
+        return res.status(500).json({ error: 'Erro de configuração do servidor' });
+    }
+
+    jwt.verify(token, secret, async (err, decoded) => {
+        if (err) {
+            console.log(`❌ [AUTH] Token inválido ou expirado: ${err.message}`);
+            return res.status(403).json({ error: 'Sessão expirada ou token inválido. Por favor, faça login novamente.', code: 'TOKEN_INVALID' });
+        }
+
+        if (decoded.role === 'admin') {
+            req.user = decoded;
+            return next();
+        }
+
+        try {
+            const [rows] = await pool.execute('SELECT id, email, name, role, status, plan, trial_ends_at FROM users WHERE id = ?', [decoded.id]);
+            if (rows.length === 0) return res.status(401).json({ error: 'Usuário não encontrado' });
+
+            const user = rows[0];
+
+            if (user.status === 'expired' && user.plan === 'Teste Grátis' && user.trial_ends_at && new Date(user.trial_ends_at) > new Date()) {
+                console.log(`🚑 [SELF-HEAL] Reativando usuário ${user.email} (Trial válido até ${user.trial_ends_at})`);
+                await pool.execute("UPDATE users SET status = 'active', is_blocked = FALSE WHERE id = ?", [user.id]);
+                user.status = 'active';
+            }
+
+            req.user = user;
+            console.log(`👤 [USER] ${user.id} (${user.email}) -> ${req.method} ${req.url} [Plan: ${user.plan}, Status: ${user.status}]`);
+
+            const allowedPaths = ['/api/user/subscription', '/api/plans', '/api/stripe/create-checkout-session', '/api/auth/me', '/api/admin/settings'];
+            const isAllowed = allowedPaths.some(path => req.url.startsWith(path));
+
+            const isBlocked = ['inactive', 'suspended', 'expired'].includes(user.status);
+            if (isBlocked && user.role !== 'admin' && !isAllowed) {
+                console.warn(`🚫 [BLOCK] Usuário ${user.id} (${user.email}) tentando acessar ${req.url} com status: ${user.status}.`);
+
+                let errorMessage = 'Sua assinatura expirou. Por favor, renove para continuar.';
+                let errorCode = 'SUBSCRIPTION_EXPIRED';
+
+                if (user.status === 'suspended') {
+                    errorMessage = 'Sua conta foi suspensa. Entre em contato com o suporte.';
+                    errorCode = 'ACCOUNT_SUSPENDED';
+                }
+
+                return res.status(403).json({ error: errorMessage, code: errorCode });
+            }
+
+            next();
+        } catch (err) { return res.sendStatus(500); }
+    });
+};
+
+const authenticateAdmin = (req, res, next) => {
+    authenticateToken(req, res, () => {
+        if (req.user.role === 'admin') {
+            next();
+        } else {
+            res.sendStatus(403);
+        }
+    });
+};
+
+
 // Configurações de Segurança Nativas
 app.use(helmet({
     contentSecurityPolicy: false, // Pode causar problemas com React se não configurado finamente
@@ -751,72 +822,7 @@ const getStripe = async () => {
 };
 
 
-const authenticateToken = (req, res, next) => {
-    let token = req.headers['authorization']?.split(' ')[1];
-    if (!token && req.query.token) token = req.query.token;
 
-    if (!token) return res.sendStatus(401);
-    const secret = process.env.JWT_SECRET;
-    if (!secret) {
-        console.error('❌ [CRITICAL] JWT_SECRET não configurado no .env!');
-        return res.status(500).json({ error: 'Erro de configuração do servidor' });
-    }
-
-    jwt.verify(token, secret, async (err, decoded) => {
-        if (err) {
-            console.log(`❌ [AUTH] Token inválido ou expirado: ${err.message}`);
-            return res.status(403).json({ error: 'Sessão expirada ou token inválido. Por favor, faça login novamente.', code: 'TOKEN_INVALID' });
-        }
-
-        try {
-            // Re-fetch user from DB to get the most recent status and plan
-            const [rows] = await pool.execute('SELECT id, email, name, role, status, plan, trial_ends_at FROM users WHERE id = ?', [decoded.id]);
-            if (rows.length === 0) return res.status(401).json({ error: 'Usuário não encontrado' });
-
-            const user = rows[0];
-
-            // SELF-HEALING: Se status 'expired' mas trial ainda válido, reativar
-            if (user.status === 'expired' && user.plan === 'Teste Grátis' && user.trial_ends_at && new Date(user.trial_ends_at) > new Date()) {
-                console.log(`🚑 [SELF-HEAL] Reativando usuário ${user.email} (Trial válido até ${user.trial_ends_at})`);
-                await pool.execute("UPDATE users SET status = 'active', is_blocked = FALSE WHERE id = ?", [user.id]);
-                user.status = 'active'; // Atualizar objeto local para o request atual
-            }
-
-            req.user = user;
-
-            // Log discreto para cada request autenticada
-            console.log(`👤 [USER] ${user.id} (${user.email}) -> ${req.method} ${req.url} [Plan: ${user.plan}, Status: ${user.status}]`);
-
-            // SE estiver INATIVO, bloqueia quase tudo (exceto o necessário para pagar/ver plano)
-            const allowedPaths = ['/api/user/subscription', '/api/plans', '/api/stripe/create-checkout-session', '/api/auth/me', '/api/admin/settings'];
-            const isAllowed = allowedPaths.some(path => req.url.startsWith(path));
-
-            const isBlocked = ['inactive', 'suspended', 'expired'].includes(user.status);
-            if (isBlocked && user.role !== 'admin' && !isAllowed) {
-                console.warn(`🚫 [BLOCK] Usuário ${user.id} (${user.email}) tentando acessar ${req.url} com status: ${user.status}.`);
-
-                let errorMessage = 'Sua assinatura expirou. Por favor, renove para continuar.';
-                let errorCode = 'SUBSCRIPTION_EXPIRED';
-
-                if (user.status === 'suspended') {
-                    errorMessage = 'Sua conta foi suspensa pela administração. Entre em contato com o suporte.';
-                    errorCode = 'ACCOUNT_SUSPENDED';
-                }
-
-                return res.status(403).json({
-                    error: errorMessage,
-                    code: errorCode,
-                    redirect: '/my-plan'
-                });
-            }
-
-            next();
-        } catch (dbErr) {
-            console.error('❌ [AUTH] Erro ao validar usuário no banco:', dbErr);
-            res.status(500).json({ error: 'Erro interno ao validar sessão' });
-        }
-    });
-};
 
 // --- HELPER DE LIMITES ---
 async function checkUserLimit(userId, limitType) {
@@ -872,14 +878,7 @@ async function checkUserLimit(userId, limitType) {
 }
 
 
-const authenticateAdmin = (req, res, next) => {
-    authenticateToken(req, res, () => {
-        if (req.user.role !== 'admin') {
-            return res.status(403).json({ error: 'Acesso negado. Apenas administradores.' });
-        }
-        next();
-    });
-};
+
 
 // Aplicar rate limiting especial para rotas sensíveis
 app.use('/api/auth/login', authLimiter);
