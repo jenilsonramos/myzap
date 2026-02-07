@@ -1,4 +1,4 @@
-const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args)).catch(() => global.fetch(...args));
+const axios = require('axios');
 
 class EvolutionService {
     constructor(baseUrl, apiKey) {
@@ -14,38 +14,38 @@ class EvolutionService {
         const url = `${this.baseUrl}${endpoint}`;
         const options = {
             method,
+            url,
             headers: {
                 'Content-Type': 'application/json',
                 'apikey': this.apiKey
-            }
+            },
+            validateStatus: () => true // Resolve promise even for 4xx/5xx to handle errors manually
         };
 
         if (body) {
-            options.body = JSON.stringify(body);
+            options.data = body;
         }
 
         console.log(`📡 [Evolution] ${method} ${url}`);
-        const response = await fetch(url, options);
 
-        if (response.status === 204) return null;
-
-        const text = await response.text();
-        console.log(`📥 [Evolution] Response (${response.status}):`, text);
-
-        let data;
         try {
-            data = JSON.parse(text);
-        } catch (e) {
-            console.error('❌ Falha ao parsear JSON da Evolution:', e.message);
-            throw new Error(`Evolution API Error (${response.status}): ${text.slice(0, 100)}`);
-        }
+            const response = await axios(options);
 
-        if (!response.ok) {
-            const errorMsg = data.response?.message || data.message || data.error || JSON.stringify(data);
-            console.error(`❌ Erro da API Evolution [${response.status}]:`, errorMsg);
-            throw new Error(errorMsg);
+            if (response.status === 204) return null;
+
+            console.log(`📥 [Evolution] Response (${response.status}):`, typeof response.data === 'object' ? JSON.stringify(response.data).slice(0, 100) : response.data);
+
+            if (response.status >= 200 && response.status < 300) {
+                return response.data;
+            } else {
+                const errorMsg = response.data?.message || response.data?.error || JSON.stringify(response.data);
+                console.error(`❌ Erro da API Evolution [${response.status}]:`, errorMsg);
+                throw new Error(errorMsg);
+            }
+        } catch (error) {
+            console.error(`❌ Falha na requisição Evolution:`, error.message);
+            throw error;
         }
-        return data;
     }
 
     // 1. Criar Instância
