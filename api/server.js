@@ -1744,15 +1744,16 @@ app.get('/api/analytics/dashboard', authenticateToken, async (req, res) => {
         // 2. Volume Diário
         try {
             // Use strict SQL safe approach, wrap timestamp
-            SELECT
-            DATE_FORMAT(FROM_UNIXTIME(`timestamp`), '%d/%m') as name,
-                DATE(FROM_UNIXTIME(`timestamp`)) as day_date,
-                COUNT(*) as value 
+            const [dailyRes] = await pool.query(`
+                SELECT 
+                    DATE_FORMAT(FROM_UNIXTIME(`timestamp`), '%d/%m') as name, 
+                    DATE(FROM_UNIXTIME(`timestamp`)) as day_date,
+                    COUNT(*) as value 
                 FROM messages 
-                WHERE user_id = ? AND`timestamp` >= ? AND`timestamp` <= ?
+                WHERE user_id = ? AND `timestamp` >= ? AND `timestamp` <= ?
                 GROUP BY day_date, name
                 ORDER BY day_date ASC
-                `, [userId, startTs, endTs]);
+            `, [userId, startTs, endTs]);
             daily = dailyRes;
         } catch (e) {
             console.error('❌ Error fetching daily stats:', e.message);
