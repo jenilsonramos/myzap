@@ -2513,10 +2513,12 @@ async function processSetVariableNode(node, context) {
     // Persistir no banco de dados (contacts)
     try {
         const jid = context.remoteJid;
-        await pool.query(
-            "UPDATE contacts SET variables = JSON_SET(COALESCE(variables, '{}'), ?, ?) WHERE remote_jid = ? AND user_id = ?",
-            [`$.${name}`, value, jid, context.userId]
-        );
+        const isObj = typeof value === 'object' && value !== null;
+        const query = isObj
+            ? "UPDATE contacts SET variables = JSON_SET(COALESCE(variables, '{}'), ?, CAST(? AS JSON)) WHERE remote_jid = ? AND user_id = ?"
+            : "UPDATE contacts SET variables = JSON_SET(COALESCE(variables, '{}'), ?, ?) WHERE remote_jid = ? AND user_id = ?";
+
+        await pool.query(query, [`$.${name}`, isObj ? JSON.stringify(value) : value, jid, context.userId]);
     } catch (err) {
         console.error('❌ [FLOW] Error saving variable to DB:', err.message);
     }
@@ -2626,7 +2628,7 @@ async function processApiNode(node, context) {
         try {
             const jid = context.remoteJid;
             await pool.query(
-                "UPDATE contacts SET variables = JSON_SET(COALESCE(variables, '{}'), '$.api_response', ?) WHERE remote_jid = ? AND user_id = ?",
+                "UPDATE contacts SET variables = JSON_SET(COALESCE(variables, '{}'), '$.api_response', CAST(? AS JSON)) WHERE remote_jid = ? AND user_id = ?",
                 [JSON.stringify(data), jid, context.userId]
             );
             console.log(`💾 [FLOW] Full api_response persisted for ${jid}`);
@@ -2659,10 +2661,12 @@ async function processApiNode(node, context) {
                         // Persistir no banco de dados para o contato
                         try {
                             const jid = context.remoteJid;
-                            await pool.query(
-                                "UPDATE contacts SET variables = JSON_SET(COALESCE(variables, '{}'), ?, ?) WHERE remote_jid = ? AND user_id = ?",
-                                [`$.${varName}`, typeof val === 'object' ? JSON.stringify(val) : val, jid, context.userId]
-                            );
+                            const isObj = typeof val === 'object' && val !== null;
+                            const query = isObj
+                                ? "UPDATE contacts SET variables = JSON_SET(COALESCE(variables, '{}'), ?, CAST(? AS JSON)) WHERE remote_jid = ? AND user_id = ?"
+                                : "UPDATE contacts SET variables = JSON_SET(COALESCE(variables, '{}'), ?, ?) WHERE remote_jid = ? AND user_id = ?";
+
+                            await pool.query(query, [`$.${varName}`, isObj ? JSON.stringify(val) : val, jid, context.userId]);
                             console.log(`💾 [FLOW] Variable ${varName} persisted for ${jid}`);
                         } catch (dbErr) {
                             console.error('❌ [FLOW] Error persisting variable:', dbErr.message);
@@ -3376,7 +3380,8 @@ app.post('/api/webhook/evolution', async (req, res) => {
                         if (stateRows.length > 0) {
                             const state = stateRows[0];
                             logDebug(`🔄 [FLOW] Resuming flow ${state.flow_id} for node ${state.current_node_id}`);
-                            const varName = state.variable_name || 'user_input';
+                            // Sanitizar nome da variável (pode ter sido salvo com {{ }} se o nó não foi atualizado antes)
+                            const varName = sanitizeVariableName(state.variable_name || 'user_input');
                             logDebug(`📥 [FLOW] Variable Name to save: ${varName} | Value: ${content}`);
 
                             // Save variable to contact
