@@ -2487,6 +2487,9 @@ async function processQuestionNode(node, context) {
     const question = replaceVariables(node.data.question || '', context);
     await sendWhatsAppMessage(context.instanceName, context.remoteJid, question);
 
+    // Sanatizar nome da variável (remover {{ }} caso o usuário tenha colocado)
+    const varName = sanitizeVariableName(node.data.variable || 'user_input');
+
     // Store pending input state
     await pool.query(`
         INSERT INTO flow_state (user_id, remote_jid, variable_name, flow_id, current_node_id, created_at)
@@ -2496,11 +2499,12 @@ async function processQuestionNode(node, context) {
             flow_id = VALUES(flow_id),
             current_node_id = VALUES(current_node_id),
             created_at = NOW()
-    `, [context.userId, context.remoteJid, node.data.variable || 'user_input', context.flowId, node.id]);
+    `, [context.userId, context.remoteJid, varName, context.flowId, node.id]);
 }
 
 async function processSetVariableNode(node, context) {
-    const name = node.data.variableName || 'var';
+    const rawName = node.data.variableName || 'var';
+    const name = sanitizeVariableName(rawName);
     const value = replaceVariables(node.data.value || '', context);
     context.variables[name] = value;
 
@@ -2508,10 +2512,10 @@ async function processSetVariableNode(node, context) {
 
     // Persistir no banco de dados (contacts)
     try {
-        const number = context.remoteJid.replace('@s.whatsapp.net', '');
+        const jid = context.remoteJid;
         await pool.query(
-            "UPDATE contacts SET variables = JSON_SET(COALESCE(variables, '{}'), ?, ?) WHERE number = ? AND user_id = ?",
-            [`$.${name}`, value, number, context.userId]
+            "UPDATE contacts SET variables = JSON_SET(COALESCE(variables, '{}'), ?, ?) WHERE remote_jid = ? AND user_id = ?",
+            [`$.${name}`, value, jid, context.userId]
         );
     } catch (err) {
         console.error('❌ [FLOW] Error saving variable to DB:', err.message);
@@ -2648,17 +2652,18 @@ async function processApiNode(node, context) {
                     }
 
                     if (val !== undefined) {
-                        context.variables[mapping.variableName] = val;
-                        console.log(`📌 [FLOW] Mapped ${cleanPath} -> ${mapping.variableName} = ${val}`);
+                        const varName = sanitizeVariableName(mapping.variableName);
+                        context.variables[varName] = val;
+                        console.log(`📌 [FLOW] Mapped ${cleanPath} -> ${varName} = ${val}`);
 
                         // Persistir no banco de dados para o contato
                         try {
                             const jid = context.remoteJid;
                             await pool.query(
                                 "UPDATE contacts SET variables = JSON_SET(COALESCE(variables, '{}'), ?, ?) WHERE remote_jid = ? AND user_id = ?",
-                                [`$.${mapping.variableName}`, typeof val === 'object' ? JSON.stringify(val) : val, jid, context.userId]
+                                [`$.${varName}`, typeof val === 'object' ? JSON.stringify(val) : val, jid, context.userId]
                             );
-                            console.log(`💾 [FLOW] Variable ${mapping.variableName} persisted for ${jid}`);
+                            console.log(`💾 [FLOW] Variable ${varName} persisted for ${jid}`);
                         } catch (dbErr) {
                             console.error('❌ [FLOW] Error persisting variable:', dbErr.message);
                         }
@@ -2831,6 +2836,13 @@ async function processInteractiveNode(node, context) {
 }
 
 // ===== HELPER FUNCTIONS =====
+
+// Auxiliar para sanitizar nomes de variáveis digitados pelo usuário
+function sanitizeVariableName(name) {
+    if (!name || typeof name !== 'string') return 'var';
+    // Remove {{, }}, espaços e garante que não comece com ponto
+    return name.replace(/\{\{|\}\}/g, '').trim().replace(/^\./, '');
+}
 
 function replaceVariables(text, context) {
     if (!text || typeof text !== 'string') return text;
