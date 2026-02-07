@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useToast } from './ToastContext';
 import { emailTemplates } from '../lib/EmailTemplates';
 
 const AdminView: React.FC = () => {
     const { showToast } = useToast();
-    const [activeTab, setActiveTab] = useState<'users' | 'plans' | 'payments' | 'emails' | 'analytics' | 'system' | 'branding'>('analytics');
+    const [searchParams] = useSearchParams();
+    const [activeTab, setActiveTab] = useState<'users' | 'plans' | 'payments' | 'emails' | 'analytics' | 'system' | 'branding'>((searchParams.get('tab') as any) || 'analytics');
     const [dbTemplates, setDbTemplates] = useState<any[]>([]);
     const [previewEmail, setPreviewEmail] = useState<keyof typeof emailTemplates | null>(null);
     const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);

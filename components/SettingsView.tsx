@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useToast } from './ToastContext';
 
 const SettingsView: React.FC = () => {
     const { showToast } = useToast();
+    const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState<'profile' | 'api' | 'webhook' | 'security'>('profile');
 
     // Dados Reais do Usuário
@@ -103,6 +105,17 @@ const SettingsView: React.FC = () => {
                 >
                     Segurança
                 </button>
+
+                {user.role === 'admin' && (
+                    <button
+                        onClick={() => navigate('/admin?tab=branding')}
+                        className="px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-500/30 flex items-center gap-2 ml-2"
+                        title="Acessar Painel de Branding & SEO"
+                    >
+                        <span className="material-icons-round text-sm">palette</span>
+                        Branding
+                    </button>
+                )}
             </div>
 
             {/* Main Content Area */}
