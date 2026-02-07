@@ -514,73 +514,82 @@ const ChatView: React.FC = () => {
         const { content, type, mediaUrl } = getMessageContent(msg);
 
         return (
-            <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-6 px-1 animate-in fade-in slide-in-from-bottom-3 duration-500 ease-out`}>
+            <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-8 px-1 animate-in fade-in slide-in-from-bottom-4 duration-700 ease-out`}>
                 <div className={`
-                    max-w-[85%] sm:max-w-[70%] lg:max-w-[65%] p-4 rounded-[2rem] shadow-sm relative backdrop-blur-md border border-white/40
-                    ${isMe ? 'bg-primary text-white rounded-tr-none shadow-blue-200/50' :
-                        msg.source === 'ai' ? 'bg-indigo-50 text-indigo-900 rounded-tl-none border-indigo-100 shadow-indigo-100/50' :
-                            'bg-slate-100/50 text-slate-800 rounded-tl-none border-slate-200/50 shadow-slate-200/50'}
+                    max-w-[85%] sm:max-w-[70%] lg:max-w-[60%] p-1.5 rounded-[2.5rem] shadow-sm relative transition-all duration-500
+                    ${isMe ? 'bg-gradient-to-br from-primary to-blue-600 text-white rounded-tr-none shadow-blue-200/50' :
+                        msg.source === 'ai' ? 'bg-white/80 text-indigo-900 rounded-tl-none border border-indigo-100 shadow-indigo-100/30' :
+                            'bg-white text-slate-800 rounded-tl-none border border-slate-200/60 shadow-slate-200/30'}
                 `}>
-                    {type === 'image' && mediaUrl && (
-                        <div className="relative group overflow-hidden rounded-[1.5rem] mb-3 border border-white/20">
-                            <img src={mediaUrl} className="max-h-96 w-full object-contain bg-black/5 cursor-pointer hover:scale-[1.02] transition-transform duration-700 ease-out" onClick={() => window.open(mediaUrl, '_blank')} />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
-                        </div>
-                    )}
-                    {type === 'video' && mediaUrl && (
-                        <video src={mediaUrl} controls className="rounded-[1.5rem] mb-3 max-h-96 w-full bg-black/5 border border-white/20 shadow-inner" />
-                    )}
-                    {type === 'sticker' && mediaUrl && (
-                        <div className="relative group flex justify-center py-2">
-                            <img src={mediaUrl} className="max-w-[180px] max-h-[180px] object-contain cursor-pointer drop-shadow-xl hover:scale-110 transition-transform duration-500" />
-                        </div>
-                    )}
-                    {type === 'audio' && mediaUrl && (
-                        <div className="min-w-[260px] py-1">
-                            <audio
-                                src={mediaUrl}
-                                controls
-                                preload="metadata"
-                                className={`w-full h-10 ${isMe ? 'filter invert brightness-200' : ''}`}
-                            >
-                                <source src={mediaUrl} type="audio/ogg" />
-                                <source src={mediaUrl} type="audio/mpeg" />
-                            </audio>
-                            <div className="flex justify-between mt-2 px-2 text-[8px] font-black uppercase tracking-[0.2em] opacity-40">
-                                <span>Voice Message</span>
+                    <div className="p-3.5 sm:p-5">
+                        {type === 'image' && mediaUrl && (
+                            <div className="relative group overflow-hidden rounded-[2rem] mb-4 border border-white/20 shadow-lg">
+                                <img src={mediaUrl} className="max-h-96 w-full object-contain bg-black/5 cursor-pointer hover:scale-[1.03] transition-transform duration-700 ease-out" onClick={() => window.open(mediaUrl, '_blank')} alt="" />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500 pointer-events-none flex items-end p-4">
+                                    <span className="text-white text-[10px] font-black uppercase tracking-widest bg-black/20 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/20">Expandir</span>
+                                </div>
                             </div>
-                        </div>
-                    )}
-                    {type === 'document' && mediaUrl && (
-                        <div className="flex items-center gap-4 p-4 bg-white/10 rounded-2xl border border-white/10 mb-2 group hover:bg-white/20 transition-all cursor-pointer">
-                            <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center text-primary group-hover:scale-110 transition-transform shadow-inner">
-                                <span className="material-icons-round text-2xl">description</span>
+                        )}
+                        {type === 'video' && mediaUrl && (
+                            <div className="rounded-[2rem] overflow-hidden mb-4 border border-white/20 shadow-lg bg-black/5">
+                                <video src={mediaUrl} controls className="w-full max-h-96" />
                             </div>
-                            <div className="flex-1 min-w-0">
-                                <p className="text-sm truncate font-bold leading-tight">{content || 'Document'}</p>
-                                <p className="text-[9px] opacity-50 font-black tracking-widest uppercase mt-0.5">FILES / ASSETS</p>
+                        )}
+                        {type === 'sticker' && mediaUrl && (
+                            <div className="relative group flex justify-center py-4">
+                                <img src={mediaUrl} className="max-w-[180px] max-h-[180px] object-contain cursor-pointer drop-shadow-2xl hover:scale-110 transition-transform duration-500" alt="" />
                             </div>
-                            <a href={mediaUrl} target="_blank" className="w-10 h-10 flex items-center justify-center hover:bg-black/5 rounded-xl transition-all" onClick={(e) => e.stopPropagation()}><span className="material-icons-round text-lg text-primary">download</span></a>
-                        </div>
-                    )}
-                    {type === 'text' && content && <p className="text-[15px] whitespace-pre-wrap leading-snug py-1 px-1 tracking-tight font-medium">{content}</p>}
+                        )}
+                        {type === 'audio' && mediaUrl && (
+                            <div className="min-w-[260px] py-2 px-1">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <div className={`p-2 rounded-full ${isMe ? 'bg-white/20' : 'bg-primary/10 text-primary'}`}>
+                                        <span className="material-icons-round text-lg">mic</span>
+                                    </div>
+                                    <span className={`text-[10px] font-black uppercase tracking-widest ${isMe ? 'text-white/70' : 'text-slate-400'}`}>Mensagem de áudio</span>
+                                </div>
+                                <audio
+                                    src={mediaUrl}
+                                    controls
+                                    preload="metadata"
+                                    className={`w-full h-8 ${isMe ? 'filter invert brightness-200 opacity-80' : 'opacity-90'}`}
+                                >
+                                    <source src={mediaUrl} type="audio/ogg" />
+                                    <source src={mediaUrl} type="audio/mpeg" />
+                                </audio>
+                            </div>
+                        )}
+                        {type === 'document' && mediaUrl && (
+                            <div className={`flex items-center gap-4 p-4 ${isMe ? 'bg-white/10 border-white/10' : 'bg-slate-50 border-slate-100'} rounded-2xl border mb-3 group transition-all`}>
+                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isMe ? 'bg-white/20 text-white' : 'bg-primary/10 text-primary'} shadow-inner`}>
+                                    <span className="material-icons-round text-2xl">description</span>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className={`text-sm truncate font-bold ${isMe ? 'text-white' : 'text-slate-800'}`}>{content || 'Documento'}</p>
+                                    <p className={`text-[9px] font-black tracking-widest uppercase mt-0.5 ${isMe ? 'text-white/50' : 'text-slate-400'}`}>Arquivo / {type.toUpperCase()}</p>
+                                </div>
+                                <a href={mediaUrl} target="_blank" rel="noreferrer" className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all ${isMe ? 'hover:bg-white/10' : 'hover:bg-slate-200'}`} onClick={(e) => e.stopPropagation()}><span className="material-icons-round text-lg">download</span></a>
+                            </div>
+                        )}
+                        {type === 'text' && content && <p className="text-[15px] whitespace-pre-wrap leading-relaxed py-1 px-1 font-medium tracking-tight overflow-hidden text-ellipsis">{content}</p>}
 
-                    <div className={`flex items-center justify-end gap-2 mt-2 opacity-50`}>
-                        {msg.source === 'ai' && (
-                            <div className="flex items-center gap-1 bg-white/20 px-2 py-0.5 rounded-full border border-white/10">
-                                <span className="material-icons-round text-[10px]" title="AI Assistant">auto_awesome</span>
-                                <span className="text-[8px] font-black uppercase tracking-tighter">AI</span>
-                            </div>
-                        )}
-                        <span className="text-[10px] font-bold tracking-tight">
-                            {new Date(msg.timestamp * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
-                        </span>
-                        {isMe && !msg.isPending && (
-                            <span className="material-icons-round text-[16px] -ml-0.5">
-                                {msg.status === 'read' ? 'done_all' : 'done'}
+                        <div className={`flex items-center justify-end gap-2.5 mt-2.5 ${isMe ? 'text-blue-100' : 'text-slate-400'}`}>
+                            {msg.source === 'ai' && (
+                                <div className="flex items-center gap-1.5 bg-indigo-500/10 px-2.5 py-1 rounded-full border border-indigo-500/10">
+                                    <span className="material-icons-round text-[10px] text-indigo-500" title="Assistente IA">auto_awesome</span>
+                                    <span className="text-[8px] font-black uppercase tracking-widest text-indigo-600">IA</span>
+                                </div>
+                            )}
+                            <span className="text-[10px] font-bold tracking-tight opacity-70">
+                                {new Date(msg.timestamp * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                             </span>
-                        )}
-                        {msg.isPending && <span className="material-icons-round text-[12px] animate-spin">sync</span>}
+                            {isMe && !msg.isPending && (
+                                <span className={`material-icons-round text-[18px] -ml-0.5 ${msg.status === 'read' ? 'text-blue-200' : 'opacity-50'}`}>
+                                    {msg.status === 'read' ? 'done_all' : 'done'}
+                                </span>
+                            )}
+                            {msg.isPending && <span className="material-icons-round text-[14px] animate-spin opacity-50">sync</span>}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -597,79 +606,79 @@ const ChatView: React.FC = () => {
     };
 
     return (
-        <div className="h-screen w-screen bg-gradient-to-br from-rose-50 via-teal-50 to-indigo-50 p-6 flex overflow-hidden font-sans">
+        <div className="h-screen w-screen bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-indigo-100 via-slate-50 to-rose-100 p-4 sm:p-6 flex overflow-hidden font-outfit text-slate-900">
             {/* --- Main Dashboard Container --- */}
-            <div className="flex-1 bg-white/95 backdrop-blur-3xl rounded-[3rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] flex overflow-hidden border border-white relative">
+            <div className="flex-1 bg-white/70 backdrop-blur-2xl rounded-[2.5rem] shadow-[0_40px_100px_-20px_rgba(0,0,0,0.08)] flex overflow-hidden border border-white/60 relative">
 
                 {/* 1. Global Navigation Sidebar (Left) */}
-                <div className="w-[100px] border-r border-slate-100 flex flex-col items-center py-8 gap-10">
-                    <div className="p-3 bg-gradient-to-tr from-[#00A3FF] to-[#0055FF] rounded-2xl shadow-lg shadow-blue-200 rotate-12 hover:rotate-0 transition-all cursor-pointer">
-                        <span className="material-icons-round text-white text-3xl">api</span>
+                <div className="w-20 sm:w-24 border-r border-slate-200/60 flex flex-col items-center py-8 gap-12 bg-white/20 backdrop-blur-md">
+                    <div className="p-3.5 bg-gradient-to-br from-[#00A3FF] to-[#0055FF] rounded-2xl shadow-[0_10px_20px_-5px_rgba(0,85,255,0.4)] rotate-3 hover:rotate-0 transition-all duration-500 cursor-pointer group">
+                        <span className="material-icons-round text-white text-2xl group-hover:scale-110 transition-transform">api</span>
                     </div>
 
-                    <div className="flex-1 flex flex-col gap-8 text-slate-400">
-                        <button className="hover:text-primary transition-all p-2 rounded-xl hover:bg-slate-50"><span className="material-icons-round text-2xl">grid_view</span></button>
-                        <button className="text-primary transition-all p-2 rounded-xl bg-blue-50/50 shadow-inner"><span className="material-icons-round text-2xl">chat_bubble</span></button>
-                        <button className="hover:text-primary transition-all p-2 rounded-xl hover:bg-slate-50"><span className="material-icons-round text-2xl">calendar_today</span></button>
-                        <button className="hover:text-primary transition-all p-2 rounded-xl hover:bg-slate-50"><span className="material-icons-round text-2xl">folder</span></button>
-                        <button className="hover:text-primary transition-all p-2 rounded-xl hover:bg-slate-50"><span className="material-icons-round text-2xl">shopping_bag</span></button>
-                        <div className="h-px w-8 bg-slate-100 mx-auto"></div>
-                        <button className="hover:text-primary transition-all p-2 rounded-xl hover:bg-slate-50"><span className="material-icons-round text-2xl">near_me</span></button>
-                        <button className="hover:text-primary transition-all p-2 rounded-xl hover:bg-slate-50"><span className="material-icons-round text-2xl">campaign</span></button>
+                    <div className="flex-1 flex flex-col gap-6 text-slate-400">
+                        <button className="hover:text-primary transition-all p-3 rounded-2xl hover:bg-white/80 hover:shadow-sm"><span className="material-icons-round text-2xl">grid_view</span></button>
+                        <button className="text-primary transition-all p-3 rounded-2xl bg-white shadow-[0_4px_12px_rgba(0,85,255,0.1)] border border-blue-50/50"><span className="material-icons-round text-2xl">chat_bubble</span></button>
+                        <button className="hover:text-primary transition-all p-3 rounded-2xl hover:bg-white/80 hover:shadow-sm"><span className="material-icons-round text-2xl">calendar_today</span></button>
+                        <button className="hover:text-primary transition-all p-3 rounded-2xl hover:bg-white/80 hover:shadow-sm"><span className="material-icons-round text-2xl">folder</span></button>
+                        <button className="hover:text-primary transition-all p-3 rounded-2xl hover:bg-white/80 hover:shadow-sm"><span className="material-icons-round text-2xl">shopping_bag</span></button>
+                        <div className="h-px w-10 bg-slate-200/60 mx-auto my-4"></div>
+                        <button className="hover:text-primary transition-all p-3 rounded-2xl hover:bg-white/80 hover:shadow-sm"><span className="material-icons-round text-2xl">near_me</span></button>
+                        <button className="hover:text-primary transition-all p-3 rounded-2xl hover:bg-white/80 hover:shadow-sm"><span className="material-icons-round text-2xl">campaign</span></button>
                     </div>
 
-                    <div className="flex flex-col gap-6 text-slate-400 mb-4">
-                        <button className="hover:text-primary transition-all"><span className="material-icons-round text-2xl">settings</span></button>
-                        <button className="hover:text-rose-500 transition-all"><span className="material-icons-round text-2xl">logout</span></button>
+                    <div className="flex flex-col gap-6 text-slate-400 mb-2">
+                        <button className="hover:text-primary transition-all p-3 rounded-2xl hover:bg-white/80 hover:shadow-sm"><span className="material-icons-round text-2xl">settings</span></button>
+                        <button className="hover:text-rose-500 transition-all p-3 rounded-2xl hover:bg-rose-50 hover:shadow-sm"><span className="material-icons-round text-2xl">logout</span></button>
                     </div>
                 </div>
 
                 {/* 2. Chat List Sidebar (Middle-Left) */}
-                <div className="w-[380px] border-r border-slate-100 flex flex-col bg-slate-50/30 overflow-hidden">
-                    <div className="p-8 flex items-center justify-between">
-                        <h2 className="text-3xl font-black text-slate-800 tracking-tighter">Chat</h2>
-                        <button className="w-12 h-12 bg-[#0055FF] text-white rounded-2xl shadow-lg shadow-blue-200 hover:scale-105 transition-all flex items-center justify-center">
-                            <span className="material-icons-round text-2xl">add</span>
+                <div className="w-[320px] sm:w-[380px] border-r border-slate-200/60 flex flex-col bg-slate-50/20 overflow-hidden">
+                    <div className="p-6 sm:p-8 flex items-center justify-between">
+                        <h2 className="text-2xl sm:text-3xl font-black text-slate-800 tracking-tight">Conversas</h2>
+                        <button className="w-10 h-10 sm:w-12 sm:h-12 bg-primary text-white rounded-2xl shadow-lg shadow-blue-200 hover:scale-105 active:scale-95 transition-all flex items-center justify-center group">
+                            <span className="material-icons-round text-2xl group-hover:rotate-90 transition-transform duration-500">add</span>
                         </button>
                     </div>
 
-                    <div className="px-8 mb-4">
+                    <div className="px-6 sm:px-8 mb-4">
                         <div className="relative group">
-                            <span className="material-icons-round absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-all">search</span>
+                            <span className="material-icons-round absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-all duration-300">search</span>
                             <input
                                 type="text"
-                                placeholder="Search conversations..."
+                                placeholder="Buscar..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full bg-white pl-12 pr-4 py-4 rounded-[1.25rem] border border-slate-50 shadow-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm font-medium"
+                                className="w-full bg-white/60 pl-12 pr-4 py-3.5 rounded-2xl border border-white shadow-sm outline-none focus:ring-4 focus:ring-primary/10 focus:bg-white transition-all text-sm font-medium placeholder:text-slate-400"
                             />
                         </div>
                     </div>
 
-                    <div className="px-8 mb-6">
-                        <div className="bg-white rounded-2xl p-1 shadow-sm border border-slate-100 flex gap-1">
+                    <div className="px-6 sm:px-8 mb-6">
+                        <div className="bg-white/40 backdrop-blur-sm rounded-2xl p-1.5 shadow-sm border border-white/60 flex gap-1">
                             {(['open', 'closed'] as const).map(s => (
                                 <button
                                     key={s}
                                     onClick={() => setFilterStatus(s === 'open' ? 'open' : 'closed')}
                                     className={`
-                                        flex-1 py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-[0.15em] transition-all
+                                        flex-1 py-2.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300
                                         ${(filterStatus === 'all' && s === 'open') || (filterStatus === s)
-                                            ? 'bg-white shadow-sm border border-slate-50 text-[#0055FF]'
+                                            ? 'bg-white shadow-md border border-slate-100 text-primary translate-y-[-1px]'
                                             : 'text-slate-400 hover:text-slate-600'}
                                     `}
                                 >
-                                    {s === 'open' ? 'Open' : 'Archived'}
+                                    {s === 'open' ? 'Abertos' : 'Finalizados'}
                                 </button>
                             ))}
                         </div>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto px-6 custom-scrollbar space-y-3 pb-8">
+                    <div className="flex-1 overflow-y-auto px-4 sm:px-6 custom-scrollbar space-y-3 pb-8">
                         {filteredContacts.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center p-12 opacity-20 select-none grayscale">
-                                <span className="material-icons-round text-6xl mb-4">history</span>
-                                <p className="text-xs font-black uppercase tracking-widest text-center">Empty</p>
+                            <div className="flex flex-col items-center justify-center p-12 opacity-30 select-none">
+                                <span className="material-icons-round text-6xl mb-4 text-slate-300">forum</span>
+                                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-center text-slate-400">Nenhuma conversa</p>
                             </div>
                         ) : (
                             filteredContacts.map(c => (
@@ -681,14 +690,18 @@ const ChatView: React.FC = () => {
                                         markAsRead(c.id);
                                     }}
                                     className={`
-                                        group flex items-center gap-4 p-5 rounded-[2rem] cursor-pointer transition-all duration-500 relative
+                                        group flex items-center gap-4 p-4 rounded-[2rem] cursor-pointer transition-all duration-500 relative
                                         ${selectedContact?.id === c.id
-                                            ? 'bg-white shadow-[0_20px_40px_-12px_rgba(0,0,0,0.06)] border border-slate-50 scale-[1.02]'
-                                            : 'hover:bg-white/50'}
+                                            ? 'bg-white shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] border border-white scale-[1.02] active:scale-[0.98]'
+                                            : 'hover:bg-white/60'}
                                     `}>
                                     <div className="relative shrink-0">
-                                        <div className={`w-14 h-14 rounded-2xl text-white font-bold text-xl flex items-center justify-center shadow-inner ${getStatusColor(c.status)}`}>
-                                            {c.name.charAt(0).toUpperCase()}
+                                        <div className={`w-14 h-14 rounded-[1.25rem] text-white font-bold text-xl flex items-center justify-center shadow-lg shadow-black/5 ${getStatusColor(c.status)}`}>
+                                            {c.profile_pic ? (
+                                                <img src={c.profile_pic} className="w-full h-full object-cover rounded-[1.25rem]" alt="" />
+                                            ) : (
+                                                c.name.charAt(0).toUpperCase()
+                                            )}
                                         </div>
                                         <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-4 border-white ${getStatusColor(c.status)}`}></div>
                                     </div>
@@ -698,12 +711,12 @@ const ChatView: React.FC = () => {
                                             {c.lastTime && <span className="text-[10px] text-slate-400 font-bold">{formatFriendlyDate(c.lastTime)}</span>}
                                         </div>
                                         <div className="flex items-center justify-between gap-2">
-                                            <p className="text-xs text-slate-500 truncate">{c.lastMessage || 'Inicie um atendimento'}</p>
-                                            {c.unread_count > 0 && <span className="h-5 w-5 bg-rose-500 text-white text-[9px] font-black rounded-full flex items-center justify-center animate-bounce shadow-lg shadow-rose-200">{c.unread_count}</span>}
+                                            <p className="text-xs text-slate-500 truncate font-medium">{c.lastMessage || 'Inicie um atendimento'}</p>
+                                            {c.unread_count > 0 && <span className="h-5 min-w-[20px] px-1 bg-rose-500 text-white text-[9px] font-black rounded-full flex items-center justify-center animate-bounce shadow-lg shadow-rose-200">{c.unread_count}</span>}
                                         </div>
                                     </div>
                                     {selectedContact?.id === c.id && (
-                                        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1.5 h-12 bg-[#0055FF] rounded-l-full shadow-[0_0_12px_rgba(0,85,255,0.4)]"></div>
+                                        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1.5 h-8 bg-primary rounded-l-full shadow-[0_0_15px_rgba(0,85,255,0.5)]"></div>
                                     )}
                                 </div>
                             ))
@@ -712,99 +725,115 @@ const ChatView: React.FC = () => {
                 </div>
 
                 {/* 3. Main Chat Window (Middle-Right) */}
-                <div className="flex-1 flex flex-col bg-white">
+                <div className="flex-1 flex flex-col bg-white/40 backdrop-blur-sm">
                     {/* Top utility bar */}
-                    <div className="h-24 px-10 border-b border-slate-50 flex items-center justify-between bg-white/50 backdrop-blur-md">
-                        <div className="relative group w-full max-w-xl">
-                            <span className="material-icons-round absolute left-0 top-1/2 -translate-y-1/2 text-slate-300">search</span>
+                    <div className="h-20 px-6 sm:px-10 border-b border-slate-200/60 flex items-center justify-between bg-white/40 backdrop-blur-md">
+                        <div className="relative group w-full max-w-md">
+                            <span className="material-icons-round absolute left-0 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors">search</span>
                             <input
                                 type="text"
-                                placeholder="Search for people, document, goods..."
-                                className="w-full bg-transparent pl-10 pr-4 py-2 outline-none text-slate-600 placeholder:text-slate-300 font-medium"
+                                placeholder="Procurar mensagens ou arquivos..."
+                                className="w-full bg-transparent pl-10 pr-4 py-2 outline-none text-slate-600 placeholder:text-slate-300 font-medium text-sm"
                             />
                         </div>
-                        <div className="flex items-center gap-6 text-slate-400">
-                            <span className="material-icons-round cursor-pointer hover:text-primary transition-all">notifications</span>
-                            <div className="w-10 h-10 rounded-full border-2 border-white shadow-lg overflow-hidden relative">
-                                <img src="https://ui-avatars.com/api/?name=User&background=0055FF&color=fff" className="w-full h-full object-cover" />
-                                <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-400 border-2 border-white rounded-full"></div>
+                        <div className="flex items-center gap-4 sm:gap-8 text-slate-400">
+                            <div className="relative cursor-pointer transition-all hover:text-primary">
+                                <span className="material-icons-round">notifications</span>
+                                <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-white"></span>
                             </div>
-                            <span className="material-icons-round cursor-pointer">expand_more</span>
+                            <div className="flex items-center gap-3 pl-4 border-l border-slate-200/60">
+                                <div className="w-9 h-9 rounded-xl border-2 border-white shadow-md overflow-hidden relative">
+                                    <img src="https://ui-avatars.com/api/?name=Admin&background=0055FF&color=fff" className="w-full h-full object-cover" alt="" />
+                                    <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-400 border-2 border-white rounded-full"></div>
+                                </div>
+                                <span className="material-icons-round text-slate-300 cursor-pointer hover:text-slate-500 transition-colors">expand_more</span>
+                            </div>
                         </div>
                     </div>
 
                     {!selectedContact ? (
-                        <div className="flex-1 flex flex-col items-center justify-center p-20 opacity-20 select-none grayscale">
-                            <span className="material-icons-round text-8xl mb-8 text-[#0055FF]">forum</span>
-                            <h2 className="text-4xl font-black tracking-tighter text-slate-800">Selecione uma conversa</h2>
+                        <div className="flex-1 flex flex-col items-center justify-center p-20 opacity-40 select-none">
+                            <div className="w-32 h-32 bg-slate-100 rounded-[3rem] flex items-center justify-center mb-8 rotate-3 shadow-inner">
+                                <span className="material-icons-round text-6xl text-primary/40">forum</span>
+                            </div>
+                            <h2 className="text-3xl font-black tracking-tight text-slate-800 text-center">Selecione uma conversa<br /><span className="text-lg font-medium text-slate-400">para começar a trocar mensagens</span></h2>
                         </div>
                     ) : (
                         <>
                             {/* Chat Toolbar */}
-                            <div className="px-10 py-6 flex items-center justify-between border-b border-slate-50">
+                            <div className="px-6 sm:px-10 py-5 flex items-center justify-between border-b border-slate-200/60 bg-white/20">
                                 <div className="flex items-center gap-4">
-                                    <div className={`w-12 h-12 rounded-2xl text-white font-bold text-xl flex items-center justify-center ${getStatusColor(selectedContact.status)} shadow-lg`}>
+                                    <div className={`w-12 h-12 rounded-2xl text-white font-bold text-xl flex items-center justify-center ${getStatusColor(selectedContact.status)} shadow-lg shadow-black/5`}>
                                         {selectedContact.name.charAt(0).toUpperCase()}
                                     </div>
                                     <div>
-                                        <h3 className="font-black text-slate-800 tracking-tight text-xl">{selectedContact.name}</h3>
-                                        <div className="flex items-center gap-6 mt-1">
-                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
-                                                <span className={`w-2 h-2 rounded-full ${getStatusColor(selectedContact.status)} animate-pulse`}></span>
-                                                {selectedContact.status === 'open' ? 'Ativo' : 'Pendente'}
+                                        <h3 className="font-bold text-slate-800 tracking-tight text-lg leading-tight">{selectedContact.name}</h3>
+                                        <div className="flex items-center gap-4 mt-0.5">
+                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200/50">
+                                                <span className={`w-1.5 h-1.5 rounded-full ${getStatusColor(selectedContact.status)} animate-pulse`}></span>
+                                                {selectedContact.status === 'open' ? 'Ativo' : selectedContact.status === 'pending' ? 'Pendente' : 'Finalizado'}
                                             </p>
                                         </div>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-3">
-                                    <button onClick={() => updateStatus(selectedContact.id, 'open')} className="w-10 h-10 rounded-xl text-slate-400 hover:bg-slate-50 hover:text-emerald-500 transition-all flex items-center justify-center"><span className="material-icons-round text-xl">mark_chat_read</span></button>
-                                    <button onClick={() => updateStatus(selectedContact.id, 'closed')} className="w-10 h-10 rounded-xl text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition-all flex items-center justify-center"><span className="material-icons-round text-xl">check_circle</span></button>
-                                    <button onClick={() => { fetchAgents(); setTransferModal(true); }} className="w-10 h-10 rounded-xl text-slate-400 hover:bg-slate-50 hover:text-violet-500 transition-all flex items-center justify-center"><span className="material-icons-round text-xl">shortcut</span></button>
-                                    <button onClick={toggleAI} className={`w-10 h-10 rounded-xl transition-all flex items-center justify-center ${selectedContact.ai_paused ? 'bg-indigo-50 text-indigo-500' : 'text-slate-400 hover:bg-slate-50 hover:text-indigo-500'}`}><span className="material-icons-round text-xl">{selectedContact.ai_paused ? 'play_circle' : 'pause_circle'}</span></button>
+                                <div className="flex items-center gap-1.5 sm:gap-3">
+                                    <button onClick={() => updateStatus(selectedContact.id, 'open')} className="w-10 h-10 rounded-xl text-slate-400 hover:bg-emerald-50 hover:text-emerald-500 transition-all flex items-center justify-center group" title="Marcar como Aberto"><span className="material-icons-round text-xl group-hover:scale-110">mark_chat_read</span></button>
+                                    <button onClick={() => updateStatus(selectedContact.id, 'closed')} className="w-10 h-10 rounded-xl text-slate-400 hover:bg-indigo-50 hover:text-indigo-500 transition-all flex items-center justify-center group" title="Marcar como Resolvido"><span className="material-icons-round text-xl group-hover:scale-110">check_circle</span></button>
+                                    <button onClick={() => { fetchAgents(); setTransferModal(true); }} className="w-10 h-10 rounded-xl text-slate-400 hover:bg-amber-50 hover:text-amber-500 transition-all flex items-center justify-center group" title="Transferir Agente"><span className="material-icons-round text-xl group-hover:translate-x-1 group-hover:translate-y-[-1px]">shortcut</span></button>
+                                    <button onClick={toggleAI} className={`w-10 h-10 rounded-xl transition-all flex items-center justify-center group ${selectedContact.ai_paused ? 'bg-indigo-50 text-indigo-500 shadow-sm border border-indigo-100' : 'text-slate-400 hover:bg-slate-50 hover:text-indigo-500'}`} title={selectedContact.ai_paused ? 'Ativar IA' : 'Pausar IA'}>
+                                        <span className={`material-icons-round text-xl group-hover:scale-110 ${!selectedContact.ai_paused ? 'animate-pulse' : ''}`}>{selectedContact.ai_paused ? 'play_circle' : 'auto_awesome'}</span>
+                                    </button>
                                 </div>
                             </div>
 
                             {/* Messages Area */}
-                            <div className="flex-1 overflow-y-auto px-10 py-8 space-y-6 custom-scrollbar bg-slate-50/20">
+                            <div className="flex-1 overflow-y-auto px-6 sm:px-10 py-8 space-y-2 custom-scrollbar bg-slate-50/10 relative">
+                                <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
                                 {messages.map(msg => renderMessage(msg))}
                                 <div ref={messagesEndRef} />
                             </div>
 
                             {/* Message Input */}
-                            <div className="p-10">
+                            <div className="p-6 sm:p-10 bg-white/40">
                                 {isRecording ? (
-                                    <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-6 shadow-2xl border-2 border-primary/10 flex items-center justify-between">
-                                        <div className="flex items-center gap-6">
-                                            <div className="w-3 h-3 bg-red-500 rounded-full animate-ping"></div>
-                                            <span className="font-black text-2xl text-slate-800 tabular-nums">
-                                                {Math.floor(recordingTime / 60).toString().padStart(2, '0')}:
-                                                {(recordingTime % 60).toString().padStart(2, '0')}
-                                            </span>
-                                            <div className="flex gap-1 h-6 items-center">
-                                                {[5, 8, 4, 9, 3, 7, 5, 8].map((h, i) => (
-                                                    <div key={i} className="w-1.5 bg-primary/40 rounded-full animate-pulse" style={{ height: `${h * 2}px` }}></div>
+                                    <div className="bg-white/90 backdrop-blur-xl rounded-[2.5rem] p-4 sm:p-6 shadow-2xl border-2 border-primary/20 flex items-center justify-between animate-in zoom-in-95 duration-300">
+                                        <div className="flex items-center gap-4 sm:gap-6">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.5)]"></div>
+                                                <span className="font-black text-xl sm:text-2xl text-slate-800 tabular-nums">
+                                                    {Math.floor(recordingTime / 60).toString().padStart(2, '0')}:
+                                                    {(recordingTime % 60).toString().padStart(2, '0')}
+                                                </span>
+                                            </div>
+                                            <div className="hidden sm:flex gap-1 h-6 items-center">
+                                                {[5, 8, 4, 9, 3, 7, 5, 8, 4, 6].map((h, i) => (
+                                                    <div key={i} className="w-1 bg-primary/30 rounded-full animate-pulse" style={{ height: `${h * 2.5}px`, animationDelay: `${i * 0.1}s` }}></div>
                                                 ))}
                                             </div>
                                         </div>
-                                        <div className="flex gap-3">
-                                            <button onClick={() => stopRecording(false)} className="w-12 h-12 bg-slate-100 text-slate-500 rounded-2xl flex items-center justify-center"><span className="material-icons-round">delete_outline</span></button>
-                                            <button onClick={() => stopRecording(true)} className="px-8 bg-primary text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl">Enviar Áudio</button>
+                                        <div className="flex gap-2 sm:gap-3">
+                                            <button onClick={() => stopRecording(false)} className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-100 text-slate-500 rounded-2xl flex items-center justify-center hover:bg-rose-50 hover:text-rose-500 transition-all shadow-sm" title="Cancelar"><span className="material-icons-round">delete_outline</span></button>
+                                            <button onClick={() => stopRecording(true)} className="px-5 sm:px-8 bg-primary text-white rounded-2xl font-black text-[10px] sm:text-xs uppercase tracking-widest shadow-xl shadow-blue-200 hover:scale-[1.02] active:scale-[0.98] transition-all">Enviar Áudio</button>
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="bg-slate-100/50 rounded-[2.5rem] p-4 flex items-center gap-3 border border-slate-100 shadow-inner group-focus-within:bg-white transition-all">
-                                        <button
-                                            className="w-12 h-12 rounded-2xl text-slate-400 hover:bg-white hover:text-primary transition-all flex items-center justify-center hover:shadow-sm"
-                                            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                                        >
-                                            <span className="material-icons-round text-2xl">sentiment_satisfied</span>
-                                        </button>
-                                        <button
-                                            className="w-12 h-12 rounded-2xl text-slate-400 hover:bg-white hover:text-primary transition-all flex items-center justify-center hover:shadow-sm"
-                                            onClick={() => fileInputRef.current?.click()}
-                                        >
-                                            <span className="material-icons-round text-2xl">add_circle_outline</span>
-                                        </button>
+                                    <div className="bg-white/80 backdrop-blur-md rounded-[2.5rem] p-2.5 flex items-center gap-2 border border-white shadow-[0_10px_40px_-10px_rgba(0,0,0,0.05)] group transition-all duration-500 focus-within:shadow-[0_20px_50px_-10px_rgba(0,85,255,0.1)] focus-within:border-primary/20">
+                                        <div className="flex gap-1">
+                                            <button
+                                                className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl text-slate-400 hover:bg-slate-100 hover:text-primary transition-all flex items-center justify-center"
+                                                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                                                title="Emojis"
+                                            >
+                                                <span className="material-icons-round text-2xl">sentiment_satisfied</span>
+                                            </button>
+                                            <button
+                                                className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl text-slate-400 hover:bg-slate-100 hover:text-primary transition-all flex items-center justify-center"
+                                                onClick={() => fileInputRef.current?.click()}
+                                                title="Anexar Arquivo"
+                                            >
+                                                <span className="material-icons-round text-2xl">add_circle_outline</span>
+                                            </button>
+                                        </div>
                                         <textarea
                                             rows={1}
                                             value={newMessage}
@@ -819,21 +848,23 @@ const ChatView: React.FC = () => {
                                                     handleSendMessage();
                                                 }
                                             }}
-                                            placeholder="Type your message"
-                                            className="flex-1 bg-transparent border-none focus:ring-0 text-sm font-medium text-slate-700 placeholder:text-slate-400 resize-none py-3"
+                                            placeholder="Digite sua mensagem..."
+                                            className="flex-1 bg-transparent border-none focus:ring-0 text-[15px] font-medium text-slate-700 placeholder:text-slate-400 resize-none py-3 px-2 custom-scrollbar max-h-48"
                                         />
                                         <div className="flex gap-2">
                                             <button
                                                 onClick={startRecording}
-                                                className="w-12 h-12 bg-white text-slate-400 rounded-2xl shadow-sm hover:text-primary transition-all flex items-center justify-center"
+                                                className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-50 text-slate-400 rounded-2xl hover:text-primary hover:bg-white hover:shadow-md transition-all flex items-center justify-center"
+                                                title="Gravar Áudio"
                                             >
                                                 <span className="material-icons-round text-2xl">mic</span>
                                             </button>
                                             <button
                                                 onClick={handleSendMessage}
-                                                className="w-12 h-12 bg-[#0055FF] text-white rounded-2xl shadow-lg shadow-blue-200 hover:scale-105 transition-all flex items-center justify-center"
+                                                disabled={!newMessage.trim()}
+                                                className={`w-10 h-10 sm:w-12 sm:h-12 rounded-2xl shadow-lg transition-all flex items-center justify-center group ${newMessage.trim() ? 'bg-primary text-white shadow-blue-200 hover:scale-110 active:scale-95' : 'bg-slate-100 text-slate-300'}`}
                                             >
-                                                <span className="material-icons-round rotate-[-45deg] mb-1 ml-1 text-2xl">send</span>
+                                                <span className="material-icons-round rotate-[-45deg] mb-1 ml-1 text-2xl group-hover:translate-x-0.5 group-hover:translate-y-[-0.5px] transition-transform">send</span>
                                             </button>
                                         </div>
                                     </div>
@@ -844,60 +875,63 @@ const ChatView: React.FC = () => {
                 </div>
 
                 {/* 4. Contact Information Sidebar (Right) */}
-                <div className="w-[380px] border-l border-slate-100 flex flex-col bg-slate-50/20">
+                <div className="w-[320px] sm:w-[380px] border-l border-slate-200/60 flex flex-col bg-slate-50/10">
                     {!selectedContact ? (
-                        <div className="flex-1 flex items-center justify-center p-10 text-slate-300 font-bold italic rotate-[-90deg] uppercase tracking-[1em]">Information</div>
+                        <div className="flex-1 flex items-center justify-center p-10 text-slate-200 font-black italic rotate-[-90deg] uppercase tracking-[1.5em] select-none opacity-50">Informações</div>
                     ) : (
-                        <div className="p-10 flex flex-col h-full overflow-y-auto custom-scrollbar">
+                        <div className="p-6 sm:p-10 flex flex-col h-full overflow-y-auto custom-scrollbar">
                             <div className="flex justify-between items-center mb-10 text-slate-400">
-                                <span className="material-icons-round cursor-pointer hover:text-primary p-2 hover:bg-white rounded-xl transition-all shadow-sm">settings</span>
-                                <span className="material-icons-round cursor-pointer hover:text-primary p-2 hover:bg-white rounded-xl transition-all shadow-sm">bookmark_border</span>
+                                <span className="material-icons-round cursor-pointer hover:text-primary p-2.5 hover:bg-white rounded-2xl transition-all shadow-sm border border-transparent hover:border-slate-100">settings</span>
+                                <span className="material-icons-round cursor-pointer hover:text-primary p-2.5 hover:bg-white rounded-2xl transition-all shadow-sm border border-transparent hover:border-slate-100">bookmark_border</span>
                             </div>
 
-                            <div className="flex flex-col items-center mb-10">
-                                <div className="w-32 h-32 rounded-full border-8 border-white shadow-2xl relative mb-6">
+                            <div className="flex flex-col items-center mb-10 text-center">
+                                <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-[2.5rem] border-[6px] border-white shadow-2xl relative mb-6 group">
                                     {selectedContact.profile_pic ? (
-                                        <img src={selectedContact.profile_pic} className="w-full h-full object-cover rounded-full" />
+                                        <img src={selectedContact.profile_pic} className="w-full h-full object-cover rounded-[2rem]" alt="" />
                                     ) : (
-                                        <div className="w-full h-full bg-slate-200 rounded-full flex items-center justify-center text-4xl font-bold">{selectedContact.name?.charAt(0)}</div>
+                                        <div className="w-full h-full bg-slate-100 rounded-[2rem] flex items-center justify-center text-4xl font-black text-slate-300 shadow-inner">{selectedContact.name?.charAt(0)}</div>
                                     )}
-                                    <div className="absolute bottom-2 right-2 w-8 h-8 bg-[#0055FF] border-4 border-white rounded-full flex items-center justify-center text-white shadow-lg cursor-pointer hover:scale-110 transition-all">
-                                        <span className="material-icons-round text-sm">edit</span>
+                                    <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-primary border-4 border-white rounded-2xl flex items-center justify-center text-white shadow-xl cursor-pointer hover:scale-110 active:scale-95 transition-all group-hover:rotate-12">
+                                        <span className="material-icons-round text-lg">edit</span>
                                     </div>
                                 </div>
-                                <h3 className="text-2xl font-black text-slate-800 tracking-tight mb-2">{selectedContact.name}</h3>
-                                <p className="text-xs font-bold text-slate-400 flex items-center gap-2 uppercase tracking-widest"><span className="material-icons-round text-sm">person_outline</span> Content Manager</p>
+                                <h3 className="text-2xl font-black text-slate-800 tracking-tight mb-2 leading-tight">{selectedContact.name}</h3>
+                                <div className="flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-full border border-slate-200/50">
+                                    <span className="material-icons-round text-xs text-slate-400">phone</span>
+                                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{selectedContact.remote_jid.split('@')[0]}</p>
+                                </div>
 
-                                <div className="mt-8 w-full p-2 bg-white rounded-2xl border border-slate-50 shadow-sm flex items-center justify-between group cursor-pointer hover:border-primary/20 transition-all">
-                                    <div className="flex items-center gap-3 p-2">
-                                        <div className="w-2.5 h-2.5 rounded-full bg-indigo-500"></div>
-                                        <span className="text-[11px] font-black uppercase tracking-widest text-slate-600">General Team</span>
+                                <div className="mt-8 w-full p-1.5 bg-white/60 rounded-3xl border border-white shadow-sm flex items-center justify-between group cursor-pointer hover:border-primary/20 hover:bg-white transition-all">
+                                    <div className="flex items-center gap-3 p-2.5">
+                                        <div className="w-3 h-3 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.4)]"></div>
+                                        <span className="text-[11px] font-black uppercase tracking-widest text-slate-600">Equipe Geral</span>
                                     </div>
-                                    <span className="material-icons-round text-slate-300 group-hover:text-primary transition-all">expand_more</span>
+                                    <span className="material-icons-round text-slate-300 group-hover:text-primary transition-all mr-2">expand_more</span>
                                 </div>
                             </div>
 
                             <div className="flex-1">
-                                <div className="flex gap-8 border-b border-slate-100 mb-8 pb-3 text-[11px] font-bold uppercase tracking-widest overflow-x-auto no-scrollbar">
-                                    <button className="text-[#0055FF] border-b-2 border-[#0055FF] pb-3 whitespace-nowrap">History</button>
-                                    <button className="text-slate-400 hover:text-slate-600 whitespace-nowrap">Tasks</button>
-                                    <button className="text-slate-400 hover:text-slate-600 whitespace-nowrap">Notes (4)</button>
+                                <div className="flex gap-8 border-b border-slate-200/60 mb-8 pb-3 text-[11px] font-black uppercase tracking-widest overflow-x-auto no-scrollbar">
+                                    <button className="text-primary border-b-2 border-primary pb-3 whitespace-nowrap">Histórico</button>
+                                    <button className="text-slate-400 hover:text-slate-600 whitespace-nowrap transition-colors">Notas (0)</button>
+                                    <button className="text-slate-400 hover:text-slate-600 whitespace-nowrap transition-colors">Tarefas</button>
                                 </div>
                                 <div className="space-y-6">
-                                    <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Recent Activity</p>
+                                    <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">Atividades Recentes</p>
                                     {[
-                                        { icon: 'group', color: 'orange', title: 'Equipe reunida', sub: 'Meeting scheduled' },
-                                        { icon: 'call_missed', color: 'rose', title: 'Chamada perdida', sub: '11:45 AM' }
+                                        { icon: 'forum', color: 'indigo', title: 'Atendimento Iniciado', sub: 'Há 5 minutos' },
+                                        { icon: 'history', color: 'slate', title: 'Status Alterado', sub: 'Por Sistema' }
                                     ].map((item, idx) => (
-                                        <div key={idx} className="flex items-center justify-between group cursor-pointer bg-white p-4 rounded-3xl border border-slate-50 hover:shadow-lg transition-all">
+                                        <div key={idx} className="flex items-center justify-between group cursor-pointer bg-white/40 p-4 rounded-3xl border border-white/60 hover:bg-white hover:shadow-xl hover:shadow-black/5 transition-all duration-300">
                                             <div className="flex items-center gap-4">
-                                                <div className={`w-12 h-12 rounded-2xl bg-${item.color}-50 text-${item.color}-500 flex items-center justify-center`}><span className="material-icons-round text-2xl">{item.icon}</span></div>
+                                                <div className={`w-12 h-12 rounded-2xl bg-${item.color}-500/10 text-${item.color}-500 flex items-center justify-center`}><span className="material-icons-round text-2xl">{item.icon}</span></div>
                                                 <div>
-                                                    <p className="text-[13px] font-bold text-slate-800">{item.title}</p>
-                                                    <p className="text-[10px] text-slate-400 font-bold">{item.sub}</p>
+                                                    <p className="text-sm font-bold text-slate-800 leading-tight">{item.title}</p>
+                                                    <p className="text-[10px] text-slate-400 font-bold mt-0.5">{item.sub}</p>
                                                 </div>
                                             </div>
-                                            <span className="material-icons-round text-slate-200 group-hover:text-slate-400">more_vert</span>
+                                            <span className="material-icons-round text-slate-200 group-hover:text-slate-400 transition-colors">chevron_right</span>
                                         </div>
                                     ))}
                                 </div>
@@ -907,28 +941,28 @@ const ChatView: React.FC = () => {
                             <div className="mt-8 space-y-3">
                                 <button
                                     onClick={toggleBlock}
-                                    className={`w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-3 transition-all ${selectedContact.is_blocked ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'bg-rose-50 text-rose-500 hover:bg-rose-100'}`}
+                                    className={`w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-3 transition-all border ${selectedContact.is_blocked ? 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100' : 'bg-rose-50 text-rose-500 border-rose-100 hover:bg-rose-100'}`}
                                 >
                                     <span className="material-icons-round text-lg">{selectedContact.is_blocked ? 'lock_open' : 'block'}</span>
-                                    {selectedContact.is_blocked ? 'Unblock Contact' : 'Block Contact'}
+                                    {selectedContact.is_blocked ? 'Desbloquear' : 'Bloquear Contato'}
                                 </button>
                                 <button
                                     onClick={deleteConversation}
-                                    className="w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest bg-slate-900 text-white hover:bg-black flex items-center justify-center gap-3 transition-all shadow-lg shadow-slate-200"
+                                    className="w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest bg-slate-900 text-white hover:bg-black flex items-center justify-center gap-3 transition-all shadow-xl shadow-slate-200 hover:scale-[1.02] active:scale-[0.98]"
                                 >
                                     <span className="material-icons-round text-lg">delete_outline</span>
-                                    Clear Conversation
+                                    Limpar Conversa
                                 </button>
                             </div>
 
                             {/* PRO Card */}
-                            <div className="mt-10 p-8 bg-gradient-to-br from-[#FF6B6B] to-[#FF4B4B] rounded-[3rem] relative overflow-hidden group shadow-2xl shadow-rose-200 shrink-0">
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10 blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+                            <div className="mt-10 p-8 bg-gradient-to-br from-[#0055FF] to-[#00A3FF] rounded-[3rem] relative overflow-hidden group shadow-2xl shadow-blue-200 shrink-0 select-none">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-12 -mt-12 blur-2xl group-hover:scale-150 transition-transform duration-1000"></div>
                                 <div className="relative z-10 flex flex-col items-center text-center">
-                                    <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center text-white mb-6 animate-bounce shadow-lg shadow-black/5"><span className="material-icons-round text-2xl">star</span></div>
-                                    <h4 className="text-white font-black text-lg mb-3 leading-tight tracking-tight">Get more with PRO!</h4>
-                                    <p className="text-white/70 text-[11px] mb-8 font-medium">Upgrade to access advanced analytics and task automation.</p>
-                                    <button className="w-full py-4 bg-white text-[#FF4B4B] rounded-2xl font-black text-[11px] uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-xl">Upgrade now</button>
+                                    <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center text-white mb-6 animate-bounce shadow-lg border border-white/20"><span className="material-icons-round text-2xl">rocket_launch</span></div>
+                                    <h4 className="text-white font-black text-lg mb-2 leading-tight tracking-tight">Potencialize com PRO!</h4>
+                                    <p className="text-white/70 text-[10px] mb-8 font-bold uppercase tracking-widest">Acesso ilimitado e IA Avançada</p>
+                                    <button className="w-full py-4 bg-white text-primary rounded-2xl font-black text-[11px] uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-xl shadow-black/10">Upgrade agora</button>
                                 </div>
                             </div>
                         </div>
@@ -975,14 +1009,51 @@ const ChatView: React.FC = () => {
                 {/* Custom Scrollbar & Utility Styles */}
                 <style>{`
                     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
-                    * { font-family: 'Outfit', sans-serif !important; }
-                    .custom-scrollbar::-webkit-scrollbar { width: 5px; }
-                    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-                    .custom-scrollbar::-webkit-scrollbar-thumb { background: #F1F5F9; border-radius: 20px; }
-                    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #E2E8F0; }
-                    .no-scrollbar::-webkit-scrollbar { display: none; }
-                    textarea { line-height: 1.5 !important; }
-                    .shadow-inner-soft { box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05); }
+                    
+                    * {
+                        font-family: 'Outfit', sans-serif !important;
+                    }
+
+                    .custom-scrollbar::-webkit-scrollbar {
+                        width: 6px;
+                    }
+
+                    .custom-scrollbar::-webkit-scrollbar-track {
+                        background: transparent;
+                    }
+
+                    .custom-scrollbar::-webkit-scrollbar-thumb {
+                        background: rgba(0, 0, 0, 0.05);
+                        border-radius: 20px;
+                    }
+
+                    .custom-scrollbar:hover::-webkit-scrollbar-thumb {
+                        background: rgba(0, 0, 0, 0.1);
+                    }
+
+                    .no-scrollbar::-webkit-scrollbar {
+                        display: none;
+                    }
+
+                    textarea {
+                        line-height: 1.5 !important;
+                    }
+
+                    .glass-effect {
+                        background: rgba(255, 255, 255, 0.4);
+                        backdrop-filter: blur(20px);
+                        border: 1px solid rgba(255, 255, 255, 0.5);
+                    }
+
+                    @keyframes float {
+                        0% { transform: translateY(0px); }
+                        50% { transform: translateY(-5px); }
+                        100% { transform: translateY(0px); }
+                    }
+
+                    .animate-float {
+                        animation: float 3s ease-in-out infinite;
+                    }
                 `}</style>
             </div>
         </div>
