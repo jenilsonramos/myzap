@@ -1746,11 +1746,11 @@ app.get('/api/analytics/dashboard', authenticateToken, async (req, res) => {
             // Use strict SQL safe approach, wrap timestamp
             const [dailyRes] = await pool.query(`
                 SELECT 
-                    DATE_FORMAT(FROM_UNIXTIME(`timestamp`), '%d/%m') as name, 
-                    DATE(FROM_UNIXTIME(`timestamp`)) as day_date,
+                    DATE_FORMAT(FROM_UNIXTIME(\`timestamp\`), '%d/%m') as name, 
+                    DATE(FROM_UNIXTIME(\`timestamp\`)) as day_date,
                     COUNT(*) as value 
                 FROM messages 
-                WHERE user_id = ? AND `timestamp` >= ? AND `timestamp` <= ?
+                WHERE user_id = ? AND \`timestamp\` >= ? AND \`timestamp\` <= ?
                 GROUP BY day_date, name
                 ORDER BY day_date ASC
             `, [userId, startTs, endTs]);
