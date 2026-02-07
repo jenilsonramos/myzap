@@ -1585,19 +1585,16 @@ app.get('/api/analytics/dashboard', authenticateToken, async (req, res) => {
         // Ensure end date includes the whole day
         end.setHours(23, 59, 59, 999);
 
-        const startTs = Math.floor(start.getTime() / 1000);
-        const endTs = Math.floor(end.getTime() / 1000);
-
         console.log(`📊 [ANALYTICS] Stats for ${userId}: ${start.toISOString()} to ${end.toISOString()}`);
-        console.log(`📊 [ANALYTICS] TS Range: ${startTs} to ${endTs}`);
+        console.log(`📊 [ANALYTICS] Range: ${start.toISOString()} to ${end.toISOString()}`);
 
         // Debug: Check raw data
         const [debugRows] = await pool.query("SELECT id, timestamp, created_at FROM messages WHERE user_id = ? ORDER BY id DESC LIMIT 5", [userId]);
         console.log('🔍 [DEBUG] Sample Messages:', JSON.stringify(debugRows));
 
         // 1. Totais Gerais (Neste Período)
-        const [totalMsg] = await pool.query("SELECT COUNT(*) as count FROM messages WHERE user_id = ? AND created_at >= FROM_UNIXTIME(?) AND created_at <= FROM_UNIXTIME(?)", [userId, startTs, endTs]);
-        const [sentMsg] = await pool.query("SELECT COUNT(*) as count FROM messages WHERE user_id = ? AND key_from_me = 1 AND created_at >= FROM_UNIXTIME(?) AND created_at <= FROM_UNIXTIME(?)", [userId, startTs, endTs]);
+        const [totalMsg] = await pool.query("SELECT COUNT(*) as count FROM messages WHERE user_id = ? AND created_at >= ? AND created_at <= ?", [userId, start, end]);
+        const [sentMsg] = await pool.query("SELECT COUNT(*) as count FROM messages WHERE user_id = ? AND key_from_me = 1 AND created_at >= ? AND created_at <= ?", [userId, start, end]);
 
         // Contatos (Total Geral)
         const [contacts] = await pool.query("SELECT COUNT(*) as count FROM contacts WHERE user_id = ?", [userId]);
@@ -1609,10 +1606,10 @@ app.get('/api/analytics/dashboard', authenticateToken, async (req, res) => {
                 DATE(created_at) as day_date,
                 COUNT(*) as value 
             FROM messages 
-            WHERE user_id = ? AND created_at >= FROM_UNIXTIME(?) AND created_at <= FROM_UNIXTIME(?)
+            WHERE user_id = ? AND created_at >= ? AND created_at <= ?
             GROUP BY DATE(created_at) 
             ORDER BY day_date ASC
-        `, [userId, startTs, endTs]);
+        `, [userId, start, end]);
 
         // 3. Mapa de Calor por Hora (0-23)
         const [hourly] = await pool.query(`
@@ -1620,10 +1617,10 @@ app.get('/api/analytics/dashboard', authenticateToken, async (req, res) => {
                 HOUR(created_at) as hour,
                 COUNT(*) as count
             FROM messages
-            WHERE user_id = ? AND created_at >= FROM_UNIXTIME(?) AND created_at <= FROM_UNIXTIME(?)
+            WHERE user_id = ? AND created_at >= ? AND created_at <= ?
             GROUP BY HOUR(created_at)
             ORDER BY hour ASC
-        `, [userId, startTs, endTs]);
+        `, [userId, start, end]);
 
         // 4. Distribuição (Enviadas vs Recebidas vs Erro)
         const receivedCount = totalMsg[0].count - sentMsg[0].count;
@@ -1633,9 +1630,11 @@ app.get('/api/analytics/dashboard', authenticateToken, async (req, res) => {
         ];
 
         // Comparativo com período anterior (Simples)
-        const diff = endTs - startTs;
-        const prevStartTs = startTs - diff;
-        const [prevTotal] = await pool.query("SELECT COUNT(*) as count FROM messages WHERE user_id = ? AND created_at >= FROM_UNIXTIME(?) AND created_at < FROM_UNIXTIME(?)", [userId, prevStartTs, startTs]);
+        const diff = end.getTime() - start.getTime(); // diff in ms
+        const prevEnd = new Date(start.getTime()); // prev end is current start
+        const prevStart = new Date(prevEnd.getTime() - diff); // prev start
+
+        const [prevTotal] = await pool.query("SELECT COUNT(*) as count FROM messages WHERE user_id = ? AND created_at >= ? AND created_at < ?", [userId, prevStart, prevEnd]);
 
         const growth = prevTotal[0].count > 0
             ? Math.round(((totalMsg[0].count - prevTotal[0].count) / prevTotal[0].count) * 100)
@@ -1645,7 +1644,7 @@ app.get('/api/analytics/dashboard', authenticateToken, async (req, res) => {
             totalMessages: totalMsg[0].count,
             sentMessages: sentMsg[0].count,
             totalContacts: contacts[0].count,
-            weeklyVolume: daily, // Mantendo nome 'weeklyVolume' para compatibilidade ou refatorar front depois
+            weeklyVolume: daily,
             hourlyVolume: hourly,
             pieChart: pieData,
             growth: growth,
@@ -1654,7 +1653,7 @@ app.get('/api/analytics/dashboard', authenticateToken, async (req, res) => {
 
     } catch (err) {
         console.error('❌ Erro Analytics:', err);
-        res.status(500).json({ error: 'Erro ao gerar análise' });
+        res.status(500).json({ error: 'Erro ao gerar análise', details: err.message });
     }
 });
 
