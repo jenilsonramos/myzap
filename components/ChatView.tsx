@@ -582,13 +582,13 @@ const ChatView: React.FC = () => {
                                 onClick={() => setFilterStatus('all')}
                                 className={`flex-1 capsule-tab ${filterStatus === 'all' ? 'capsule-tab-active' : 'text-slate-400 dark:text-slate-500'}`}
                             >
-                                Open
+                                Aberto
                             </button>
                             <button
                                 onClick={() => setFilterStatus('closed')}
                                 className={`flex-1 capsule-tab ${filterStatus === 'closed' ? 'capsule-tab-active' : 'text-slate-400 dark:text-slate-500'}`}
                             >
-                                Archived
+                                Arquivado
                             </button>
                         </div>
                     </div>
@@ -626,7 +626,7 @@ const ChatView: React.FC = () => {
                                 ${selectedContact?.id === c.id ? 'soft-card-selected' : 'hover:bg-slate-50/50 dark:hover:bg-white/5'}
                             `}
                         >
-                            <div className="relative shrink-0">
+                            <div className={`relative shrink-0 ${isSidebarCollapsed ? 'border-2 border-slate-200 dark:border-white/10 rounded-full p-0.5' : ''}`}>
                                 <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold overflow-hidden">
                                     {c.profile_pic ? (
                                         <img src={c.profile_pic} className="w-full h-full object-cover" alt="" />
@@ -754,7 +754,7 @@ const ChatView: React.FC = () => {
                                 return (
                                     <div key={msg.id} className={`flex gap-4 ${isMe ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300 ${isSameAsPrev ? 'mt-1.5' : 'mt-8'}`}>
                                         {!isMe && !isSameAsPrev && (
-                                            <div className="w-10 h-10 rounded-full bg-slate-100 shrink-0 mt-1 overflow-hidden">
+                                            <div className="w-10 h-10 rounded-full bg-slate-100 shrink-0 mt-1 overflow-hidden border border-slate-100 dark:border-white/10">
                                                 {selectedContact.profile_pic ? (
                                                     <img src={selectedContact.profile_pic} className="w-full h-full object-cover" alt="" />
                                                 ) : (
@@ -764,12 +764,26 @@ const ChatView: React.FC = () => {
                                                 )}
                                             </div>
                                         )}
-                                        {isMe && !isSameAsPrev && <div className="w-10 h-10 shrink-0" />}
-                                        {(isSameAsPrev) && <div className="w-10 h-10 shrink-0" />}
+                                        {isMe && !isSameAsPrev && (
+                                            <div className="w-10 h-10 rounded-full bg-slate-100 shrink-0 mt-1 overflow-hidden border border-slate-100 dark:border-white/10 order-last">
+                                                {(() => {
+                                                    const userStr = localStorage.getItem('myzap_user');
+                                                    const user = userStr ? JSON.parse(userStr) : null;
+                                                    return user?.profile_pic ? (
+                                                        <img src={user.profile_pic} className="w-full h-full object-cover" alt="" />
+                                                    ) : (
+                                                        <div className="w-full h-full flex items-center justify-center bg-primary/10 text-primary text-sm font-bold">
+                                                            {user?.name?.charAt(0).toUpperCase() || 'U'}
+                                                        </div>
+                                                    );
+                                                })()}
+                                            </div>
+                                        )}
+                                        {((!isMe && isSameAsPrev) || (isMe && isSameAsPrev)) && <div className="w-10 h-10 shrink-0" />}
 
                                         <div className={`
-                                            max-w-[75%] bubble-soft spring-motion
-                                            ${isMe ? 'bubble-me ml-10' : 'bubble-other'}
+                                            max-w-[75%] bubble-soft spring-motion rounded-[2rem]
+                                            ${isMe ? 'bubble-me' : 'bubble-other'}
                                         `}>
                                             <div className="px-1 py-0.5">
                                                 {type === 'image' && mediaUrl && (
@@ -955,9 +969,9 @@ const ChatView: React.FC = () => {
                                     </div>
                                     <button
                                         onClick={toggleAI}
-                                        className={`w-12 h-6 rounded-full transition-all relative ${selectedContact.ai_paused ? 'bg-slate-200 dark:bg-slate-700' : 'bg-blue-500 shadow-md shadow-blue-200 dark:shadow-blue-500/20'}`}
+                                        className={`w-14 h-7 rounded-full transition-all relative ${selectedContact.ai_paused ? 'bg-slate-200 dark:bg-slate-700' : 'bg-blue-500 shadow-md shadow-blue-200 dark:shadow-blue-500/20'}`}
                                     >
-                                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${selectedContact.ai_paused ? 'left-1' : 'left-7'}`} />
+                                        <div className={`absolute top-1 w-5 h-5 bg-white rounded-full transition-all ${selectedContact.ai_paused ? 'left-1' : 'left-8'}`} />
                                     </button>
                                 </div>
 
@@ -1070,7 +1084,7 @@ const ChatView: React.FC = () => {
                 .capsule-tab-container {
                     background: #f1f3f9;
                     border-radius: 100px;
-                    padding: 4px;
+                    padding: 6px;
                 }
                 .dark .capsule-tab-container {
                     background: rgba(255,255,255,0.05);
@@ -1115,7 +1129,7 @@ const ChatView: React.FC = () => {
                 .bubble-me {
                     background: #ffffff;
                     color: #333;
-                    border-top-right-radius: 4px;
+                    border-top-right-radius: 8px;
                 }
                 .dark .bubble-me {
                     background: #1e293b;
@@ -1125,7 +1139,7 @@ const ChatView: React.FC = () => {
                 .bubble-other {
                     background: #ffffff;
                     color: #333;
-                    border-top-left-radius: 4px;
+                    border-top-left-radius: 8px;
                 }
                 .dark .bubble-other {
                     background: #0f172a;
