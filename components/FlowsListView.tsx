@@ -88,8 +88,13 @@ const FlowsListView: React.FC<FlowsListViewProps> = ({ onEditFlow }) => {
                 showToast('Fluxo criado!', 'success');
                 fetchFlows();
                 onEditFlow(id);
+            } else {
+                const data = await response.json();
+                showToast(data.error || 'Erro ao criar fluxo.', 'warning');
             }
-        } catch (err) { showToast('Erro de conexão.', 'error'); }
+        } catch (err) {
+            showToast('Erro de conexão.', 'error');
+        }
     };
 
     const handleRename = async () => {
