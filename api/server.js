@@ -2322,8 +2322,18 @@ async function getEvolutionService() {
 
 
 // --- INTEGRAÇÃO HÍBRIDA: ENVIO DE MENSAGENS ---
+// --- INTEGRAÇÃO HÍBRIDA: ENVIO DE MENSAGENS ---
 const sendWhatsAppMessage = async (instanceName, to, content, options = {}) => {
     try {
+        // Checking limits if userId is provided
+        if (options.userId) {
+            const limit = await checkUserLimit(options.userId, 'messages');
+            if (!limit.allowed) {
+                console.error(`🚫 [LIMIT] Message limit reached for user ${options.userId}`);
+                throw new Error('Message limit reached');
+            }
+        }
+
         // Buscar instância e provedor no banco
         const [rows] = await pool.execute(
             "SELECT id, phone_number_id, access_token, provider FROM whatsapp_accounts WHERE business_name = ?",
@@ -3150,33 +3160,7 @@ function evaluateCondition(rule, context) {
     }
 }
 
-async function sendWhatsAppMessage(instanceName, remoteJid, text, userId = null) {
-    try {
-        if (userId) {
-            const limit = await checkUserLimit(userId, 'messages');
-            if (!limit.allowed) {
-                console.error(`🚫 [FLOW] Message limit reached for user ${userId}`);
-                return;
-            }
-        }
-        const evo = await getEvolutionService();
-        if (!evo) {
-            console.error('❌ [FLOW] Evolution API not available');
-            return;
-        }
 
-        const number = remoteJid.replace('@s.whatsapp.net', '');
-        await evo._request(`/message/sendText/${instanceName}`, 'POST', {
-            number,
-            text,
-            delay: 1200
-        });
-
-        console.log(`✉️ [FLOW] Sent message to ${number}`);
-    } catch (err) {
-        console.error('❌ [FLOW] Failed to send message:', err);
-    }
-}
 
 // --- EVOLUTION API ENDPOINTS ---
 
