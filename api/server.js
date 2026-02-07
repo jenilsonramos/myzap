@@ -1930,12 +1930,11 @@ app.post('/api/messages/send-text', authenticateToken, async (req, res) => {
 // Suporta GET e POST para facilitar integração com sistemas legados
 app.all(['/api/integration/send', '/api/send', '/api/send.php', '/bot.php', '/api/bot.php'], async (req, res) => {
     // 1. Extrair parâmetros (Query ou Body)
-    const {
-        phone_number,
-        body,
-        instance_id,
-        access_token
-    } = { ...req.query, ...req.body };
+    const params = { ...req.query, ...req.body };
+    const phone_number = params.phone_number || params.number || params.to || params.phone;
+    const body = params.body || params.message || params.msg || params.text;
+    const instance_id = params.instance_id || params.instance;
+    const access_token = params.access_token || params.token || params.key;
 
     if (!phone_number || !body || !instance_id || !access_token) {
         return res.status(400).json({

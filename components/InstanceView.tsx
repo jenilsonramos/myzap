@@ -34,7 +34,7 @@ const InstanceView: React.FC = () => {
 
       if (data.api_token) {
         const baseUrl = window.location.origin;
-        const fullUrl = `${baseUrl}/bot.php?instance_id=${instance.name}&access_token=${data.api_token}`;
+        const fullUrl = `${baseUrl}/api/send?instance_id=${instance.name}&access_token=${data.api_token}&number={numero}&message={mensagem}`;
         setIntegrationData({
           url: baseUrl,
           instance: instance.name,
