@@ -23,7 +23,7 @@ const InstanceView: React.FC = () => {
 
   // Integration State
   const [showIntegrationModal, setShowIntegrationModal] = useState(false);
-  const [integrationData, setIntegrationData] = useState({ url: '', instance: '', token: '' });
+  const [integrationData, setIntegrationData] = useState({ url: '', instance: '', token: '', fullUrl: '' });
 
   const handleShowIntegration = async (instance: Instance) => {
     try {
@@ -33,10 +33,13 @@ const InstanceView: React.FC = () => {
       const data = await res.json();
 
       if (data.api_token) {
+        const baseUrl = window.location.origin;
+        const fullUrl = `${baseUrl}/bot.php?instance_id=${instance.name}&access_token=${data.api_token}`;
         setIntegrationData({
-          url: window.location.origin,
+          url: baseUrl,
           instance: instance.name,
-          token: data.api_token
+          token: data.api_token,
+          fullUrl: fullUrl
         });
         setShowIntegrationModal(true);
       } else {
@@ -256,8 +259,24 @@ const InstanceView: React.FC = () => {
               <div className="p-4 bg-amber-50 dark:bg-amber-500/10 rounded-xl border border-amber-100 dark:border-amber-500/20 mb-4">
                 <p className="text-xs text-amber-600 dark:text-amber-400 font-bold flex items-center gap-2">
                   <span className="material-icons-round text-sm">info</span>
-                  Copie e cole estes dados no seu sistema de Delivery:
+                  Copie a URL completa abaixo e cole no seu sistema:
                 </p>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">URL Completa (Recomendado)</label>
+                <div className="relative group">
+                  <input readOnly value={integrationData.fullUrl} className="w-full bg-primary/5 dark:bg-primary/10 border-2 border-primary/20 rounded-xl px-4 py-3 text-xs font-mono text-primary font-bold focus:ring-0 cursor-pointer" onClick={() => copyToClipboard(integrationData.fullUrl)} />
+                  <button onClick={() => copyToClipboard(integrationData.fullUrl)} className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-primary hover:bg-primary hover:text-white rounded-lg transition-all opacity-0 group-hover:opacity-100">
+                    <span className="material-icons-round text-base">content_copy</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4 my-2">
+                <div className="flex-1 h-px bg-slate-100 dark:bg-white/5"></div>
+                <span className="text-[10px] font-bold text-slate-300 uppercase">Ou use os dados separados</span>
+                <div className="flex-1 h-px bg-slate-100 dark:bg-white/5"></div>
               </div>
 
               <div>
