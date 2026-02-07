@@ -767,8 +767,8 @@ const ChatView: React.FC = () => {
                                 return (
                                     <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300 ${isSameAsPrev ? 'mt-0.5' : 'mt-4'}`}>
                                         <div className={`
-                                            max-w-[80%] p-1 rounded-2xl border glass-sheen spring-motion hover-scale-spring
-                                            ${isMe ? 'bg-white border-slate-200/60 shadow-industrial-md' : 'bg-white border-slate-100 shadow-industrial-sm'}
+                                            max-w-[80%] p-1 rounded-2xl border glass-sheen spring-motion hover-scale-spring signature-bubble
+                                            ${isMe ? 'border-slate-300 shadow-industrial-lg' : 'border-slate-200 shadow-industrial-md'}
                                             ${groupClass}
                                         `}>
                                             <div className="px-3 py-2">
@@ -1034,15 +1034,16 @@ const ChatView: React.FC = () => {
                     pointer-events: none;
                 }
                 
-                /* Materialidade: Signature Noise Texture */
+                /* Materialidade: Signature Noise Texture - Intensificada */
                 .signature-material::before {
                     content: "";
                     position: absolute;
                     inset: 0;
-                    z-index: 100;
-                    opacity: 0.03;
+                    z-index: 50;
+                    opacity: 0.08; /* Aumentado de 0.03 para 0.08 */
                     pointer-events: none;
                     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3%3Cfilter id='noiseFilter'%3%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3%3C/filter%3%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3%3C/svg%3");
+                    mix-blend-mode: overlay;
                 }
 
                 /* Signature Spring Motion */
@@ -1057,10 +1058,28 @@ const ChatView: React.FC = () => {
                     transform: scale(0.97);
                 }
 
-                /* Message Grouping Dynamics */
-                .msg-group-first { border-bottom-left-radius: 0.5rem !important; border-bottom-right-radius: 0.5rem !important; margin-bottom: 2px !important; }
-                .msg-group-mid { border-radius: 0.5rem !important; margin-bottom: 2px !important; }
-                .msg-group-last { border-top-left-radius: 0.5rem !important; border-top-right-radius: 0.5rem !important; margin-top: 0 !important; }
+                /* Message Grouping Dynamics - Rounded & Border Polishing */
+                .msg-group-first { 
+                    border-bottom-left-radius: 6px !important; 
+                    border-bottom-right-radius: 6px !important; 
+                    margin-bottom: 3px !important; 
+                }
+                .msg-group-mid { 
+                    border-radius: 6px !important; 
+                    margin-bottom: 3px !important; 
+                    margin-top: 3px !important;
+                }
+                .msg-group-last { 
+                    border-top-left-radius: 6px !important; 
+                    border-top-right-radius: 6px !important; 
+                    margin-top: 3px !important; 
+                }
+                
+                /* Signature Glass Bubbles */
+                .signature-bubble {
+                    background: linear-gradient(135deg, rgba(255,255,255,1) 0%, rgba(248,250,252,0.95) 100%) !important;
+                    backdrop-filter: blur(8px);
+                }
                 
                 /* Skeleton Shimmer Elite */
                 @keyframes shimmer {
