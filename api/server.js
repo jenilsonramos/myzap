@@ -2585,10 +2585,11 @@ async function processApiNode(node, context) {
         });
 
         const data = response.data;
-        context.variables.api_response = JSON.stringify(data);
-        console.log(`🌐 [FLOW] API Response:`, data);
+        context.variables.api_response = data; // Armazenar o objeto bruto para acesso aninhado
+        console.log(`🌐 [FLOW] API Response stored in api_response`);
     } catch (err) {
-        console.error('API Node Error:', err);
+        console.error('API Node Error:', err.message);
+        context.variables.api_response = { error: err.message };
     }
 }
 
@@ -2752,12 +2753,20 @@ async function processInteractiveNode(node, context) {
 // ===== HELPER FUNCTIONS =====
 
 function replaceVariables(text, context) {
-    return text.replace(/\{\{(\w+(?:\.\w+)?)\}\}/g, (match, path) => {
+    if (!text || typeof text !== 'string') return text;
+
+    // Regex atualizada para suportar caminhos aninhados múltiplos (ex: api_response.data.cep)
+    return text.replace(/\{\{([\w\-\.]*)\}\}/g, (match, path) => {
+        if (!path) return match;
+
         const parts = path.split('.');
         let value = context.variables;
+
         for (const part of parts) {
-            value = value?.[part];
+            if (value === null || value === undefined) break;
+            value = value[part];
         }
+
         return value !== undefined ? String(value) : match;
     });
 }
