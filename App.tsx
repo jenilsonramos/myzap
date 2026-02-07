@@ -343,6 +343,11 @@ const AppContent: React.FC = () => {
 
         <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 md:pr-2">
           <Routes>
+            <Route path="/branding" element={
+              localStorage.getItem('myzap_user') && JSON.parse(localStorage.getItem('myzap_user') || '{}').role === 'admin'
+                ? <Navigate to="/admin?tab=branding" replace />
+                : <Navigate to="/analytics" replace />
+            } />
             <Route path="/admin" element={
               localStorage.getItem('myzap_user') && JSON.parse(localStorage.getItem('myzap_user') || '{}').role === 'admin'
                 ? <AdminView />

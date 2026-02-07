@@ -22,6 +22,12 @@ if [ -f "api/setup_evolution.cjs" ]; then
     node api/setup_evolution.cjs
 fi
 
+# 3.2 Migração de Banco de Dados (Garantir tabelas)
+if [ -f "api/create_settings_table.js" ]; then
+    echo "🗄️ Verificando banco de dados..."
+    node api/create_settings_table.js
+fi
+
 
 # 4. Reiniciar serviços
 if command -v pm2 &> /dev/null; then
