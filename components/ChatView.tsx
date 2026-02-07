@@ -606,7 +606,15 @@ const ChatView: React.FC = () => {
     };
 
     return (
-        <div className="h-full w-full flex bg-[#fbfbfc] text-slate-900 modern-chat overflow-hidden signature-material relative">
+        <div className="h-full w-full flex bg-[#fbfbfc] text-slate-900 modern-chat overflow-hidden relative spring-motion">
+            {/* Signature Overlay - High Priority noise */}
+            <div className="fixed inset-0 pointer-events-none z-[9999] opacity-[0.08] mix-blend-overlay signature-material-overlay"></div>
+
+            {/* Signature Watermark */}
+            <div className="fixed bottom-4 right-4 z-[9999] pointer-events-none opacity-20">
+                <span className="industrial-mono text-[8px] font-black uppercase tracking-[0.4em] text-slate-900">Signature UI v2.0 Elite</span>
+            </div>
+
             {/* Sidebar de Contatos (Minimalista Industrial) */}
             <div className={`
                 ${isSidebarCollapsed ? 'w-20' : 'w-80'} 
@@ -712,6 +720,7 @@ const ChatView: React.FC = () => {
                                     <div className="flex items-center gap-1.5">
                                         <div className={`w-1.5 h-1.5 rounded-full ${getStatusColor(selectedContact.status)} animate-pulse-soft shadow-[0_0_8px_rgba(34,197,94,0.4)]`}></div>
                                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest industrial-mono">online</span>
+                                        <div className="w-1 h-1 bg-blue-500 rounded-full animate-ping ml-2" title="Signature Active v2"></div>
                                     </div>
                                 </div>
                             </div>
@@ -1034,16 +1043,9 @@ const ChatView: React.FC = () => {
                     pointer-events: none;
                 }
                 
-                /* Materialidade: Signature Noise Texture - Intensificada */
-                .signature-material::before {
-                    content: "";
-                    position: absolute;
-                    inset: 0;
-                    z-index: 50;
-                    opacity: 0.08; /* Aumentado de 0.03 para 0.08 */
-                    pointer-events: none;
+                /* Materialidade: Signature Noise Overlay */
+                .signature-material-overlay {
                     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3%3Cfilter id='noiseFilter'%3%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3%3C/filter%3%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3%3C/svg%3");
-                    mix-blend-mode: overlay;
                 }
 
                 /* Signature Spring Motion */
