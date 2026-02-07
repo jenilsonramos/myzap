@@ -606,206 +606,236 @@ const ChatView: React.FC = () => {
     };
 
     return (
-        <div className="h-full w-full flex overflow-hidden modern-chat text-slate-900 bg-white/40 backdrop-blur-sm rounded-huge border border-white/60 shadow-xl">
-            {/* 2. Chat List Sidebar (Middle-Left) */}
-            <div className="w-[320px] sm:w-[380px] border-r border-slate-200/60 flex flex-col bg-slate-50/20 overflow-hidden">
-                <div className="p-6 sm:p-8 flex items-center justify-between">
-                    <h2 className="text-2xl sm:text-3xl font-black text-slate-800 tracking-tight">Conversas</h2>
-                    <button className="w-10 h-10 sm:w-12 sm:h-12 bg-primary text-white rounded-2xl shadow-lg shadow-blue-200 hover:scale-105 active:scale-95 transition-all flex items-center justify-center group">
-                        <span className="material-icons-round text-2xl group-hover:rotate-90 transition-transform duration-500">add</span>
+        <div className="h-full w-full flex bg-[#fbfbfc] text-slate-900 modern-chat overflow-hidden">
+            {/* Sidebar de Contatos (Minimalista Industrial) */}
+            <div className={`
+                ${isSidebarCollapsed ? 'w-20' : 'w-80'} 
+                border-r border-slate-200/50 flex flex-col bg-white transition-all duration-300 ease-in-out
+            `}>
+                {/* Header da Sidebar */}
+                <div className="p-6 flex items-center justify-between">
+                    {!isSidebarCollapsed && <h2 className="text-xl font-bold tracking-tight text-slate-800">Mensagens</h2>}
+                    <button
+                        onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                        className="p-2 hover:bg-slate-50 rounded-lg text-slate-400 transition-colors"
+                    >
+                        <span className="material-icons-round text-xl">
+                            {isSidebarCollapsed ? 'menu_open' : 'menu'}
+                        </span>
                     </button>
                 </div>
 
-                <div className="px-6 sm:px-8 mb-4">
+                {/* Busca */}
+                <div className="px-4 mb-4">
                     <div className="relative group">
-                        <span className="material-icons-round absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-all duration-300">search</span>
+                        <span className="material-icons-round absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 text-lg group-focus-within:text-slate-500">search</span>
                         <input
                             type="text"
-                            placeholder="Buscar..."
+                            placeholder={isSidebarCollapsed ? "" : "Buscar..."}
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full bg-white/60 pl-12 pr-4 py-3.5 rounded-2xl border border-white shadow-sm outline-none focus:ring-4 focus:ring-primary/10 focus:bg-white transition-all text-sm font-medium placeholder:text-slate-400"
+                            className={`
+                                w-full bg-slate-50 border border-slate-200/60 py-2.5 rounded-lg outline-none text-sm transition-all
+                                ${isSidebarCollapsed ? 'px-0 text-center placeholder:opacity-0' : 'pl-10 pr-4 focus:ring-2 focus:ring-slate-100 focus:bg-white'}
+                            `}
                         />
                     </div>
                 </div>
 
-                <div className="px-6 sm:px-8 mb-6">
-                    <div className="bg-white/40 backdrop-blur-sm rounded-2xl p-1.5 shadow-sm border border-white/60 flex gap-1">
-                        {(['open', 'closed'] as const).map(s => (
-                            <button
-                                key={s}
-                                onClick={() => setFilterStatus(s === 'open' ? 'open' : 'closed')}
-                                className={`
-                                        flex-1 py-2.5 px-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300
-                                        ${(filterStatus === 'all' && s === 'open') || (filterStatus === s)
-                                        ? 'bg-white shadow-md border border-slate-100 text-primary translate-y-[-1px]'
-                                        : 'text-slate-400 hover:text-slate-600'}
-                                    `}
-                            >
-                                {s === 'open' ? 'Abertos' : 'Finalizados'}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                <div className="flex-1 overflow-y-auto px-4 sm:px-6 custom-scrollbar space-y-3 pb-8">
-                    {filteredContacts.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center p-12 opacity-30 select-none">
-                            <span className="material-icons-round text-6xl mb-4 text-slate-300">forum</span>
-                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-center text-slate-400">Nenhuma conversa</p>
-                        </div>
-                    ) : (
-                        filteredContacts.map(c => (
-                            <div
-                                key={c.id}
-                                onClick={() => {
-                                    setSelectedContact(c);
-                                    fetchMessages(c.id);
-                                    markAsRead(c.id);
-                                }}
-                                className={`
-                                        group flex items-center gap-4 p-4 rounded-[2rem] cursor-pointer transition-all duration-500 relative
-                                        ${selectedContact?.id === c.id
-                                        ? 'bg-white shadow-[0_20px_50px_-12px_rgba(0,0,0,0.1)] border border-white scale-[1.02] active:scale-[0.98]'
-                                        : 'hover:bg-white/60'}
-                                    `}>
-                                <div className="relative shrink-0">
-                                    <div className={`w-14 h-14 rounded-[1.25rem] text-white font-bold text-xl flex items-center justify-center shadow-lg shadow-black/5 ${getStatusColor(c.status)}`}>
-                                        {c.profile_pic ? (
-                                            <img src={c.profile_pic} className="w-full h-full object-cover rounded-[1.25rem]" alt="" />
-                                        ) : (
-                                            c.name.charAt(0).toUpperCase()
-                                        )}
-                                    </div>
-                                    <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-4 border-white ${getStatusColor(c.status)}`}></div>
+                {/* Lista de Contatos */}
+                <div className="flex-1 overflow-y-auto no-scrollbar px-2 space-y-1 pb-4">
+                    {filteredContacts.map(c => (
+                        <div
+                            key={c.id}
+                            onClick={() => {
+                                setSelectedContact(c);
+                                fetchMessages(c.id);
+                                markAsRead(c.id);
+                            }}
+                            className={`
+                                group flex items-center p-3 rounded-xl cursor-pointer transition-all relative
+                                ${selectedContact?.id === c.id ? 'bg-slate-100 shadow-sm' : 'hover:bg-slate-50'}
+                            `}
+                        >
+                            <div className="relative shrink-0">
+                                <div className="w-11 h-11 rounded-lg bg-slate-200 flex items-center justify-center text-slate-500 font-bold overflow-hidden shadow-sm">
+                                    {c.profile_pic ? (
+                                        <img src={c.profile_pic} className="w-full h-full object-cover" alt="" />
+                                    ) : (
+                                        c.name.charAt(0).toUpperCase()
+                                    )}
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex justify-between items-baseline mb-1">
-                                        <h3 className="font-bold text-slate-800 truncate text-[15px]">{c.name}</h3>
-                                        {c.lastTime && <span className="text-[10px] text-slate-400 font-bold">{formatFriendlyDate(c.lastTime)}</span>}
+                                <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${getStatusColor(c.status)}`}></div>
+                            </div>
+
+                            {!isSidebarCollapsed && (
+                                <div className="flex-1 min-w-0 ml-3">
+                                    <div className="flex justify-between items-baseline mb-0.5">
+                                        <h3 className={`text-sm font-semibold truncate ${selectedContact?.id === c.id ? 'text-slate-900' : 'text-slate-700'}`}>{c.name}</h3>
+                                        {c.lastTime && <span className="text-[10px] text-slate-400 font-medium">{formatFriendlyDate(c.lastTime)}</span>}
                                     </div>
                                     <div className="flex items-center justify-between gap-2">
-                                        <p className="text-xs text-slate-500 truncate font-medium">{c.lastMessage || 'Inicie um atendimento'}</p>
-                                        {c.unread_count > 0 && <span className="h-5 min-w-[20px] px-1 bg-rose-500 text-white text-[9px] font-black rounded-full flex items-center justify-center animate-bounce shadow-lg shadow-rose-200">{c.unread_count}</span>}
+                                        <p className="text-[11px] text-slate-500 truncate">{c.lastMessage || '...'}</p>
+                                        {c.unread_count > 0 && (
+                                            <span className="h-4 min-w-[16px] px-1 bg-blue-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center shadow-sm">
+                                                {c.unread_count}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
-                                {selectedContact?.id === c.id && (
-                                    <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1.5 h-8 bg-primary rounded-l-full shadow-[0_0_15px_rgba(0,85,255,0.5)]"></div>
-                                )}
-                            </div>
-                        ))
-                    )}
+                            )}
+                        </div>
+                    ))}
                 </div>
             </div>
 
-            {/* 3. Main Chat Window (Middle-Right) */}
-            <div className="flex-1 flex flex-col bg-white/40 backdrop-blur-sm">
-                {/* Top utility bar */}
-                <div className="h-20 px-6 sm:px-10 border-b border-slate-200/60 flex items-center justify-between bg-white/40 backdrop-blur-md">
-                    <div className="relative group w-full max-w-md">
-                        <span className="material-icons-round absolute left-0 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-colors">search</span>
-                        <input
-                            type="text"
-                            placeholder="Procurar mensagens ou arquivos..."
-                            className="w-full bg-transparent pl-10 pr-4 py-2 outline-none text-slate-600 placeholder:text-slate-300 font-medium text-sm"
-                        />
-                    </div>
-                    <div className="flex items-center gap-4 sm:gap-8 text-slate-400">
-                        <div className="relative cursor-pointer transition-all hover:text-primary">
-                            <span className="material-icons-round">notifications</span>
-                            <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-white"></span>
-                        </div>
-                        <div className="flex items-center gap-3 pl-4 border-l border-slate-200/60">
-                            <div className="w-9 h-9 rounded-xl border-2 border-white shadow-md overflow-hidden relative">
-                                <img src="https://ui-avatars.com/api/?name=Admin&background=0055FF&color=fff" className="w-full h-full object-cover" alt="" />
-                                <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-400 border-2 border-white rounded-full"></div>
-                            </div>
-                            <span className="material-icons-round text-slate-300 cursor-pointer hover:text-slate-500 transition-colors">expand_more</span>
-                        </div>
-                    </div>
-                </div>
-
+            {/* Janela de Chat Principal */}
+            <div className="flex-1 flex flex-col bg-white min-w-0">
                 {!selectedContact ? (
-                    <div className="flex-1 flex flex-col items-center justify-center p-20 opacity-40 select-none">
-                        <div className="w-32 h-32 bg-slate-100 rounded-[3rem] flex items-center justify-center mb-8 rotate-3 shadow-inner">
-                            <span className="material-icons-round text-6xl text-primary/40">forum</span>
+                    <div className="flex-1 flex flex-col items-center justify-center p-12 opacity-40 select-none bg-slate-50/30">
+                        <div className="w-20 h-20 bg-white rounded-2xl flex items-center justify-center mb-6 shadow-sm border border-slate-100">
+                            <span className="material-icons-round text-4xl text-slate-300">chat_bubble_outline</span>
                         </div>
-                        <h2 className="text-3xl font-black tracking-tight text-slate-800 text-center">Selecione uma conversa<br /><span className="text-lg font-medium text-slate-400">para começar a trocar mensagens</span></h2>
+                        <h2 className="text-xl font-bold tracking-tight text-slate-800">Selecione uma conversa</h2>
+                        <p className="text-sm text-slate-400 mt-2">Escolha alguém para começar a conversar</p>
                     </div>
                 ) : (
                     <>
-                        {/* Chat Toolbar */}
-                        <div className="px-6 sm:px-10 py-5 flex items-center justify-between border-b border-slate-200/60 bg-white/20">
-                            <div className="flex items-center gap-4">
-                                <div className={`w-12 h-12 rounded-2xl text-white font-bold text-xl flex items-center justify-center ${getStatusColor(selectedContact.status)} shadow-lg shadow-black/5`}>
+                        {/* Header do Chat */}
+                        <div className="h-16 px-6 border-b border-slate-200/50 flex items-center justify-between shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-sm shadow-sm">
                                     {selectedContact.name.charAt(0).toUpperCase()}
                                 </div>
-                                <div>
-                                    <h3 className="font-bold text-slate-800 tracking-tight text-lg leading-tight">{selectedContact.name}</h3>
-                                    <div className="flex items-center gap-4 mt-0.5">
-                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200/50">
-                                            <span className={`w-1.5 h-1.5 rounded-full ${getStatusColor(selectedContact.status)} animate-pulse`}></span>
-                                            {selectedContact.status === 'open' ? 'Ativo' : selectedContact.status === 'pending' ? 'Pendente' : 'Finalizado'}
-                                        </p>
+                                <div className="min-w-0">
+                                    <h3 className="text-sm font-bold text-slate-800 truncate">{selectedContact.name}</h3>
+                                    <div className="flex items-center gap-1.5">
+                                        <div className={`w-1.5 h-1.5 rounded-full ${getStatusColor(selectedContact.status)} animate-pulse`}></div>
+                                        <span className="text-[10px] font-medium text-slate-400 uppercase tracking-tight">online</span>
                                     </div>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-1.5 sm:gap-3">
-                                <button onClick={() => updateStatus(selectedContact.id, 'open')} className="w-10 h-10 rounded-xl text-slate-400 hover:bg-emerald-50 hover:text-emerald-500 transition-all flex items-center justify-center group" title="Marcar como Aberto"><span className="material-icons-round text-xl group-hover:scale-110">mark_chat_read</span></button>
-                                <button onClick={() => updateStatus(selectedContact.id, 'closed')} className="w-10 h-10 rounded-xl text-slate-400 hover:bg-indigo-50 hover:text-indigo-500 transition-all flex items-center justify-center group" title="Marcar como Resolvido"><span className="material-icons-round text-xl group-hover:scale-110">check_circle</span></button>
-                                <button onClick={() => { fetchAgents(); setTransferModal(true); }} className="w-10 h-10 rounded-xl text-slate-400 hover:bg-amber-50 hover:text-amber-500 transition-all flex items-center justify-center group" title="Transferir Agente"><span className="material-icons-round text-xl group-hover:translate-x-1 group-hover:translate-y-[-1px]">shortcut</span></button>
-                                <button onClick={toggleAI} className={`w-10 h-10 rounded-xl transition-all flex items-center justify-center group ${selectedContact.ai_paused ? 'bg-indigo-50 text-indigo-500 shadow-sm border border-indigo-100' : 'text-slate-400 hover:bg-slate-50 hover:text-indigo-500'}`} title={selectedContact.ai_paused ? 'Ativar IA' : 'Pausar IA'}>
-                                    <span className={`material-icons-round text-xl group-hover:scale-110 ${!selectedContact.ai_paused ? 'animate-pulse' : ''}`}>{selectedContact.ai_paused ? 'play_circle' : 'auto_awesome'}</span>
+
+                            <div className="flex items-center gap-1">
+                                <button
+                                    onClick={() => updateStatus(selectedContact.id, 'closed')}
+                                    className="p-2 hover:bg-slate-50 rounded-lg text-slate-400 hover:text-emerald-600 transition-all group"
+                                    title="Finalizar Conversa"
+                                >
+                                    <span className="material-icons-round text-xl">check_circle</span>
+                                </button>
+                                <button
+                                    onClick={() => { fetchAgents(); setTransferModal(true); }}
+                                    className="p-2 hover:bg-slate-50 rounded-lg text-slate-400 hover:text-blue-600 transition-all"
+                                    title="Transferir"
+                                >
+                                    <span className="material-icons-round text-xl">ios_share</span>
+                                </button>
+                                <button
+                                    onClick={toggleAI}
+                                    className={`p-2 rounded-lg transition-all ${selectedContact.ai_paused ? 'text-amber-500 bg-amber-50' : 'text-slate-400 hover:bg-slate-50 hover:text-blue-500'}`}
+                                    title={selectedContact.ai_paused ? "Ativar IA" : "Pausar IA"}
+                                >
+                                    <span className="material-icons-round text-xl">{selectedContact.ai_paused ? 'smart_toy' : 'auto_awesome'}</span>
+                                </button>
+                                <button
+                                    onClick={() => setShowContactInfo(!showContactInfo)}
+                                    className={`p-2 rounded-lg transition-all ${showContactInfo ? 'bg-slate-100 text-slate-900' : 'text-slate-400 hover:bg-slate-50'}`}
+                                >
+                                    <span className="material-icons-round text-xl">info</span>
                                 </button>
                             </div>
                         </div>
 
-                        {/* Messages Area */}
-                        <div className="flex-1 overflow-y-auto px-6 sm:px-10 py-8 space-y-2 custom-scrollbar bg-slate-50/10 relative">
-                            <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
-                            {messages.map(msg => renderMessage(msg))}
+                        {/* Área de Mensagens */}
+                        <div className="flex-1 overflow-y-auto px-6 py-8 space-y-4 bg-[#f8f9fa] custom-scrollbar">
+                            {messages.map(msg => {
+                                const isMe = msg.key_from_me;
+                                const { content, type, mediaUrl } = getMessageContent(msg);
+                                return (
+                                    <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
+                                        <div className={`
+                                            max-w-[80%] p-1 rounded-2xl shadow-sm border
+                                            ${isMe ? 'bg-white border-slate-200/60' : 'bg-white border-slate-100'}
+                                        `}>
+                                            <div className="px-3 py-2">
+                                                {type === 'image' && mediaUrl && (
+                                                    <div className="rounded-xl overflow-hidden mb-2 border border-slate-100 bg-slate-50">
+                                                        <img src={mediaUrl} className="max-h-72 w-full object-contain cursor-pointer hover:opacity-90 transition-opacity" onClick={() => window.open(mediaUrl, '_blank')} alt="" />
+                                                    </div>
+                                                )}
+                                                {type === 'audio' && mediaUrl && (
+                                                    <div className="min-w-[200px] py-1">
+                                                        <audio src={mediaUrl} controls className="w-full h-8 opacity-70" />
+                                                    </div>
+                                                )}
+                                                {type === 'document' && mediaUrl && (
+                                                    <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 mb-1">
+                                                        <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center text-slate-400 shadow-sm">
+                                                            <span className="material-icons-round">description</span>
+                                                        </div>
+                                                        <div className="flex-1 min-w-0 pr-2">
+                                                            <p className="text-xs font-semibold truncate text-slate-800">{content || 'Documento'}</p>
+                                                            <p className="text-[10px] text-slate-400 uppercase font-bold tabular-nums">ARQUIVO</p>
+                                                        </div>
+                                                        <a href={mediaUrl} target="_blank" rel="noreferrer" className="p-1.5 hover:bg-white rounded-md text-slate-400 transition-colors shadow-sm">
+                                                            <span className="material-icons-round text-lg">download</span>
+                                                        </a>
+                                                    </div>
+                                                )}
+                                                {type === 'text' && content && (
+                                                    <p className="text-[14px] text-slate-700 leading-relaxed font-medium whitespace-pre-wrap">{content}</p>
+                                                )}
+
+                                                <div className="flex items-center justify-end gap-1.5 mt-1.5">
+                                                    {msg.source === 'ai' && <span className="text-[9px] font-black uppercase text-blue-600 tracking-tighter bg-blue-50 px-1.5 rounded-md">IA</span>}
+                                                    <span className="text-[10px] font-semibold text-slate-400 uppercase">
+                                                        {new Date(msg.timestamp * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                                    </span>
+                                                    {isMe && (
+                                                        <span className={`material-icons-round text-sm ${msg.status === 'read' ? 'text-blue-500' : 'text-slate-300'}`}>
+                                                            {msg.status === 'read' ? 'done_all' : 'done'}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
                             <div ref={messagesEndRef} />
                         </div>
 
-                        {/* Message Input */}
-                        <div className="p-6 sm:p-10 bg-white/40">
+                        {/* Input de Mensagem */}
+                        <div className="p-4 border-t border-slate-200/50 bg-white shrink-0">
                             {isRecording ? (
-                                <div className="bg-white/90 backdrop-blur-xl rounded-[2.5rem] p-4 sm:p-6 shadow-2xl border-2 border-primary/20 flex items-center justify-between animate-in zoom-in-95 duration-300">
-                                    <div className="flex items-center gap-4 sm:gap-6">
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.5)]"></div>
-                                            <span className="font-black text-xl sm:text-2xl text-slate-800 tabular-nums">
-                                                {Math.floor(recordingTime / 60).toString().padStart(2, '0')}:
-                                                {(recordingTime % 60).toString().padStart(2, '0')}
-                                            </span>
-                                        </div>
-                                        <div className="hidden sm:flex gap-1 h-6 items-center">
-                                            {[5, 8, 4, 9, 3, 7, 5, 8, 4, 6].map((h, i) => (
-                                                <div key={i} className="w-1 bg-primary/30 rounded-full animate-pulse" style={{ height: `${h * 2.5}px`, animationDelay: `${i * 0.1}s` }}></div>
-                                            ))}
-                                        </div>
+                                <div className="bg-slate-900 text-white rounded-2xl p-4 flex items-center justify-between animate-in slide-in-from-bottom-2 duration-300">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></div>
+                                        <span className="font-bold tabular-nums text-lg">
+                                            {Math.floor(recordingTime / 60).toString().padStart(2, '0')}:
+                                            {(recordingTime % 60).toString().padStart(2, '0')}
+                                        </span>
                                     </div>
-                                    <div className="flex gap-2 sm:gap-3">
-                                        <button onClick={() => stopRecording(false)} className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-100 text-slate-500 rounded-2xl flex items-center justify-center hover:bg-rose-50 hover:text-rose-500 transition-all shadow-sm" title="Cancelar"><span className="material-icons-round">delete_outline</span></button>
-                                        <button onClick={() => stopRecording(true)} className="px-5 sm:px-8 bg-primary text-white rounded-2xl font-black text-[10px] sm:text-xs uppercase tracking-widest shadow-xl shadow-blue-200 hover:scale-[1.02] active:scale-[0.98] transition-all">Enviar Áudio</button>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => stopRecording(false)} className="px-4 py-2 hover:bg-white/10 rounded-xl transition-colors font-bold text-xs uppercase tracking-tighter">Cancelar</button>
+                                        <button onClick={() => stopRecording(true)} className="px-6 py-2 bg-blue-600 rounded-xl font-bold text-xs uppercase tracking-tight shadow-lg shadow-blue-500/20 active:scale-95 transition-all">Enviar Áudio</button>
                                     </div>
                                 </div>
                             ) : (
-                                <div className="bg-white/80 backdrop-blur-md rounded-[2.5rem] p-2.5 flex items-center gap-2 border border-white shadow-[0_10px_40px_-10px_rgba(0,0,0,0.05)] group transition-all duration-500 focus-within:shadow-[0_20px_50px_-10px_rgba(0,85,255,0.1)] focus-within:border-primary/20">
-                                    <div className="flex gap-1">
+                                <div className="max-w-5xl mx-auto border border-slate-200/80 rounded-2xl bg-[#fcfcfd] flex items-end p-2 transition-all focus-within:border-slate-400/50 focus-within:shadow-sm">
+                                    <div className="flex gap-1 mb-1">
                                         <button
-                                            className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl text-slate-400 hover:bg-slate-100 hover:text-primary transition-all flex items-center justify-center"
                                             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                                            title="Emojis"
+                                            className="p-2.5 hover:bg-slate-100 rounded-xl text-slate-400 transition-colors"
                                         >
-                                            <span className="material-icons-round text-2xl">sentiment_satisfied</span>
+                                            <span className="material-icons-round text-xl">sentiment_satisfied_alt</span>
                                         </button>
                                         <button
-                                            className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl text-slate-400 hover:bg-slate-100 hover:text-primary transition-all flex items-center justify-center"
                                             onClick={() => fileInputRef.current?.click()}
-                                            title="Anexar Arquivo"
+                                            className="p-2.5 hover:bg-slate-100 rounded-xl text-slate-400 transition-colors"
                                         >
-                                            <span className="material-icons-round text-2xl">add_circle_outline</span>
+                                            <span className="material-icons-round text-xl">attach_file</span>
                                         </button>
                                     </div>
                                     <textarea
@@ -814,7 +844,7 @@ const ChatView: React.FC = () => {
                                         onChange={(e) => {
                                             setNewMessage(e.target.value);
                                             e.target.style.height = 'auto';
-                                            e.target.style.height = e.target.scrollHeight + 'px';
+                                            e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
                                         }}
                                         onKeyDown={(e) => {
                                             if (e.key === 'Enter' && !e.shiftKey) {
@@ -822,25 +852,29 @@ const ChatView: React.FC = () => {
                                                 handleSendMessage();
                                             }
                                         }}
-                                        placeholder="Digite sua mensagem..."
-                                        className="flex-1 bg-transparent border-none focus:ring-0 text-[15px] font-medium text-slate-700 placeholder:text-slate-400 resize-none py-3 px-2 custom-scrollbar max-h-48"
+                                        placeholder="Escrever mensagem..."
+                                        className="flex-1 bg-transparent border-none focus:ring-0 text-sm py-3 px-3 custom-scrollbar font-medium text-slate-700 min-h-[44px]"
                                     />
-                                    <div className="flex gap-2">
+                                    <div className="flex gap-2 mb-1 mr-1">
                                         <button
                                             onClick={startRecording}
-                                            className="w-10 h-10 sm:w-12 sm:h-12 bg-slate-50 text-slate-400 rounded-2xl hover:text-primary hover:bg-white hover:shadow-md transition-all flex items-center justify-center"
-                                            title="Gravar Áudio"
+                                            className="p-2.5 hover:bg-slate-100 rounded-xl text-slate-400 transition-colors"
                                         >
-                                            <span className="material-icons-round text-2xl">mic</span>
+                                            <span className="material-icons-round text-xl">mic_none</span>
                                         </button>
                                         <button
                                             onClick={handleSendMessage}
                                             disabled={!newMessage.trim()}
-                                            className={`w-10 h-10 sm:w-12 sm:h-12 rounded-2xl shadow-lg transition-all flex items-center justify-center group ${newMessage.trim() ? 'bg-primary text-white shadow-blue-200 hover:scale-110 active:scale-95' : 'bg-slate-100 text-slate-300'}`}
+                                            className={`p-2.5 rounded-xl transition-all ${newMessage.trim() ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-200'}`}
                                         >
-                                            <span className="material-icons-round rotate-[-45deg] mb-1 ml-1 text-2xl group-hover:translate-x-0.5 group-hover:translate-y-[-0.5px] transition-transform">send</span>
+                                            <span className="material-icons-round text-xl">send</span>
                                         </button>
                                     </div>
+                                </div>
+                            )}
+                            {showEmojiPicker && (
+                                <div className="absolute bottom-24 left-10 z-50 animate-in zoom-in-95 duration-200">
+                                    <EmojiPicker onEmojiClick={(emoji: EmojiClickData) => setNewMessage(p => p + emoji.emoji)} />
                                 </div>
                             )}
                         </div>
@@ -848,191 +882,117 @@ const ChatView: React.FC = () => {
                 )}
             </div>
 
-            {/* 4. Contact Information Sidebar (Right) */}
-            <div className="w-[320px] sm:w-[380px] border-l border-slate-200/60 flex flex-col bg-slate-50/10">
-                {!selectedContact ? (
-                    <div className="flex-1 flex items-center justify-center p-10 text-slate-200 font-black italic rotate-[-90deg] uppercase tracking-[1.5em] select-none opacity-50">Informações</div>
-                ) : (
-                    <div className="p-6 sm:p-10 flex flex-col h-full overflow-y-auto custom-scrollbar">
-                        <div className="flex justify-between items-center mb-10 text-slate-400">
-                            <span className="material-icons-round cursor-pointer hover:text-primary p-2.5 hover:bg-white rounded-2xl transition-all shadow-sm border border-transparent hover:border-slate-100">settings</span>
-                            <span className="material-icons-round cursor-pointer hover:text-primary p-2.5 hover:bg-white rounded-2xl transition-all shadow-sm border border-transparent hover:border-slate-100">bookmark_border</span>
-                        </div>
-
-                        <div className="flex flex-col items-center mb-10 text-center">
-                            <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-[2.5rem] border-[6px] border-white shadow-2xl relative mb-6 group">
+            {/* Painel de Informações do Contato (Retrátil) */}
+            {showContactInfo && selectedContact && (
+                <div className="w-80 border-l border-slate-200/50 bg-white flex flex-col animate-in slide-in-from-right duration-300">
+                    <div className="p-6 border-b border-slate-200/50 flex items-center justify-between">
+                        <h4 className="font-bold text-slate-800">Detalhes</h4>
+                        <button onClick={() => setShowContactInfo(false)} className="text-slate-400 hover:text-slate-600"><span className="material-icons-round">close</span></button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-6 space-y-8">
+                        <div className="flex flex-col items-center">
+                            <div className="w-24 h-24 rounded-2xl bg-slate-100 mb-4 border-2 border-slate-50 shadow-sm overflow-hidden">
                                 {selectedContact.profile_pic ? (
-                                    <img src={selectedContact.profile_pic} className="w-full h-full object-cover rounded-[2rem]" alt="" />
+                                    <img src={selectedContact.profile_pic} className="w-full h-full object-cover" alt="" />
                                 ) : (
-                                    <div className="w-full h-full bg-slate-100 rounded-[2rem] flex items-center justify-center text-4xl font-black text-slate-300 shadow-inner">{selectedContact.name?.charAt(0)}</div>
+                                    <div className="w-full h-full flex items-center justify-center text-3xl font-bold text-slate-300">{selectedContact.name?.charAt(0)}</div>
                                 )}
-                                <div className="absolute -bottom-2 -right-2 w-10 h-10 bg-primary border-4 border-white rounded-2xl flex items-center justify-center text-white shadow-xl cursor-pointer hover:scale-110 active:scale-95 transition-all group-hover:rotate-12">
-                                    <span className="material-icons-round text-lg">edit</span>
-                                </div>
                             </div>
-                            <h3 className="text-2xl font-black text-slate-800 tracking-tight mb-2 leading-tight">{selectedContact.name}</h3>
-                            <div className="flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-full border border-slate-200/50">
-                                <span className="material-icons-round text-xs text-slate-400">phone</span>
-                                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{selectedContact.remote_jid.split('@')[0]}</p>
-                            </div>
+                            <h3 className="text-lg font-bold text-slate-900">{selectedContact.name}</h3>
+                            <p className="text-xs text-slate-400 font-medium mt-1">{selectedContact.remote_jid.split('@')[0]}</p>
+                        </div>
 
-                            <div className="mt-8 w-full p-1.5 bg-white/60 rounded-3xl border border-white shadow-sm flex items-center justify-between group cursor-pointer hover:border-primary/20 hover:bg-white transition-all">
-                                <div className="flex items-center gap-3 p-2.5">
-                                    <div className="w-3 h-3 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.4)]"></div>
-                                    <span className="text-[11px] font-black uppercase tracking-widest text-slate-600">Equipe Geral</span>
+                        <div className="space-y-4">
+                            <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Informações Adicionais</p>
+                            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-3">
+                                <div className="flex justify-between">
+                                    <span className="text-[11px] text-slate-400 font-bold uppercase">Status</span>
+                                    <span className={`text-[10px] font-black uppercase text-white px-2 py-0.5 rounded-md ${getStatusColor(selectedContact.status)}`}>{selectedContact.status}</span>
                                 </div>
-                                <span className="material-icons-round text-slate-300 group-hover:text-primary transition-all mr-2">expand_more</span>
+                                <div className="flex justify-between">
+                                    <span className="text-[11px] text-slate-400 font-bold uppercase">IA</span>
+                                    <span className={`text-[11px] font-bold ${selectedContact.ai_paused ? 'text-amber-500' : 'text-emerald-500'}`}>{selectedContact.ai_paused ? 'Pausada' : 'Ativa'}</span>
+                                </div>
                             </div>
                         </div>
 
-                        <div className="flex-1">
-                            <div className="flex gap-8 border-b border-slate-200/60 mb-8 pb-3 text-[11px] font-black uppercase tracking-widest overflow-x-auto no-scrollbar">
-                                <button className="text-primary border-b-2 border-primary pb-3 whitespace-nowrap">Histórico</button>
-                                <button className="text-slate-400 hover:text-slate-600 whitespace-nowrap transition-colors">Notas (0)</button>
-                                <button className="text-slate-400 hover:text-slate-600 whitespace-nowrap transition-colors">Tarefas</button>
-                            </div>
-                            <div className="space-y-6">
-                                <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">Atividades Recentes</p>
-                                {[
-                                    { icon: 'forum', color: 'indigo', title: 'Atendimento Iniciado', sub: 'Há 5 minutos' },
-                                    { icon: 'history', color: 'slate', title: 'Status Alterado', sub: 'Por Sistema' }
-                                ].map((item, idx) => (
-                                    <div key={idx} className="flex items-center justify-between group cursor-pointer bg-white/40 p-4 rounded-3xl border border-white/60 hover:bg-white hover:shadow-xl hover:shadow-black/5 transition-all duration-300">
-                                        <div className="flex items-center gap-4">
-                                            <div className={`w-12 h-12 rounded-2xl bg-${item.color}-500/10 text-${item.color}-500 flex items-center justify-center`}><span className="material-icons-round text-2xl">{item.icon}</span></div>
-                                            <div>
-                                                <p className="text-sm font-bold text-slate-800 leading-tight">{item.title}</p>
-                                                <p className="text-[10px] text-slate-400 font-bold mt-0.5">{item.sub}</p>
-                                            </div>
-                                        </div>
-                                        <span className="material-icons-round text-slate-200 group-hover:text-slate-400 transition-colors">chevron_right</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Contact Management Actions */}
-                        <div className="mt-8 space-y-3">
+                        <div className="pt-4 border-t border-slate-200/50 space-y-3">
                             <button
                                 onClick={toggleBlock}
-                                className={`w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-3 transition-all border ${selectedContact.is_blocked ? 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100' : 'bg-rose-50 text-rose-500 border-rose-100 hover:bg-rose-100'}`}
+                                className={`w-full py-3 rounded-xl text-xs font-bold uppercase border transition-all ${selectedContact.is_blocked ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-500 border-rose-100'}`}
                             >
-                                <span className="material-icons-round text-lg">{selectedContact.is_blocked ? 'lock_open' : 'block'}</span>
-                                {selectedContact.is_blocked ? 'Desbloquear' : 'Bloquear Contato'}
+                                {selectedContact.is_blocked ? 'Desbloquear' : 'Bloquear'}
                             </button>
                             <button
                                 onClick={deleteConversation}
-                                className="w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest bg-slate-900 text-white hover:bg-black flex items-center justify-center gap-3 transition-all shadow-xl shadow-slate-200 hover:scale-[1.02] active:scale-[0.98]"
+                                className="w-full py-3 bg-slate-900 text-white rounded-xl text-xs font-bold uppercase shadow-lg shadow-slate-200"
                             >
-                                <span className="material-icons-round text-lg">delete_outline</span>
                                 Limpar Conversa
                             </button>
-                        </div>
-
-                        {/* PRO Card */}
-                        <div className="mt-10 p-8 bg-gradient-to-br from-[#0055FF] to-[#00A3FF] rounded-[3rem] relative overflow-hidden group shadow-2xl shadow-blue-200 shrink-0 select-none">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-12 -mt-12 blur-2xl group-hover:scale-150 transition-transform duration-1000"></div>
-                            <div className="relative z-10 flex flex-col items-center text-center">
-                                <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center text-white mb-6 animate-bounce shadow-lg border border-white/20"><span className="material-icons-round text-2xl">rocket_launch</span></div>
-                                <h4 className="text-white font-black text-lg mb-2 leading-tight tracking-tight">Potencialize com PRO!</h4>
-                                <p className="text-white/70 text-[10px] mb-8 font-bold uppercase tracking-widest">Acesso ilimitado e IA Avançada</p>
-                                <button className="w-full py-4 bg-white text-primary rounded-2xl font-black text-[11px] uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-xl shadow-black/10">Upgrade agora</button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </div>
-
-            {/* --- Modals --- */}
-
-            {/* Agent Transfer Modal */}
-            {transferModal && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-black/40 backdrop-blur-md animate-in fade-in duration-300">
-                    <div className="bg-white rounded-[3rem] w-full max-w-md p-10 shadow-2xl border border-white/20 animate-in zoom-in-95 duration-500">
-                        <div className="flex items-center justify-between mb-8">
-                            <h3 className="text-2xl font-black text-slate-800 tracking-tighter">Transfer Chat</h3>
-                            <button onClick={() => setTransferModal(false)} className="w-10 h-10 hover:bg-slate-50 rounded-xl transition-all flex items-center justify-center text-slate-400"><span className="material-icons-round">close</span></button>
-                        </div>
-                        <div className="space-y-3 max-h-[400px] overflow-y-auto no-scrollbar pr-1">
-                            {agents.length === 0 ? (
-                                <div className="text-center py-10 opacity-30 italic font-medium text-slate-500">No agents online</div>
-                            ) : (
-                                agents.map(agent => (
-                                    <button
-                                        key={agent.id}
-                                        onClick={() => transferConversation(agent.id)}
-                                        className="w-full flex items-center gap-4 p-4 rounded-2xl hover:bg-slate-50 border border-transparent hover:border-slate-100 transition-all text-left group"
-                                    >
-                                        <div className="w-12 h-12 rounded-xl bg-blue-50 text-primary flex items-center justify-center font-black text-xl group-hover:bg-primary group-hover:text-white transition-all">{agent.name.charAt(0)}</div>
-                                        <div className="flex-1">
-                                            <p className="font-bold text-slate-800 leading-none mb-1">{agent.name}</p>
-                                            <p className="text-[9px] uppercase font-black text-emerald-500 tracking-widest">Available</p>
-                                        </div>
-                                        <span className="material-icons-round text-slate-200 group-hover:text-primary group-hover:translate-x-1 transition-all">arrow_forward</span>
-                                    </button>
-                                ))
-                            )}
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* File Input (Hidden) */}
+            {/* Modals */}
+            {transferModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-white rounded-3xl w-full max-w-sm p-8 shadow-2xl animate-in zoom-in-95 duration-300">
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-lg font-bold text-slate-800 tracking-tight">Transferir Chat</h3>
+                            <button onClick={() => setTransferModal(false)} className="text-slate-400 hover:text-slate-600"><span className="material-icons-round">close</span></button>
+                        </div>
+                        <div className="space-y-2 max-h-80 overflow-y-auto no-scrollbar">
+                            {agents.map(agent => (
+                                <button
+                                    key={agent.id}
+                                    onClick={() => transferConversation(agent.id)}
+                                    className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 transition-all text-left"
+                                >
+                                    <div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center font-bold text-slate-500">{agent.name.charAt(0)}</div>
+                                    <p className="flex-1 font-semibold text-sm text-slate-700">{agent.name}</p>
+                                    <span className="material-icons-round text-slate-300">chevron_right</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Hidden Input */}
             <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} />
 
-            {/* Custom Scrollbar & Utility Styles */}
+            {/* Estilos Globais Reduzidos */}
             <style>{`
-                    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
-                    
-                    .modern-chat {
-                        font-family: 'Outfit', sans-serif !important;
-                    }
+                @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+                
+                .modern-chat, 
+                .modern-chat input, 
+                .modern-chat textarea, 
+                .modern-chat button {
+                    font-family: 'Outfit', sans-serif !important;
+                }
 
-                    .modern-chat *:not(.material-icons-round):not(.material-icons):not(.material-symbols-rounded) {
-                        font-family: 'Outfit', sans-serif !important;
-                    }
-
-                    .custom-scrollbar::-webkit-scrollbar {
-                        width: 6px;
-                    }
-
-                    .custom-scrollbar::-webkit-scrollbar-track {
-                        background: transparent;
-                    }
-
-                    .custom-scrollbar::-webkit-scrollbar-thumb {
-                        background: rgba(0, 0, 0, 0.05);
-                        border-radius: 20px;
-                    }
-
-                    .custom-scrollbar:hover::-webkit-scrollbar-thumb {
-                        background: rgba(0, 0, 0, 0.1);
-                    }
-
-                    .no-scrollbar::-webkit-scrollbar {
-                        display: none;
-                    }
-
-                    textarea {
-                        line-height: 1.5 !important;
-                    }
-
-                    .glass-effect {
-                        background: rgba(255, 255, 255, 0.4);
-                        backdrop-filter: blur(20px);
-                        border: 1px solid rgba(255, 255, 255, 0.5);
-                    }
-
-                    @keyframes float {
-                        0% { transform: translateY(0px); }
-                        50% { transform: translateY(-5px); }
-                        100% { transform: translateY(0px); }
-                    }
-
-                    .animate-float {
-                        animation: float 3s ease-in-out infinite;
-                    }
-                `}</style>
+                .custom-scrollbar::-webkit-scrollbar {
+                    width: 5px;
+                }
+                .custom-scrollbar::-webkit-scrollbar-track {
+                    background: transparent;
+                }
+                .custom-scrollbar::-webkit-scrollbar-thumb {
+                    background: rgba(0, 0, 0, 0.05);
+                    border-radius: 10px;
+                }
+                .custom-scrollbar:hover::-webkit-scrollbar-thumb {
+                    background: rgba(0, 0, 0, 0.1);
+                }
+                .no-scrollbar::-webkit-scrollbar {
+                    display: none;
+                }
+                textarea {
+                    line-height: normal !important;
+                }
+            `}</style>
         </div>
     );
 };
