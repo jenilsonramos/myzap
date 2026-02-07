@@ -597,16 +597,12 @@ const ToolButton = ({ icon, label, color, onClick }: any) => (
 // Dicionário de Ajuda Contextual
 const helpContent: any = {
     api: {
-        title: 'Como configurar API',
-        description: 'Faça requisições HTTP para sistemas externos.',
-        example: `{
-  "method": "POST",
-  "url": "https://api.seusistema.com/v1/pedidos",
-  "body": {
-    "cliente": "{{contact.name}}",
-    "telefone": "{{contact.phone}}"
-  }
-}`
+        title: 'Guia do Nó de API',
+        description: 'Conecte seu fluxo a sistemas externos (ERPs, Sites, etc).',
+        example: `
+        1. Url: O endereço da API (ex: https://viacep.com.br/ws/{{cep}}/json)
+        2. Headers: Caso a API precise de Token ou Chave (ex: Authorization | Bearer 123)
+        3. Mapear: Pegue os campos que a API respondeu e salve em variáveis para usar depois.`
     },
     google_sheets: {
         title: 'Integração Google Sheets',
@@ -1094,10 +1090,36 @@ const PropertiesPanel = ({ node, onUpdate, onClose, onDelete, onDuplicate, onUpl
                                         </div>
                                     ))}
                                     {(!node.data.responseMapping || (node.data.responseMapping as any[]).length === 0) && (
-                                        <p className="text-[10px] text-slate-400 text-center py-4 bg-slate-50 dark:bg-white/5 rounded-xl border border-dashed border-slate-200 dark:border-white/10">Use para extrair dados da API</p>
+                                        <div className="text-center py-6 bg-slate-50 dark:bg-white/5 rounded-2xl border-2 border-dashed border-slate-200 dark:border-white/10 space-y-2">
+                                            <p className="text-[10px] text-slate-500 font-bold px-4">Saiba como capturar dados da API:</p>
+                                            <div className="flex flex-col gap-1 items-start px-8">
+                                                <div className="flex items-center gap-2 text-[9px] text-slate-400 italic">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-violet-400"></span>
+                                                    <span>Resposta: <b>{"{ \"city\": \"Brasília\" }"}</b></span>
+                                                </div>
+                                                <div className="flex items-center gap-2 text-[9px] text-slate-400 italic">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                                    <span>Caminho: <b>city</b></span>
+                                                </div>
+                                                <div className="flex items-center gap-2 text-[9px] text-slate-400 italic">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                                                    <span>Variável: <b>cidade_cliente</b></span>
+                                                </div>
+                                            </div>
+                                            <button onClick={addMapping} className="mt-2 px-3 py-1.5 bg-violet-100 dark:bg-violet-500/20 text-violet-600 dark:text-violet-400 rounded-lg text-[10px] font-bold hover:scale-105 transition-transform">
+                                                Começar Mapeamento
+                                            </button>
+                                        </div>
                                     )}
                                 </div>
-                                <p className="text-[9px] text-slate-400 leading-relaxed italic">Exemplo: para pegar a cidade na resposta {'{ "city": "SP" }'}, use path <b>city</b> e salve em <b>cidade_cliente</b>.</p>
+                                {((node.data.responseMapping as any[]) || []).length > 0 && (
+                                    <div className="bg-violet-50 dark:bg-violet-500/5 p-3 rounded-xl border border-violet-100 dark:border-violet-500/10">
+                                        <p className="text-[9px] text-violet-700 dark:text-violet-300 font-medium leading-relaxed">
+                                            <b>Dica:</b> Para usar estes dados depois, escreva as variáveis entre chaves duplas nas mensagens.
+                                            Ex: <code className="bg-white dark:bg-slate-800 px-1 rounded">{"Olá, você mora em {{sua_variavel}}"}</code>
+                                        </p>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
