@@ -342,11 +342,13 @@ const AppContent: React.FC = () => {
             <button onClick={() => navigate('/my-plan')} className="bg-white text-rose-500 px-4 py-1.5 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-50 transition-all ml-4 shrink-0">Ver Detalhes</button>
           </div>
         )}
-        <Header
-          currentView={getCurrentView()}
-          systemName={publicSettings.system_name}
-          onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-        />
+        <div className={getCurrentView() === AppView.CHAT ? 'hidden md:block' : ''}>
+          <Header
+            currentView={getCurrentView()}
+            systemName={publicSettings.system_name}
+            onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+          />
+        </div>
 
         <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 md:pr-2">
           <Routes>
@@ -408,22 +410,7 @@ const AppContent: React.FC = () => {
         type="danger"
       />
 
-      {/* Mobile Logout (Floating) */}
-      <div className="md:hidden fixed bottom-16 left-4 right-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-100 dark:border-white/5 p-4 rounded-3xl flex items-center justify-center gap-4 z-40 shadow-2xl">
-        <button onClick={() => setIsLogoutModalOpen(true)} className="flex items-center gap-2 text-rose-500 font-bold text-sm">
-          <span className="material-icons-round">logout</span>
-          Sair
-        </button>
-      </div>
 
-      {/* Mobile Navigation Bar */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white dark:bg-card-dark border-t border-slate-100 dark:border-white/5 px-6 py-4 flex items-center justify-between z-50">
-        <button onClick={() => navigate('/admin')} className={`material-icons-round transition-colors ${location.pathname === '/admin' ? 'text-primary' : 'text-slate-400'}`}>admin_panel_settings</button>
-        <button onClick={() => navigate('/analytics')} className={`material-icons-round transition-colors ${location.pathname === '/analytics' ? 'text-primary' : 'text-slate-400'}`}>analytics</button>
-        <button onClick={() => navigate('/instances')} className={`material-icons-round transition-colors ${location.pathname === '/instances' ? 'text-primary' : 'text-slate-400'}`}>grid_view</button>
-        <button onClick={() => navigate('/chat')} className={`material-icons-round transition-colors ${location.pathname === '/chat' ? 'text-primary' : 'text-slate-400'}`}>chat</button>
-        <button onClick={() => navigate('/settings')} className={`material-icons-round transition-colors ${location.pathname === '/settings' ? 'text-primary' : 'text-slate-400'}`}>settings</button>
-      </div>
     </div>
   );
 };

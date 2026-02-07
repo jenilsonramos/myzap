@@ -67,16 +67,18 @@ const Header: React.FC<HeaderProps> = ({ currentView, systemName, onToggleSideba
       </div>
 
       <div className="flex flex-wrap items-center gap-3 md:gap-5">
-        <div className="relative group flex-1 min-w-[200px] md:flex-none">
-          <span className="material-icons-round absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">
-            search
-          </span>
-          <input
-            className="pl-11 pr-4 py-3 rounded-2xl border-none bg-white dark:bg-card-dark shadow-sm focus:ring-2 focus:ring-primary w-full md:w-72 text-sm transition-all outline-none"
-            placeholder="Pesquisar instâncias..."
-            type="text"
-          />
-        </div>
+        {currentView !== AppView.CHAT && (
+          <div className="relative group flex-1 min-w-[200px] md:flex-none">
+            <span className="material-icons-round absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">
+              search
+            </span>
+            <input
+              className="pl-11 pr-4 py-3 rounded-2xl border-none bg-white dark:bg-card-dark shadow-sm focus:ring-2 focus:ring-primary w-full md:w-72 text-sm transition-all outline-none"
+              placeholder="Pesquisar instâncias..."
+              type="text"
+            />
+          </div>
+        )}
 
         <div className="flex items-center gap-3">
           <button className="p-3 bg-white dark:bg-card-dark rounded-2xl shadow-sm text-slate-600 dark:text-slate-400 hover:text-primary transition-all active:scale-95 border border-transparent dark:border-slate-800">
