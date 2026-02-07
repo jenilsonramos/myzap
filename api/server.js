@@ -3012,17 +3012,20 @@ async function processMediaNode(node, context) {
     const mediaType = node.data.mediaType || 'image';
 
     try {
-        number,
-            mediatype: 'document',
-                media: mediaUrl,
-                    caption
-    });
-}
-
-console.log(`📷 [FLOW] Media sent: ${mediaType}`);
+        const evo = await getEvolutionService();
+        if (evo) {
+            await evo.sendMedia(
+                node.data.instanceName,
+                context.chatId,
+                mediaType,
+                mediaUrl,
+                caption
+            );
+            console.log(`📷 [FLOW] Media sent: ${mediaType}`);
+        }
     } catch (err) {
-    console.error('Media Node Error:', err);
-}
+        console.error('Media Node Error:', err);
+    }
 }
 
 async function processInteractiveNode(node, context) {
