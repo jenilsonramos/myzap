@@ -675,9 +675,10 @@ async function connectToDB() {
             waitForConnections: true,
             connectionLimit: 10,
             enableKeepAlive: true,
-            keepAliveInitialDelay: 0
+            keepAliveInitialDelay: 0,
+            timezone: '-03:00' // Horário de Brasília
         });
-        console.log('✅ MyZap MySQL Pool Criado.');
+        console.log('✅ MyZap MySQL Pool Criado (Timezone: -03:00).');
 
         // TESTE DE CONEXÃO IMEDIATO
         const connection = await pool.getConnection();
