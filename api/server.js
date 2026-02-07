@@ -92,7 +92,7 @@ app.use('/uploads', express.static(uploadDir)); // Fallback compatibilidade
 
 // --- PROXY DE MÍDIA (Para evitar CORS e problemas de decriptação) ---
 app.get('/api/media/proxy', async (req, res) => {
-    const { url, msgId, instance } = req.query;
+    const { url, msgId, instance, remoteJid: qRemoteJid, fromMe: qFromMe } = req.query;
     if (!url && (!msgId || !instance)) return res.status(400).send('URL or msgId/instance is required');
 
     try {
@@ -100,38 +100,56 @@ app.get('/api/media/proxy', async (req, res) => {
 
         // Se temos msgId e instance, usamos o endpoint getBase64 da Evolution (Muito mais robusto)
         if (msgId && instance && evo) {
-            console.log(`[PROXY] Buscando via Evolution API: ${msgId} em ${instance}`);
+            console.log(`[PROXY] Buscando via Evolution API: ${msgId} na instância: ${instance}`);
             try {
-                // Precisamos do remoteJid para o getBase64 da Evolution v2
-                const [msgRows] = await pool.query(
-                    "SELECT c.remote_jid FROM messages m JOIN contacts c ON m.contact_id = c.id WHERE m.uid = ?",
-                    [msgId]
-                );
+                let remoteJid = qRemoteJid;
+                let fromMe = qFromMe === 'true';
 
-                const remoteJid = msgRows.length > 0 ? msgRows[0].remote_jid : null;
-
+                // Se não veio do frontend, tenta buscar no banco
                 if (!remoteJid) {
-                    console.warn(`[PROXY WARNING] RemoteJID não encontrado para msgId: ${msgId}`);
+                    const [msgRows] = await pool.query(
+                        "SELECT c.remote_jid, m.key_from_me FROM messages m JOIN contacts c ON m.contact_id = c.id WHERE m.uid = ?",
+                        [msgId]
+                    );
+
+                    if (msgRows.length > 0) {
+                        remoteJid = msgRows[0].remote_jid;
+                        fromMe = msgRows[0].key_from_me === 1;
+                        console.log(`[PROXY DEBUG] Contexto recuperado do banco: RemoteJID=${remoteJid}, fromMe=${fromMe}`);
+                    }
                 }
 
-                const data = await evo.getMediaBase64(instance, {
-                    id: msgId,
-                    fromMe: false,
-                    remoteJid: remoteJid // Opcional mas recomendado pela Evolution v2
-                });
-                if (data && data.base64) {
-                    const buffer = Buffer.from(data.base64, 'base64');
-                    // Tentar inferir content-type se possível, ou usar genérico
-                    res.set('Content-Type', data.mimetype || 'application/octet-stream');
-                    return res.send(buffer);
+                if (remoteJid) {
+                    const data = await evo.getMediaBase64(instance, {
+                        id: msgId,
+                        fromMe: fromMe,
+                        remoteJid: remoteJid
+                    });
+
+                    if (data && data.base64) {
+                        console.log(`[PROXY SUCCESS] Mídia recuperada via Evolution (${msgId})`);
+                        const buffer = Buffer.from(data.base64, 'base64');
+                        res.set('Content-Type', data.mimetype || 'application/octet-stream');
+                        res.set('Cache-Control', 'public, max-age=86400');
+                        return res.send(buffer);
+                    } else {
+                        console.warn(`[PROXY WARNING] Evolution sem base64 para ${msgId}. Tente fallback se URL disponível.`);
+                    }
+                } else {
+                    console.warn(`[PROXY WARNING] Sem RemoteJID para ${msgId}. Fallback para URL direta.`);
                 }
             } catch (evoErr) {
-                console.error(`[PROXY EVO ERROR] Falha no getBase64:`, evoErr.message);
-                // Fallback para download direto se houver URL
+                console.error(`[PROXY EVO ERROR] Falha no getBase64 para ${msgId}:`, evoErr.message);
             }
         }
 
         if (!url) return res.status(404).send('Media not found');
+
+        // Se chegamos aqui e a URL é de MMS do WhatsApp, ela provavelmente é criptografada.
+        // O download direto não vai funcionar para renderização sem as chaves.
+        if (url.includes('mmg.whatsapp.net') || url.includes('.enc')) {
+            console.warn(`[PROXY WARNING] Fallback direto para URL criptografada detectado. É provável que a imagem não renderize.`);
+        }
 
         console.log(`[PROXY] Buscando via download direto: ${url.substring(0, 80)}...`);
         const response = await axios({

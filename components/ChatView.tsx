@@ -497,7 +497,7 @@ const ChatView: React.FC = () => {
             if (mediaUrl.startsWith('/mms/')) {
                 fullUrl = `https://mmg.whatsapp.net${mediaUrl}`;
             }
-            mediaUrl = `/api/media/proxy?url=${encodeURIComponent(fullUrl)}&msgId=${msg.uid || ''}&instance=${msg.instance_name || ''}`;
+            mediaUrl = `/api/media/proxy?url=${encodeURIComponent(fullUrl)}&msgId=${msg.uid || ''}&instance=${msg.instance_name || ''}&remoteJid=${encodeURIComponent(selectedContact?.remote_jid || '')}&fromMe=${msg.key_from_me ? 'true' : 'false'}`;
         }
 
         return { content, type, mediaUrl };
