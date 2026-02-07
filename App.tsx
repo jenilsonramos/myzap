@@ -97,7 +97,7 @@ const AppContent: React.FC = () => {
   }, []);
 
   React.useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || location.pathname === '/') return;
 
     const checkUserStatus = async () => {
       try {
@@ -138,7 +138,7 @@ const AppContent: React.FC = () => {
 
   React.useEffect(() => {
     const isBlocked = ['inactive', 'suspended', 'expired'].includes(status || '');
-    if (!isAuthenticated || isBlocked) return;
+    if (!isAuthenticated || isBlocked || location.pathname === '/') return;
 
     const checkUnread = async () => {
       try {
@@ -197,6 +197,10 @@ const AppContent: React.FC = () => {
     if (path === 'SERVER-HEALTH') return AppView.SERVER_HEALTH;
     return AppView.ANALYTICS;
   };
+
+  if (location.pathname === '/') {
+    return <LandingView />;
+  }
 
   if (!isAuthenticated) {
     return (
