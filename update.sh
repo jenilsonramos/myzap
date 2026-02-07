@@ -38,3 +38,4 @@ else
 fi
 
 echo "✅ Atualização concluída com sucesso!"
+echo "🛠️  Se tiver problemas no banco, rode: node api/diagnose_db.js"
