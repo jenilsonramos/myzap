@@ -21,34 +21,9 @@ const InstanceView: React.FC = () => {
   const [minToken, setMinToken] = useState(''); // Access Token (renomeado para evitar conflito)
   const [wabaId, setWabaId] = useState('');
 
-  // Integration State
-  const [showIntegrationModal, setShowIntegrationModal] = useState(false);
-  const [integrationData, setIntegrationData] = useState({ url: '', instance: '', token: '', fullUrl: '' });
 
-  const handleShowIntegration = async (instance: Instance) => {
-    try {
-      const res = await fetch('/api/user/token', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('myzap_token')}` }
-      });
-      const data = await res.json();
 
-      if (data.api_token) {
-        const baseUrl = window.location.origin;
-        const fullUrl = `${baseUrl}/api/send?instance_id=${instance.name}&access_token=${data.api_token}&number={numero}&message={mensagem}`;
-        setIntegrationData({
-          url: baseUrl,
-          instance: instance.name,
-          token: data.api_token,
-          fullUrl: fullUrl
-        });
-        setShowIntegrationModal(true);
-      } else {
-        showToast('Erro ao buscar token de API', 'error');
-      }
-    } catch (err) {
-      showToast('Erro ao buscar dados de integração', 'error');
-    }
-  };
+
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -241,85 +216,7 @@ const InstanceView: React.FC = () => {
 
 
 
-      {/* Integration Modal */}
-      {showIntegrationModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-card-dark rounded-2xl p-6 w-full max-w-lg shadow-2xl animate-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-black dark:text-white flex items-center gap-2">
-                <span className="material-icons-round text-primary">integration_instructions</span>
-                Integração Delivery
-              </h3>
-              <button onClick={() => setShowIntegrationModal(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white">
-                <span className="material-icons-round">close</span>
-              </button>
-            </div>
 
-            <div className="space-y-4">
-              <div className="p-4 bg-amber-50 dark:bg-amber-500/10 rounded-xl border border-amber-100 dark:border-amber-500/20 mb-4">
-                <p className="text-xs text-amber-600 dark:text-amber-400 font-bold flex items-center gap-2">
-                  <span className="material-icons-round text-sm">info</span>
-                  Copie a URL completa abaixo e cole no seu sistema:
-                </p>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">URL Completa (Recomendado)</label>
-                <div className="relative group">
-                  <input readOnly value={integrationData.fullUrl} className="w-full bg-primary/5 dark:bg-primary/10 border-2 border-primary/20 rounded-xl px-4 py-3 text-xs font-mono text-primary font-bold focus:ring-0 cursor-pointer" onClick={() => copyToClipboard(integrationData.fullUrl)} />
-                  <button onClick={() => copyToClipboard(integrationData.fullUrl)} className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-primary hover:bg-primary hover:text-white rounded-lg transition-all opacity-0 group-hover:opacity-100">
-                    <span className="material-icons-round text-base">content_copy</span>
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4 my-2">
-                <div className="flex-1 h-px bg-slate-100 dark:bg-white/5"></div>
-                <span className="text-[10px] font-bold text-slate-300 uppercase">Ou use os dados separados</span>
-                <div className="flex-1 h-px bg-slate-100 dark:bg-white/5"></div>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">URL da API</label>
-                <div className="relative group">
-                  <input readOnly value={integrationData.url} className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-xl px-4 py-3 text-xs font-mono dark:text-white focus:ring-0 cursor-pointer" onClick={() => copyToClipboard(integrationData.url)} />
-                  <button onClick={() => copyToClipboard(integrationData.url)} className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-primary transition-colors opacity-0 group-hover:opacity-100">
-                    <span className="material-icons-round text-base">content_copy</span>
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Instance ID</label>
-                <div className="relative group">
-                  <input readOnly value={integrationData.instance} className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-xl px-4 py-3 text-xs font-mono dark:text-white focus:ring-0 cursor-pointer" onClick={() => copyToClipboard(integrationData.instance)} />
-                  <button onClick={() => copyToClipboard(integrationData.instance)} className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-primary transition-colors opacity-0 group-hover:opacity-100">
-                    <span className="material-icons-round text-base">content_copy</span>
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Token de Acesso</label>
-                <div className="relative group">
-                  <input readOnly value={integrationData.token} className="w-full bg-slate-50 dark:bg-slate-900 border-none rounded-xl px-4 py-3 text-xs font-mono dark:text-white focus:ring-0 cursor-pointer" onClick={() => copyToClipboard(integrationData.token)} />
-                  <button onClick={() => copyToClipboard(integrationData.token)} className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-primary transition-colors opacity-0 group-hover:opacity-100">
-                    <span className="material-icons-round text-base">content_copy</span>
-                  </button>
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-slate-100 dark:border-white/5 mt-6">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">Webhook (Opcional)</label>
-                <div className="flex items-center gap-2 text-xs text-slate-500">
-                  <span className="material-icons-round text-sm">webhook</span>
-                  Configure a URL do webhook do seu delivery clicando no botão <span className="font-bold bg-slate-100 dark:bg-slate-800 px-1 rounded">hub</span> na lista de instâncias.
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Create Modal */}
       {showCreateModal && (
@@ -597,13 +494,7 @@ const InstanceView: React.FC = () => {
                           >
                             <span className="material-icons-round text-lg">hub</span>
                           </button>
-                          <button
-                            onClick={() => handleShowIntegration(instance)}
-                            className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white transition-colors"
-                            title="Integração Delivery"
-                          >
-                            <span className="material-icons-round text-lg">integration_instructions</span>
-                          </button>
+
                           <button
                             onClick={() => handleDelete(instance)}
                             className="p-2 rounded-lg bg-rose-50 dark:bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-colors"
