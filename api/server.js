@@ -1702,18 +1702,14 @@ app.post('/api/messages/send-media', authenticateToken, upload.single('file'), a
         else if (mimeType.startsWith('video/')) mediaType = 'video';
         else if (mimeType.startsWith('audio/')) mediaType = 'audio';
 
-        // URL pública do arquivo (para o banco)
+        // URL pública do arquivo (para o banco e para o envio)
         const publicUrl = await getAppUrl();
         const fileUrl = `${publicUrl}/uploads/${file.filename}`;
 
-        // Base64 para envio direto (Evita que Evolution precise baixar de volta)
-        const fileBase64 = fs.readFileSync(file.path, { encoding: 'base64' });
-        const mediaData = `data:${mimeType};base64,${fileBase64}`;
+        console.log(`[MEDIA] Enviando arquivo: ${file.originalname} via URL: ${fileUrl}`);
 
-        console.log(`[MEDIA] Enviando arquivo: ${file.originalname} via Base64`);
-
-        // Enviar via Evolution API usando Base64
-        const result = await evo.sendMedia(instanceName, remoteJid, mediaData, mediaType, '', file.originalname);
+        // Enviar via Evolution API usando URL (mais estável que Base64)
+        const result = await evo.sendMedia(instanceName, remoteJid, fileUrl, mediaType, '', file.originalname);
         console.log(`[MEDIA] Resposta da Evolution:`, JSON.stringify(result));
 
         // Salvar mensagem no banco
