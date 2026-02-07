@@ -2474,31 +2474,51 @@ async function processHandoffNode(node, context) {
 }
 
 async function processAiAgentNode(node, context) {
-    const [rows] = await pool.query("SELECT setting_value FROM system_settings WHERE setting_key = 'gemini_api_key'");
-    const apiKey = rows[0]?.setting_value;
-
-    if (!apiKey) {
-        console.log(`⚠️ [FLOW] AI Agent: No API key configured`);
-        return;
-    }
+    const [configRows] = await pool.query(
+        "SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ('openai_key', 'openai_model', 'google_key', 'google_model')"
+    );
+    const config = {};
+    configRows.forEach(r => config[r.setting_key] = r.setting_value);
 
     const prompt = replaceVariables(node.data.prompt || '', context);
     const userMessage = context.variables.last_input || '';
+    const selectedModel = node.data.model || config.openai_model || config.google_model || 'gpt-3.5-turbo';
+
+    let aiResponse = '';
 
     try {
-        const response = await axios.post(`https://generativelanguage.googleapis.com/v1/models/${node.data.model || 'gemini-1.5-flash'}:generateContent?key=${apiKey}`, {
-            contents: [
-                { role: 'user', parts: [{ text: `${prompt}\n\nUsuário: ${userMessage}` }] }
-            ]
-        });
+        if (config.openai_key && (selectedModel.startsWith('gpt-') || !config.google_key)) {
+            console.log(`🤖 [FLOW] AI Agent: Usando OpenAI (${selectedModel})...`);
+            const { default: OpenAI } = await import('openai');
+            const openai = new OpenAI({ apiKey: config.openai_key });
+            const completion = await openai.chat.completions.create({
+                messages: [
+                    { role: "system", content: prompt || "Você é um assistente útil." },
+                    { role: "user", content: userMessage }
+                ],
+                model: selectedModel,
+            });
+            aiResponse = completion.choices[0].message.content;
+        } else if (config.google_key) {
+            console.log(`🤖 [FLOW] AI Agent: Usando Google Gemini (${selectedModel})...`);
+            const { GoogleGenerativeAI } = await import('@google/generative-ai');
+            const genAI = new GoogleGenerativeAI(config.google_key);
+            const model = genAI.getGenerativeModel({ model: selectedModel });
+            const result = await model.generateContent(`${prompt}\n\nUsuário: ${userMessage}`);
+            aiResponse = result.response.text();
+        } else {
+            console.log(`⚠️ [FLOW] AI Agent: Nenhuma chave de API configurada`);
+            return;
+        }
 
-        const data = response.data;
-        const aiResponse = data?.candidates?.[0]?.content?.parts?.[0]?.text || 'Desculpe, não consegui processar.';
-
-        await sendWhatsAppMessage(context.instanceName, context.remoteJid, aiResponse);
-        context.variables.ai_response = aiResponse;
+        if (aiResponse) {
+            await sendWhatsAppMessage(context.instanceName, context.remoteJid, aiResponse);
+            context.variables.ai_response = aiResponse;
+            console.log(`🤖 [FLOW] AI Agent: Resposta enviada (${aiResponse.slice(0, 30)}...)`);
+        }
     } catch (err) {
-        console.error('AI Agent Error:', err);
+        console.error('❌ [FLOW] AI Agent Node Error:', err.message);
+        await sendWhatsAppMessage(context.instanceName, context.remoteJid, "Desculpe, ocorreu um erro ao processar sua solicitação com IA.");
     }
 }
 
