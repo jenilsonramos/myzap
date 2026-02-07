@@ -1914,6 +1914,133 @@ app.post('/api/messages/send-text', authenticateToken, async (req, res) => {
     }
 });
 
+// --- LEGACY INTEGRATION ENDPOINT (Hasbot/Baylls Compatibility) ---
+// Suporta GET e POST para facilitar integração com sistemas legados
+app.all(['/api/integration/send', '/api/send', '/api/send.php', '/bot.php', '/api/bot.php'], async (req, res) => {
+    // 1. Extrair parâmetros (Query ou Body)
+    const {
+        phone_number,
+        body,
+        instance_id,
+        access_token
+    } = { ...req.query, ...req.body };
+
+    if (!phone_number || !body || !instance_id || !access_token) {
+        return res.status(400).json({
+            status: 'error',
+            message: 'Parâmetros necessários não foram recebidos (phone_number, body, instance_id, access_token).'
+        });
+    }
+
+    try {
+        // 2. Autenticar usuário pelo Token de API (access_token)
+        // O access_token legado agora deve ser o Token de API do usuário no MyZap
+        const [users] = await pool.query('SELECT id, plan_id FROM users WHERE api_token = ?', [access_token]);
+
+        if (users.length === 0) {
+            return res.status(401).json({ status: 'error', message: 'Token de acesso inválido.' });
+        }
+
+        const userId = users[0].id;
+
+        // 3. Verificar Limites
+        const limit = await checkUserLimit(userId, 'messages');
+        if (!limit.allowed) {
+            return res.status(403).json({ status: 'error', message: limit.error });
+        }
+
+        // 4. Verificar Instância
+        // O instance_id legado é tratado como o instanceName no MyZap
+        const [instance] = await pool.query(
+            'SELECT id FROM whatsapp_accounts WHERE business_name = ? AND user_id = ?',
+            [instance_id, userId]
+        );
+
+        if (instance.length === 0) {
+            return res.status(404).json({ status: 'error', message: 'Instância não encontrada ou não pertence ao usuário.' });
+        }
+
+        // 5. Sanitizar Número (Lógica do script PHP original)
+        let cleanNumber = phone_number.replace(/\D/g, ''); // Remove não-números
+
+        // Ajuste de 9º dígito (para BR)
+        if (cleanNumber.startsWith('55') && cleanNumber.length >= 13) {
+            const ddd = parseInt(cleanNumber.substring(2, 4));
+            if (ddd >= 31 && cleanNumber[4] === '9') {
+                cleanNumber = cleanNumber.substring(0, 4) + cleanNumber.substring(5);
+            }
+        }
+
+        // Adicionar sufixo @s.whatsapp.net se não houver
+        const remoteJid = cleanNumber.includes('@') ? cleanNumber : `${cleanNumber}@s.whatsapp.net`;
+
+        // 6. Criar/Atualizar Contato
+        await pool.query(`
+            INSERT INTO contacts (user_id, name, remote_jid, instance_name, profile_pic_url)
+            VALUES (?, ?, ?, ?, '')
+            ON DUPLICATE KEY UPDATE instance_name = VALUES(instance_name)
+        `, [userId, cleanNumber, remoteJid, instance_id]);
+
+        const [contact] = await pool.query('SELECT id FROM contacts WHERE user_id = ? AND remote_jid = ?', [userId, remoteJid]);
+        const contactId = contact[0]?.id;
+
+        // 7. Enviar Mensagem (Texto ou Mídia)
+        const type = req.body.type || req.query.type || 'text';
+        const mediaUrl = req.body.media_url || req.query.media_url;
+        const filename = req.body.filename || req.query.filename;
+
+        let result;
+
+        if (type === 'media' && mediaUrl) {
+            // Detectar mimetype básico pela extensão ou usar padrão
+            let mediaType = 'document';
+            if (mediaUrl.match(/\.(jpeg|jpg|png|gif)$/i)) mediaType = 'image';
+            else if (mediaUrl.match(/\.(mp4|avi|mov)$/i)) mediaType = 'video';
+            else if (mediaUrl.match(/\.(mp3|ogg|wav)$/i)) mediaType = 'audio';
+
+            console.log(`[LEGACY] Enviando mídia: ${mediaType} - ${mediaUrl}`);
+
+            result = await sendWhatsAppMessage(instance_id, remoteJid, body || '', {
+                userId,
+                mediaUrl: mediaUrl,
+                mediaType: mediaType,
+                fileName: filename
+            });
+        } else {
+            // Envio de Texto Simples
+            result = await sendWhatsAppMessage(instance_id, remoteJid, body, { userId });
+        }
+
+        // 8. Salvar no Banco
+        const msgId = result?.key?.id || result?.id || `LEGACY-${Date.now()}`;
+        const timestamp = Math.floor(Date.now() / 1000);
+
+        await pool.query(`
+            INSERT INTO messages (user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp)
+            VALUES (?, ?, ?, ?, 1, ?, 'text', ?)
+            ON DUPLICATE KEY UPDATE content = VALUES(content)
+        `, [userId, contactId, instance_id, msgId, body, timestamp]);
+
+        console.log(`✅ [LEGACY] Mensagem enviada via Integração: ${msgId}`);
+
+        // 9. Resposta Compatível com Legado
+        res.json({
+            status: 'success',
+            message: 'Mensagem enviada com sucesso.',
+            api_response: result,
+            message_id: msgId
+        });
+
+    } catch (err) {
+        console.error('❌ [LEGACY] Erro crítico:', err);
+        res.status(500).json({
+            status: 'error',
+            message: 'Erro interno ao processar a requisição.',
+            details: err.message
+        });
+    }
+});
+
 app.post('/api/messages/send', authenticateToken, async (req, res) => {
     const { contactId, content } = req.body;
     try {
@@ -2313,6 +2440,16 @@ app.post('/api/stripe/cancel-subscription', authenticateToken, async (req, res) 
     } catch (err) {
         console.error('Error cancelling subscription:', err);
         res.status(500).json({ error: 'Erro ao cancelar assinatura' });
+    }
+});
+
+app.get('/api/user/token', authenticateToken, async (req, res) => {
+    try {
+        const [rows] = await pool.query('SELECT api_token FROM users WHERE id = ?', [req.user.id]);
+        if (rows.length === 0) return res.status(404).json({ error: 'User not found' });
+        res.json({ api_token: rows[0].api_token });
+    } catch (err) {
+        res.status(500).json({ error: 'Error fetching token' });
     }
 });
 
