@@ -610,10 +610,6 @@ const ChatView: React.FC = () => {
             {/* Signature Overlay - High Priority noise */}
             <div className="fixed inset-0 pointer-events-none z-[9999] opacity-[0.08] mix-blend-overlay signature-material-overlay"></div>
 
-            {/* Signature Watermark */}
-            <div className="fixed bottom-4 right-4 z-[9999] pointer-events-none opacity-20">
-                <span className="industrial-mono text-[8px] font-black uppercase tracking-[0.4em] text-slate-900">Signature UI v2.0 Elite</span>
-            </div>
 
             {/* Sidebar de Contatos (Minimalista Industrial) */}
             <div className={`
@@ -622,16 +618,43 @@ const ChatView: React.FC = () => {
             `}>
                 {/* Header da Sidebar */}
                 <div className="p-6 flex items-center justify-between">
-                    {!isSidebarCollapsed && <h2 className="text-xl font-bold tracking-tight text-slate-800">Mensagens</h2>}
-                    <button
-                        onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                        className="p-2 hover:bg-slate-50 rounded-lg text-slate-400 transition-all spring-motion active-scale-spring"
-                    >
-                        <span className="material-icons-round text-xl">
-                            {isSidebarCollapsed ? 'menu_open' : 'menu'}
-                        </span>
-                    </button>
+                    {!isSidebarCollapsed && <h2 className="text-2xl font-black tracking-tight text-slate-800">Chat</h2>}
+                    <div className="flex items-center gap-2">
+                        {!isSidebarCollapsed && (
+                            <button className="w-10 h-10 bg-[#3b66f5] rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-500/30 hover:scale-105 transition-transform">
+                                <span className="material-icons-round">add</span>
+                            </button>
+                        )}
+                        <button
+                            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                            className="p-2 hover:bg-slate-50 rounded-lg text-slate-400 transition-all spring-motion active-scale-spring"
+                        >
+                            <span className="material-icons-round text-xl">
+                                {isSidebarCollapsed ? 'menu_open' : 'menu'}
+                            </span>
+                        </button>
+                    </div>
                 </div>
+
+                {/* Cápsula de Tabs */}
+                {!isSidebarCollapsed && (
+                    <div className="px-6 mb-6">
+                        <div className="capsule-tab-container flex">
+                            <button
+                                onClick={() => setFilterStatus('all')}
+                                className={`flex-1 capsule-tab ${filterStatus === 'all' ? 'capsule-tab-active' : 'text-slate-400'}`}
+                            >
+                                Open
+                            </button>
+                            <button
+                                onClick={() => setFilterStatus('closed')}
+                                className={`flex-1 capsule-tab ${filterStatus === 'closed' ? 'capsule-tab-active' : 'text-slate-400'}`}
+                            >
+                                Archived
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 {/* Busca */}
                 <div className="px-4 mb-4">
@@ -651,7 +674,7 @@ const ChatView: React.FC = () => {
                 </div>
 
                 {/* Lista de Contatos */}
-                <div className="flex-1 overflow-y-auto no-scrollbar px-2 space-y-1 pb-4">
+                <div className="flex-1 overflow-y-auto no-scrollbar pb-4">
                     {filteredContacts.map(c => (
                         <div
                             key={c.id}
@@ -661,33 +684,37 @@ const ChatView: React.FC = () => {
                                 markAsRead(c.id);
                             }}
                             className={`
-                                group flex items-center p-3 rounded-xl cursor-pointer transition-all relative
-                                ${selectedContact?.id === c.id ? 'bg-slate-100 shadow-sm' : 'hover:bg-slate-50'}
+                                group flex items-center px-6 py-4 cursor-pointer transition-all soft-card
+                                ${selectedContact?.id === c.id ? 'soft-card-selected' : 'hover:bg-slate-50/50'}
                             `}
                         >
                             <div className="relative shrink-0">
-                                <div className={`w-11 h-11 rounded-lg bg-slate-200 flex items-center justify-center text-slate-500 font-bold overflow-hidden shadow-industrial-sm avatar-ring ${getStatusColor(c.status) === 'bg-emerald-500' ? 'avatar-ring-active' : ''}`}>
+                                <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold overflow-hidden">
                                     {c.profile_pic ? (
                                         <img src={c.profile_pic} className="w-full h-full object-cover" alt="" />
                                     ) : (
-                                        c.name.charAt(0).toUpperCase()
+                                        <div className="w-full h-full flex items-center justify-center bg-blue-50 text-blue-500 text-lg">
+                                            {c.name.charAt(0).toUpperCase()}
+                                        </div>
                                     )}
                                 </div>
-                                <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${getStatusColor(c.status)}`}></div>
+                                <div className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-white ${getStatusColor(c.status)}`}></div>
                             </div>
 
                             {!isSidebarCollapsed && (
-                                <div className="flex-1 min-w-0 ml-3">
-                                    <div className="flex justify-between items-baseline mb-0.5">
-                                        <h3 className={`text-sm font-semibold truncate ${selectedContact?.id === c.id ? 'text-slate-900' : 'text-slate-700'}`}>{c.name}</h3>
-                                        {c.lastTime && <span className="text-[10px] text-slate-400 industrial-mono">{formatFriendlyDate(c.lastTime)}</span>}
+                                <div className="flex-1 min-w-0 ml-4">
+                                    <div className="flex items-center justify-between mb-1">
+                                        <h3 className="text-[15px] font-bold text-slate-800 truncate leading-none">{c.name}</h3>
+                                        <span className="text-[11px] font-medium text-slate-400 uppercase industrial-mono">{formatFriendlyDate(c.lastTime)}</span>
                                     </div>
-                                    <div className="flex items-center justify-between gap-2">
-                                        <p className="text-[11px] text-slate-500 truncate">{c.lastMessage || '...'}</p>
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-[13px] text-slate-400 truncate pr-4 font-medium leading-tight">
+                                            {c.last_message || 'Inicie uma conversa...'}
+                                        </p>
                                         {c.unread_count > 0 && (
-                                            <span className="h-4 min-w-[16px] px-1 bg-blue-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center shadow-sm">
+                                            <div className="pink-badge scale-90 animate-in zoom-in-50 duration-300">
                                                 {c.unread_count}
-                                            </span>
+                                            </div>
                                         )}
                                     </div>
                                 </div>
@@ -700,122 +727,109 @@ const ChatView: React.FC = () => {
             {/* Janela de Chat Principal */}
             <div className="flex-1 flex flex-col bg-white min-w-0">
                 {!selectedContact ? (
-                    <div className="flex-1 flex flex-col items-center justify-center p-12 opacity-40 select-none bg-slate-50/30">
-                        <div className="w-20 h-20 bg-white rounded-2xl flex items-center justify-center mb-6 shadow-sm border border-slate-100">
-                            <span className="material-icons-round text-4xl text-slate-300">chat_bubble_outline</span>
+                    <div className="flex-1 flex flex-col items-center justify-center p-12 select-none bg-slate-50/20">
+                        <div className="w-24 h-24 bg-white rounded-[2rem] flex items-center justify-center mb-8 shadow-xl shadow-slate-100 border border-slate-50 group transition-transform hover:scale-110 duration-500">
+                            <span className="material-icons-round text-5xl text-blue-500 opacity-20 group-hover:opacity-100 transition-opacity">forum</span>
                         </div>
-                        <h2 className="text-xl font-bold tracking-tight text-slate-800">Selecione uma conversa</h2>
-                        <p className="text-sm text-slate-400 mt-2">Escolha alguém para começar a conversar</p>
+                        <h2 className="text-2xl font-black tracking-tight text-slate-800">Seu Chat de Elite</h2>
+                        <p className="text-slate-400 mt-3 font-medium text-center max-w-xs">Selecione um contato para experimentar a nova interface ultra-minimalista.</p>
                     </div>
                 ) : (
                     <>
                         {/* Header do Chat */}
-                        <div className="h-16 px-6 border-b border-slate-200/50 flex items-center justify-between shrink-0">
-                            <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-sm shadow-industrial-sm avatar-ring-active">
-                                    {selectedContact.name.charAt(0).toUpperCase()}
+                        <div className="h-20 px-8 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white">
+                            <div className="flex items-center gap-4">
+                                <div className="w-11 h-11 rounded-full bg-slate-100 overflow-hidden relative">
+                                    {selectedContact.profile_pic ? (
+                                        <img src={selectedContact.profile_pic} className="w-full h-full object-cover" alt="" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center bg-blue-50 text-blue-500 font-bold">
+                                            {selectedContact.name.charAt(0).toUpperCase()}
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="min-w-0">
-                                    <h3 className="text-sm font-bold text-slate-800 truncate">{selectedContact.name}</h3>
+                                    <h2 className="text-[17px] font-bold text-slate-800 leading-none mb-1">{selectedContact.name}</h2>
                                     <div className="flex items-center gap-1.5">
-                                        <div className={`w-1.5 h-1.5 rounded-full ${getStatusColor(selectedContact.status)} animate-pulse-soft shadow-[0_0_8px_rgba(34,197,94,0.4)]`}></div>
+                                        <div className={`w-1.5 h-1.5 rounded-full ${getStatusColor(selectedContact.status)} animate-pulse-soft`}></div>
                                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest industrial-mono">online</span>
-                                        <div className="w-1 h-1 bg-blue-500 rounded-full animate-ping ml-2" title="Signature Active v2"></div>
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-1">
-                                <button
-                                    onClick={() => updateStatus(selectedContact.id, 'closed')}
-                                    className="p-2 hover:bg-slate-50 rounded-lg text-slate-400 hover:text-emerald-600 transition-all group spring-motion active-scale-spring"
-                                    title="Finalizar Conversa"
-                                >
-                                    <span className="material-icons-round text-xl">check_circle</span>
+                            <div className="flex items-center gap-3">
+                                <button className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 hover:bg-slate-50 transition-colors border border-slate-100">
+                                    <span className="material-icons-round text-xl">star_outline</span>
                                 </button>
-                                <button
-                                    onClick={() => { fetchAgents(); setTransferModal(true); }}
-                                    className="p-2 hover:bg-slate-50 rounded-lg text-slate-400 hover:text-blue-600 transition-all spring-motion active-scale-spring"
-                                    title="Transferir"
-                                >
-                                    <span className="material-icons-round text-xl">ios_share</span>
-                                </button>
-                                <button
-                                    onClick={toggleAI}
-                                    className={`p-2 rounded-lg transition-all spring-motion active-scale-spring ${selectedContact.ai_paused ? 'text-amber-500 bg-amber-50' : 'text-slate-400 hover:bg-slate-50 hover:text-blue-500'}`}
-                                    title={selectedContact.ai_paused ? "Ativar IA" : "Pausar IA"}
-                                >
-                                    <span className="material-icons-round text-xl">{selectedContact.ai_paused ? 'smart_toy' : 'auto_awesome'}</span>
+                                <button className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 hover:bg-slate-50 transition-colors border border-slate-100">
+                                    <span className="material-icons-round text-xl">priority_high</span>
                                 </button>
                                 <button
                                     onClick={() => setShowContactInfo(!showContactInfo)}
-                                    className={`p-2 rounded-lg transition-all spring-motion active-scale-spring ${showContactInfo ? 'bg-slate-100 text-slate-900' : 'text-slate-400 hover:bg-slate-50'}`}
+                                    className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all border ${showContactInfo ? 'bg-blue-50 border-blue-100 text-blue-500' : 'text-slate-400 border-slate-100 hover:bg-slate-50'}`}
                                 >
-                                    <span className="material-icons-round text-xl">info</span>
+                                    <span className="material-icons-round text-xl">person_outline</span>
                                 </button>
                             </div>
                         </div>
 
                         {/* Área de Mensagens */}
-                        <div className="flex-1 overflow-y-auto px-6 py-8 space-y-4 bg-[#f8f9fa] custom-scrollbar">
+                        <div className="flex-1 overflow-y-auto px-10 py-10 space-y-8 bg-[#fbfbfc] custom-scrollbar">
                             {messages.map((msg, index) => {
                                 const isMe = msg.key_from_me;
                                 const { content, type, mediaUrl } = getMessageContent(msg);
-
-                                // Signature Grouping Logic
                                 const prevMsg = messages[index - 1];
-                                const nextMsg = messages[index + 1];
                                 const isSameAsPrev = prevMsg && prevMsg.key_from_me === msg.key_from_me;
-                                const isSameAsNext = nextMsg && nextMsg.key_from_me === msg.key_from_me;
-
-                                let groupClass = "";
-                                if (isSameAsPrev && isSameAsNext) groupClass = "msg-group-mid";
-                                else if (isSameAsPrev) groupClass = "msg-group-last";
-                                else if (isSameAsNext) groupClass = "msg-group-first";
 
                                 return (
-                                    <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300 ${isSameAsPrev ? 'mt-0.5' : 'mt-4'}`}>
+                                    <div key={msg.id} className={`flex gap-4 ${isMe ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300 ${isSameAsPrev ? 'mt-1.5' : 'mt-8'}`}>
+                                        {!isMe && !isSameAsPrev && (
+                                            <div className="w-10 h-10 rounded-full bg-slate-100 shrink-0 mt-1 overflow-hidden">
+                                                {selectedContact.profile_pic ? (
+                                                    <img src={selectedContact.profile_pic} className="w-full h-full object-cover" alt="" />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center bg-blue-50 text-blue-500 text-sm font-bold">
+                                                        {selectedContact.name.charAt(0).toUpperCase()}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                        {isMe && !isSameAsPrev && <div className="w-10 h-10 shrink-0" />}
+                                        {(isSameAsPrev) && <div className="w-10 h-10 shrink-0" />}
+
                                         <div className={`
-                                            max-w-[80%] p-1 rounded-2xl border glass-sheen spring-motion hover-scale-spring signature-bubble
-                                            ${isMe ? 'border-slate-300 shadow-industrial-lg' : 'border-slate-200 shadow-industrial-md'}
-                                            ${groupClass}
+                                            max-w-[75%] bubble-soft spring-motion
+                                            ${isMe ? 'bubble-me ml-10' : 'bubble-other'}
                                         `}>
-                                            <div className="px-3 py-2">
+                                            <div className="px-1 py-0.5">
                                                 {type === 'image' && mediaUrl && (
-                                                    <div className="rounded-xl overflow-hidden mb-2 border border-slate-100 bg-slate-50">
-                                                        <img src={mediaUrl} className="max-h-72 w-full object-contain cursor-pointer hover:opacity-90 transition-opacity" onClick={() => window.open(mediaUrl, '_blank')} alt="" />
+                                                    <div className="rounded-xl overflow-hidden mb-2">
+                                                        <img src={mediaUrl} className="max-h-72 w-full object-contain cursor-pointer" onClick={() => window.open(mediaUrl, '_blank')} alt="" />
                                                     </div>
                                                 )}
                                                 {type === 'audio' && mediaUrl && (
-                                                    <div className="min-w-[200px] py-1">
-                                                        <audio src={mediaUrl} controls className="w-full h-8 opacity-70" />
-                                                    </div>
-                                                )}
-                                                {type === 'document' && mediaUrl && (
-                                                    <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100 mb-1">
-                                                        <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center text-slate-400 shadow-sm">
-                                                            <span className="material-icons-round">description</span>
+                                                    <div className="audio-wave-container min-w-[240px] border border-blue-50">
+                                                        <button className="play-btn-circle spring-motion active-scale-spring">
+                                                            <span className="material-icons-round">play_arrow</span>
+                                                        </button>
+                                                        <div className="flex-1 flex gap-1 items-end h-6 px-2">
+                                                            {[...Array(24)].map((_, i) => (
+                                                                <div key={i} className="w-[3px] bg-blue-200 rounded-full" style={{ height: `${20 + Math.random() * 80}%` }} />
+                                                            ))}
                                                         </div>
-                                                        <div className="flex-1 min-w-0 pr-2">
-                                                            <p className="text-xs font-semibold truncate text-slate-800">{content || 'Documento'}</p>
-                                                            <p className="text-[10px] text-slate-400 uppercase font-bold tabular-nums">ARQUIVO</p>
-                                                        </div>
-                                                        <a href={mediaUrl} target="_blank" rel="noreferrer" className="p-1.5 hover:bg-white rounded-md text-slate-400 transition-colors shadow-sm">
-                                                            <span className="material-icons-round text-lg">download</span>
-                                                        </a>
+                                                        <span className="text-[11px] font-bold text-slate-400 industrial-mono">1:23</span>
                                                     </div>
                                                 )}
                                                 {type === 'text' && content && (
-                                                    <p className="text-[14px] text-slate-700 leading-relaxed font-medium whitespace-pre-wrap">{content}</p>
+                                                    <p className="text-[15px] text-slate-800 leading-relaxed font-medium whitespace-pre-wrap">{content}</p>
                                                 )}
 
-                                                <div className="flex items-center justify-end gap-1.5 mt-1.5">
-                                                    {msg.source === 'ai' && <span className="text-[9px] font-black uppercase text-blue-600 tracking-tighter bg-blue-50 px-1.5 rounded-md skeleton-shimmer">IA</span>}
-                                                    <span className="text-[10px] font-bold text-slate-400 uppercase industrial-mono">
+                                                <div className="flex items-center justify-end gap-2 mt-2">
+                                                    <span className="text-[10px] font-bold text-slate-300 uppercase industrial-mono">
                                                         {new Date(msg.timestamp * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                                                     </span>
                                                     {isMe && (
-                                                        <span className={`material-icons-round text-sm ${msg.status === 'read' ? 'text-blue-500' : 'text-slate-300'}`}>
+                                                        <span className={`material-icons-round text-sm ${msg.status === 'read' ? 'text-blue-500' : 'text-slate-200'}`}>
                                                             {msg.status === 'read' ? 'done_all' : 'done'}
                                                         </span>
                                                     )}
@@ -828,89 +842,43 @@ const ChatView: React.FC = () => {
                             <div ref={messagesEndRef} />
                         </div>
 
-                        {/* Input de Mensagem */}
-                        <div className="p-4 border-t border-slate-200/50 bg-white shrink-0">
-                            {isRecording ? (
-                                <div className="max-w-5xl mx-auto bg-slate-900 text-white rounded-[2rem] p-4 flex items-center justify-between animate-in slide-in-from-bottom-4 duration-500 ease-out shadow-industrial-lg relative overflow-hidden">
-                                    <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-transparent via-blue-500 to-transparent opacity-30"></div>
-                                    <div className="flex items-center gap-5 relative z-10">
-                                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 rounded-full border border-white/10">
-                                            <div className="waveform-bar"></div>
-                                            <div className="waveform-bar"></div>
-                                            <div className="waveform-bar"></div>
-                                            <div className="waveform-bar"></div>
-                                            <div className="waveform-bar"></div>
-                                        </div>
-                                        <span className="font-bold tabular-nums text-xl industrial-mono tracking-tighter">
-                                            {Math.floor(recordingTime / 60).toString().padStart(2, '0')}:
-                                            {(recordingTime % 60).toString().padStart(2, '0')}
-                                        </span>
-                                    </div>
-                                    <div className="flex gap-3 relative z-10">
-                                        <button onClick={() => stopRecording(false)} className="px-5 py-2.5 hover:bg-white/10 rounded-xl transition-all font-black text-[10px] uppercase tracking-widest text-white/60 hover:text-white">Descartar</button>
-                                        <button onClick={() => stopRecording(true)} className="px-8 py-2.5 bg-blue-600 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-blue-500/40 active:scale-95 transition-all text-white border border-white/20">Enviar Áudio</button>
-                                    </div>
+                        {/* Input de Mensagem Flutuante */}
+                        <div className="px-10 pb-10 pt-4 bg-[#fbfbfc]">
+                            <div className="floating-input-container flex items-center gap-2">
+                                <div className="flex items-center gap-1">
+                                    <button className="p-2.5 text-slate-300 hover:text-slate-500 transition-colors">
+                                        <span className="material-icons-round text-2xl">settings</span>
+                                    </button>
+                                    <button
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="p-2.5 text-slate-300 hover:text-slate-500 transition-colors"
+                                    >
+                                        <span className="material-icons-round text-2xl">image</span>
+                                    </button>
                                 </div>
-                            ) : (
-                                <div className="max-w-5xl mx-auto border border-slate-200/80 rounded-[2rem] bg-slate-50 flex items-end p-2 transition-all input-sheen-focus shadow-industrial-lg spring-motion">
-                                    <div className="flex gap-1 mb-1">
-                                        <button
-                                            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                                            className="p-3 hover:bg-white hover:shadow-sm rounded-2xl text-slate-400 hover:text-slate-600 transition-all spring-motion active-scale-spring"
-                                        >
-                                            <span className="material-icons-round text-xl">sentiment_satisfied_alt</span>
-                                        </button>
-                                        <button
-                                            onClick={() => fileInputRef.current?.click()}
-                                            className="p-3 hover:bg-white hover:shadow-sm rounded-2xl text-slate-400 hover:text-slate-600 transition-all spring-motion active-scale-spring"
-                                        >
-                                            <span className="material-icons-round text-xl">attach_file</span>
-                                        </button>
-                                    </div>
-                                    <textarea
-                                        rows={1}
-                                        value={newMessage}
-                                        onChange={(e) => {
-                                            setNewMessage(e.target.value);
-                                            e.target.style.height = 'auto';
-                                            e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px';
-                                        }}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter' && !e.shiftKey) {
-                                                e.preventDefault();
-                                                handleSendMessage();
-                                            }
-                                        }}
-                                        placeholder="Escrever mensagem..."
-                                        className="flex-1 bg-transparent border-none focus:ring-0 text-sm py-4 px-4 custom-scrollbar font-medium text-slate-700 min-h-[52px] resize-none"
-                                    />
-                                    <div className="flex gap-2 mb-1 mr-1">
-                                        <button
-                                            onClick={startRecording}
-                                            className="p-3 hover:bg-white hover:shadow-sm rounded-2xl text-slate-400 hover:text-blue-500 transition-all spring-motion active-scale-spring"
-                                        >
-                                            <span className="material-icons-round text-xl">mic</span>
-                                        </button>
-                                        <button
-                                            onClick={handleSendMessage}
-                                            disabled={!newMessage.trim()}
-                                            className={`
-                                                p-3 rounded-2xl transition-all spring-motion active-scale-spring
-                                                ${newMessage.trim()
-                                                    ? 'bg-slate-900 text-white shadow-xl shadow-slate-200 border border-white/10 translate-y-[-1px]'
-                                                    : 'text-slate-200 bg-slate-100/50'}
-                                            `}
-                                        >
-                                            <span className="material-icons-round text-xl">send</span>
-                                        </button>
-                                    </div>
+                                <input
+                                    type="text"
+                                    value={newMessage}
+                                    onChange={(e) => setNewMessage(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                            e.preventDefault();
+                                            handleSendMessage();
+                                        }
+                                    }}
+                                    placeholder="Type your message"
+                                    className="flex-1 bg-transparent border-none focus:ring-0 text-[15px] py-4 placeholder:text-slate-300 text-slate-600 font-medium"
+                                />
+                                <div className="pr-1">
+                                    <button
+                                        onClick={handleSendMessage}
+                                        disabled={!newMessage.trim()}
+                                        className="send-btn-circle hover:scale-105 active:scale-95 transition-all text-white disabled:opacity-30 disabled:grayscale"
+                                    >
+                                        <span className="material-icons-round text-2xl">send</span>
+                                    </button>
                                 </div>
-                            )}
-                            {showEmojiPicker && (
-                                <div className="absolute bottom-24 left-10 z-50 animate-in zoom-in-95 duration-200">
-                                    <EmojiPicker onEmojiClick={(emoji: EmojiClickData) => setNewMessage(p => p + emoji.emoji)} />
-                                </div>
-                            )}
+                            </div>
                         </div>
                     </>
                 )}
@@ -918,51 +886,82 @@ const ChatView: React.FC = () => {
 
             {/* Painel de Informações do Contato (Retrátil) */}
             {showContactInfo && selectedContact && (
-                <div className="w-80 border-l border-slate-200/50 bg-white flex flex-col animate-in slide-in-from-right duration-500 ease-out shadow-industrial-lg">
-                    <div className="p-6 border-b border-slate-200/50 flex items-center justify-between">
-                        <h4 className="font-bold text-slate-800">Detalhes</h4>
-                        <button onClick={() => setShowContactInfo(false)} className="text-slate-400 hover:text-slate-600"><span className="material-icons-round">close</span></button>
+                <div className="w-96 border-l border-slate-100 bg-white flex flex-col animate-in slide-in-from-right duration-500 ease-out shadow-2xl shadow-slate-200/50 z-20">
+                    <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-white/80 backdrop-blur-md sticky top-0">
+                        <h4 className="text-lg font-black text-slate-800 tracking-tight">Detalhes do Contato</h4>
+                        <button
+                            onClick={() => setShowContactInfo(false)}
+                            className="w-10 h-10 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-50 transition-colors"
+                        >
+                            <span className="material-icons-round">close</span>
+                        </button>
                     </div>
-                    <div className="flex-1 overflow-y-auto p-6 space-y-8">
+
+                    <div className="flex-1 overflow-y-auto p-10 space-y-12 custom-scrollbar">
                         <div className="flex flex-col items-center">
-                            <div className="w-24 h-24 rounded-3xl bg-slate-100 mb-4 border-2 border-slate-50 shadow-industrial-md overflow-hidden avatar-ring-active relative">
+                            <div className="w-32 h-32 rounded-full bg-slate-50 mb-6 border-4 border-white shadow-xl shadow-slate-100 overflow-hidden relative group">
                                 {selectedContact.profile_pic ? (
-                                    <img src={selectedContact.profile_pic} className="w-full h-full object-cover" alt="" />
+                                    <img src={selectedContact.profile_pic} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="" />
                                 ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-3xl font-bold text-slate-300 bg-gradient-to-br from-slate-50 to-slate-200">{selectedContact.name?.charAt(0)}</div>
+                                    <div className="w-full h-full flex items-center justify-center text-5xl font-black text-blue-500 bg-blue-50">{selectedContact.name?.charAt(0)}</div>
                                 )}
-                                <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent pointer-events-none"></div>
                             </div>
-                            <h3 className="text-lg font-bold text-slate-900">{selectedContact.name}</h3>
-                            <p className="text-[11px] text-slate-400 industrial-mono mt-1">{selectedContact.remote_jid.split('@')[0]}</p>
-                        </div>
-
-                        <div className="space-y-4">
-                            <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Informações Adicionais</p>
-                            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-3">
-                                <div className="flex justify-between">
-                                    <span className="text-[11px] text-slate-400 font-bold uppercase">Status</span>
-                                    <span className={`text-[10px] font-black uppercase text-white px-2 py-0.5 rounded-md industrial-mono ${getStatusColor(selectedContact.status)}`}>{selectedContact.status}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-[11px] text-slate-400 font-bold uppercase">IA</span>
-                                    <span className={`text-[11px] font-bold industrial-mono ${selectedContact.ai_paused ? 'text-amber-500' : 'text-emerald-500'}`}>{selectedContact.ai_paused ? 'Pausada' : 'Ativa'}</span>
-                                </div>
+                            <h3 className="text-2xl font-black text-slate-900 text-center leading-tight mb-2">{selectedContact.name}</h3>
+                            <div className="px-4 py-1.5 bg-slate-50 rounded-full border border-slate-100">
+                                <span className="text-xs font-bold text-slate-400 industrial-mono">+{selectedContact.remote_jid.split('@')[0]}</span>
                             </div>
                         </div>
 
-                        <div className="pt-4 border-t border-slate-200/50 space-y-3">
+                        <div className="space-y-6">
+                            <div className="flex items-center justify-between px-2">
+                                <p className="text-[11px] font-black text-slate-300 uppercase tracking-[0.2em]">Configurações Rápidas</p>
+                            </div>
+                            <div className="space-y-3">
+                                <div className="flex items-center justify-between p-5 bg-slate-50/50 rounded-3xl border border-slate-100 group hover:bg-white hover:shadow-lg hover:shadow-slate-100 transition-all duration-300">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center text-slate-400 shadow-sm">
+                                            <span className="material-icons-round">smart_toy</span>
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-bold text-slate-700">Automação IA</p>
+                                            <p className="text-[11px] text-slate-400 font-medium">Resposta Inteligente</p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={toggleAI}
+                                        className={`w-12 h-6 rounded-full transition-all relative ${selectedContact.ai_paused ? 'bg-slate-200' : 'bg-blue-500 shadow-md shadow-blue-200'}`}
+                                    >
+                                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${selectedContact.ai_paused ? 'left-1' : 'left-7'}`} />
+                                    </button>
+                                </div>
+
+                                <div className="flex items-center justify-between p-5 bg-slate-50/50 rounded-3xl border border-slate-100">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center text-slate-400 shadow-sm">
+                                            <span className="material-icons-round">offline_bolt</span>
+                                        </div>
+                                        <div>
+                                            <p className="text-sm font-bold text-slate-700">Status Ativo</p>
+                                            <p className="text-[11px] text-slate-400 font-medium">{selectedContact.status}</p>
+                                        </div>
+                                    </div>
+                                    <div className={`w-3 h-3 rounded-full ${getStatusColor(selectedContact.status)} shadow-lg`} />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="pt-8 border-t border-slate-50 space-y-4">
                             <button
                                 onClick={toggleBlock}
-                                className={`w-full py-3 rounded-xl text-xs font-bold uppercase border transition-all ${selectedContact.is_blocked ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-500 border-rose-100'}`}
+                                className={`w-full py-5 rounded-[2rem] text-xs font-black uppercase tracking-widest border transition-all active-scale-spring ${selectedContact.is_blocked ? 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100' : 'bg-rose-50 text-rose-500 border-rose-100 hover:bg-rose-100'}`}
                             >
-                                {selectedContact.is_blocked ? 'Desbloquear' : 'Bloquear'}
+                                {selectedContact.is_blocked ? 'Desbloquear Contato' : 'Bloquear Contato'}
                             </button>
                             <button
                                 onClick={deleteConversation}
-                                className="w-full py-3 bg-slate-900 text-white rounded-xl text-xs font-bold uppercase shadow-lg shadow-slate-200"
+                                className="w-full py-5 bg-slate-900 hover:bg-black text-white rounded-[2rem] text-xs font-black uppercase tracking-widest shadow-2xl shadow-slate-200 active-scale-spring transition-all"
                             >
-                                Limpar Conversa
+                                Apagar Histórico
                             </button>
                         </div>
                     </div>
@@ -1016,82 +1015,138 @@ const ChatView: React.FC = () => {
                     letter-spacing: -0.02em;
                 }
 
-                /* Profundidade Industrial (Z-Index Shadows) */
-                .shadow-industrial-sm {
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.02), 0 1px 0 rgba(0,0,0,0.04);
+                /* Soft Minimalist UI (Based on Reference) */
+                .soft-card {
+                    background: #ffffff;
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                 }
-                .shadow-industrial-md {
-                    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03), inset 0 1px 0 rgba(255,255,255,0.6);
-                }
-                .shadow-industrial-lg {
-                    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.02), inset 0 1px 0 rgba(255,255,255,0.8);
-                }
-
-                /* Efeito de Reflexo (Sheen) */
-                .glass-sheen {
+                .soft-card-selected {
+                    background: #f8faff;
                     position: relative;
-                    overflow: hidden;
                 }
-                .glass-sheen::after {
+                .soft-card-selected::after {
                     content: "";
                     position: absolute;
-                    top: 0;
-                    left: 0;
                     right: 0;
-                    height: 50%;
-                    background: linear-gradient(180deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 100%);
-                    pointer-events: none;
+                    top: 15%;
+                    bottom: 15%;
+                    width: 3px;
+                    background: #3b66f5;
+                    border-radius: 4px 0 0 4px;
                 }
-                
-                /* Materialidade: Signature Noise Overlay */
+
+                .capsule-tab-container {
+                    background: #f1f3f9;
+                    border-radius: 100px;
+                    padding: 4px;
+                }
+                .capsule-tab {
+                    border-radius: 100px;
+                    padding: 6px 20px;
+                    font-size: 13px;
+                    font-weight: 600;
+                    transition: all 0.2s ease;
+                }
+                .capsule-tab-active {
+                    background: #ffffff;
+                    color: #3b66f5;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+                }
+
+                .pink-badge {
+                    background: #ff3b8d;
+                    color: white;
+                    min-width: 20px;
+                    height: 20px;
+                    border-radius: 10px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 11px;
+                    font-weight: 800;
+                }
+
+                /* Message Bubbles - Soft Elite */
+                .bubble-soft {
+                    border-radius: 20px;
+                    padding: 12px 18px;
+                    box-shadow: 0 2px 15px rgba(0,0,0,0.03);
+                    border: 1px solid rgba(0,0,0,0.02);
+                }
+                .bubble-me {
+                    background: #ffffff;
+                    color: #333;
+                    border-top-right-radius: 4px;
+                }
+                .bubble-other {
+                    background: #ffffff;
+                    color: #333;
+                    border-top-left-radius: 4px;
+                }
+
+                /* Audio - Soft Gradient */
+                .audio-wave-container {
+                    background: linear-gradient(90deg, #edf2ff 0%, #ffffff 100%);
+                    border-radius: 100px;
+                    padding: 8px 16px;
+                    display: flex;
+                    align-items: center;
+                    gap: 12px;
+                }
+                .play-btn-circle {
+                    width: 36px;
+                    height: 36px;
+                    background: #3b66f5;
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: white;
+                    box-shadow: 0 4px 10px rgba(59, 102, 245, 0.3);
+                }
+
+                /* Input Area - Floating */
+                .floating-input-container {
+                    background: #ffffff;
+                    border-radius: 100px;
+                    padding: 4px 4px 4px 20px;
+                    box-shadow: 0 4px 25px rgba(0,0,0,0.04);
+                    border: 1px solid #f0f0f5;
+                }
+                .send-btn-circle {
+                    width: 48px;
+                    height: 48px;
+                    background: #3b66f5;
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: white;
+                    box-shadow: 0 4px 12px rgba(59, 102, 245, 0.4);
+                }
+
+                /* Signature Noise Overlay - Softened */
                 .signature-material-overlay {
                     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3%3Cfilter id='noiseFilter'%3%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3%3C/filter%3%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3%3C/svg%3");
+                    opacity: 0.04;
                 }
 
-                /* Signature Spring Motion */
                 .spring-motion {
-                    transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-                }
-                
-                .hover-scale-spring:hover {
-                    transform: scale(1.02);
+                    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
                 }
                 .active-scale-spring:active {
-                    transform: scale(0.97);
+                    transform: scale(0.95);
                 }
 
-                /* Message Grouping Dynamics - Rounded & Border Polishing */
-                .msg-group-first { 
-                    border-bottom-left-radius: 6px !important; 
-                    border-bottom-right-radius: 6px !important; 
-                    margin-bottom: 3px !important; 
+                .custom-scrollbar::-webkit-scrollbar {
+                    width: 4px;
                 }
-                .msg-group-mid { 
-                    border-radius: 6px !important; 
-                    margin-bottom: 3px !important; 
-                    margin-top: 3px !important;
+                .custom-scrollbar::-webkit-scrollbar-track {
+                    background: transparent;
                 }
-                .msg-group-last { 
-                    border-top-left-radius: 6px !important; 
-                    border-top-right-radius: 6px !important; 
-                    margin-top: 3px !important; 
-                }
-                
-                /* Signature Glass Bubbles */
-                .signature-bubble {
-                    background: linear-gradient(135deg, rgba(255,255,255,1) 0%, rgba(248,250,252,0.95) 100%) !important;
-                    backdrop-filter: blur(8px);
-                }
-                
-                /* Skeleton Shimmer Elite */
-                @keyframes shimmer {
-                    0% { background-position: -200% 0; }
-                    100% { background-position: 200% 0; }
-                }
-                .skeleton-shimmer {
-                    background: linear-gradient(90deg, #f1f5f9 25%, #f8fafc 50%, #f1f5f9 75%);
-                    background-size: 200% 100%;
-                    animation: shimmer 1.5s infinite linear;
+                .custom-scrollbar::-webkit-scrollbar-thumb {
+                    background: rgba(0, 0, 0, 0.05);
+                    border-radius: 10px;
                 }
 
                 /* Waveform Animation */
