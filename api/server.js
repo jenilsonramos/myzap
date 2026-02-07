@@ -95,12 +95,21 @@ app.get('/api/media/proxy', async (req, res) => {
     const { url, msgId, instance, remoteJid: qRemoteJid, fromMe: qFromMe } = req.query;
     if (!url && (!msgId || !instance)) return res.status(400).send('URL or msgId/instance is required');
 
+    const fs = require('fs');
+    const logProxy = (msg) => {
+        try {
+            fs.appendFileSync('../webhook_debug.log', `[PROXY][${new Date().toISOString()}] ${msg}\n`);
+        } catch (e) { console.error(e); }
+    };
+
+    logProxy(`Solicitado: msgId=${msgId}, instance=${instance}, remoteJid=${qRemoteJid}, fromMe=${qFromMe}`);
+
     try {
         const evo = await getEvolutionService();
 
         // Se temos msgId e instance, usamos o endpoint getBase64 da Evolution (Muito mais robusto)
         if (msgId && instance && evo) {
-            console.log(`[PROXY] Buscando via Evolution API: ${msgId} na instância: ${instance}`);
+            logProxy(`Buscando via Evolution API: ${msgId} na instância: ${instance}`);
             try {
                 let remoteJid = qRemoteJid;
                 let fromMe = qFromMe === 'true';
@@ -115,7 +124,7 @@ app.get('/api/media/proxy', async (req, res) => {
                     if (msgRows.length > 0) {
                         remoteJid = msgRows[0].remote_jid;
                         fromMe = msgRows[0].key_from_me === 1;
-                        console.log(`[PROXY DEBUG] Contexto recuperado do banco: RemoteJID=${remoteJid}, fromMe=${fromMe}`);
+                        logProxy(`Contexto recuperado do banco: RemoteJID=${remoteJid}, fromMe=${fromMe}`);
                     }
                 }
 
@@ -127,19 +136,19 @@ app.get('/api/media/proxy', async (req, res) => {
                     });
 
                     if (data && data.base64) {
-                        console.log(`[PROXY SUCCESS] Mídia recuperada via Evolution (${msgId})`);
+                        logProxy(`Mídia recuperada via Evolution (${msgId})`);
                         const buffer = Buffer.from(data.base64, 'base64');
                         res.set('Content-Type', data.mimetype || 'application/octet-stream');
                         res.set('Cache-Control', 'public, max-age=86400');
                         return res.send(buffer);
                     } else {
-                        console.warn(`[PROXY WARNING] Evolution sem base64 para ${msgId}. Tente fallback se URL disponível.`);
+                        logProxy(`Evolution sem base64 para ${msgId}. Tente fallback se URL disponível.`);
                     }
                 } else {
-                    console.warn(`[PROXY WARNING] Sem RemoteJID para ${msgId}. Fallback para URL direta.`);
+                    logProxy(`Sem RemoteJID para ${msgId}. Fallback para URL direta.`);
                 }
             } catch (evoErr) {
-                console.error(`[PROXY EVO ERROR] Falha no getBase64 para ${msgId}:`, evoErr.message);
+                logProxy(`Falha no getBase64 para ${msgId}: ${evoErr.message}`);
             }
         }
 

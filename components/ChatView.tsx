@@ -497,7 +497,12 @@ const ChatView: React.FC = () => {
             if (mediaUrl.startsWith('/mms/')) {
                 fullUrl = `https://mmg.whatsapp.net${mediaUrl}`;
             }
-            mediaUrl = `/api/media/proxy?url=${encodeURIComponent(fullUrl)}&msgId=${msg.uid || ''}&instance=${msg.instance_name || ''}&remoteJid=${encodeURIComponent(selectedContact?.remote_jid || '')}&fromMe=${msg.key_from_me ? 'true' : 'false'}`;
+
+            const settings = JSON.parse(localStorage.getItem('myzap_settings') || '{}');
+            const baseUrl = settings.app_url || window.location.origin;
+            const apiPath = `/api/media/proxy?url=${encodeURIComponent(fullUrl)}&msgId=${msg.uid || ''}&instance=${msg.instance_name || ''}&remoteJid=${encodeURIComponent(selectedContact?.remote_jid || '')}&fromMe=${msg.key_from_me ? 'true' : 'false'}`;
+
+            mediaUrl = `${baseUrl.replace(/\/$/, '')}${apiPath}`;
         }
 
         return { content, type, mediaUrl };
