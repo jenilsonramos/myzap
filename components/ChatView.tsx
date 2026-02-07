@@ -606,7 +606,7 @@ const ChatView: React.FC = () => {
     };
 
     return (
-        <div className="h-full w-full flex bg-[#fbfbfc] text-slate-900 modern-chat overflow-hidden">
+        <div className="h-full w-full flex bg-[#fbfbfc] text-slate-900 modern-chat overflow-hidden signature-material relative">
             {/* Sidebar de Contatos (Minimalista Industrial) */}
             <div className={`
                 ${isSidebarCollapsed ? 'w-20' : 'w-80'} 
@@ -617,7 +617,7 @@ const ChatView: React.FC = () => {
                     {!isSidebarCollapsed && <h2 className="text-xl font-bold tracking-tight text-slate-800">Mensagens</h2>}
                     <button
                         onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                        className="p-2 hover:bg-slate-50 rounded-lg text-slate-400 transition-colors"
+                        className="p-2 hover:bg-slate-50 rounded-lg text-slate-400 transition-all spring-motion active-scale-spring"
                     >
                         <span className="material-icons-round text-xl">
                             {isSidebarCollapsed ? 'menu_open' : 'menu'}
@@ -719,28 +719,28 @@ const ChatView: React.FC = () => {
                             <div className="flex items-center gap-1">
                                 <button
                                     onClick={() => updateStatus(selectedContact.id, 'closed')}
-                                    className="p-2 hover:bg-slate-50 rounded-lg text-slate-400 hover:text-emerald-600 transition-all group active:scale-90"
+                                    className="p-2 hover:bg-slate-50 rounded-lg text-slate-400 hover:text-emerald-600 transition-all group spring-motion active-scale-spring"
                                     title="Finalizar Conversa"
                                 >
                                     <span className="material-icons-round text-xl">check_circle</span>
                                 </button>
                                 <button
                                     onClick={() => { fetchAgents(); setTransferModal(true); }}
-                                    className="p-2 hover:bg-slate-50 rounded-lg text-slate-400 hover:text-blue-600 transition-all active:scale-90"
+                                    className="p-2 hover:bg-slate-50 rounded-lg text-slate-400 hover:text-blue-600 transition-all spring-motion active-scale-spring"
                                     title="Transferir"
                                 >
                                     <span className="material-icons-round text-xl">ios_share</span>
                                 </button>
                                 <button
                                     onClick={toggleAI}
-                                    className={`p-2 rounded-lg transition-all active:scale-90 ${selectedContact.ai_paused ? 'text-amber-500 bg-amber-50' : 'text-slate-400 hover:bg-slate-50 hover:text-blue-500'}`}
+                                    className={`p-2 rounded-lg transition-all spring-motion active-scale-spring ${selectedContact.ai_paused ? 'text-amber-500 bg-amber-50' : 'text-slate-400 hover:bg-slate-50 hover:text-blue-500'}`}
                                     title={selectedContact.ai_paused ? "Ativar IA" : "Pausar IA"}
                                 >
                                     <span className="material-icons-round text-xl">{selectedContact.ai_paused ? 'smart_toy' : 'auto_awesome'}</span>
                                 </button>
                                 <button
                                     onClick={() => setShowContactInfo(!showContactInfo)}
-                                    className={`p-2 rounded-lg transition-all active:scale-90 ${showContactInfo ? 'bg-slate-100 text-slate-900' : 'text-slate-400 hover:bg-slate-50'}`}
+                                    className={`p-2 rounded-lg transition-all spring-motion active-scale-spring ${showContactInfo ? 'bg-slate-100 text-slate-900' : 'text-slate-400 hover:bg-slate-50'}`}
                                 >
                                     <span className="material-icons-round text-xl">info</span>
                                 </button>
@@ -749,14 +749,27 @@ const ChatView: React.FC = () => {
 
                         {/* Área de Mensagens */}
                         <div className="flex-1 overflow-y-auto px-6 py-8 space-y-4 bg-[#f8f9fa] custom-scrollbar">
-                            {messages.map(msg => {
+                            {messages.map((msg, index) => {
                                 const isMe = msg.key_from_me;
                                 const { content, type, mediaUrl } = getMessageContent(msg);
+
+                                // Signature Grouping Logic
+                                const prevMsg = messages[index - 1];
+                                const nextMsg = messages[index + 1];
+                                const isSameAsPrev = prevMsg && prevMsg.key_from_me === msg.key_from_me;
+                                const isSameAsNext = nextMsg && nextMsg.key_from_me === msg.key_from_me;
+
+                                let groupClass = "";
+                                if (isSameAsPrev && isSameAsNext) groupClass = "msg-group-mid";
+                                else if (isSameAsPrev) groupClass = "msg-group-last";
+                                else if (isSameAsNext) groupClass = "msg-group-first";
+
                                 return (
-                                    <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
+                                    <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300 ${isSameAsPrev ? 'mt-0.5' : 'mt-4'}`}>
                                         <div className={`
-                                            max-w-[80%] p-1 rounded-2xl border glass-sheen
+                                            max-w-[80%] p-1 rounded-2xl border glass-sheen spring-motion hover-scale-spring
                                             ${isMe ? 'bg-white border-slate-200/60 shadow-industrial-md' : 'bg-white border-slate-100 shadow-industrial-sm'}
+                                            ${groupClass}
                                         `}>
                                             <div className="px-3 py-2">
                                                 {type === 'image' && mediaUrl && (
@@ -788,7 +801,7 @@ const ChatView: React.FC = () => {
                                                 )}
 
                                                 <div className="flex items-center justify-end gap-1.5 mt-1.5">
-                                                    {msg.source === 'ai' && <span className="text-[9px] font-black uppercase text-blue-600 tracking-tighter bg-blue-50 px-1.5 rounded-md">IA</span>}
+                                                    {msg.source === 'ai' && <span className="text-[9px] font-black uppercase text-blue-600 tracking-tighter bg-blue-50 px-1.5 rounded-md skeleton-shimmer">IA</span>}
                                                     <span className="text-[10px] font-bold text-slate-400 uppercase industrial-mono">
                                                         {new Date(msg.timestamp * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                                                     </span>
@@ -830,17 +843,17 @@ const ChatView: React.FC = () => {
                                     </div>
                                 </div>
                             ) : (
-                                <div className="max-w-5xl mx-auto border border-slate-200/80 rounded-[2rem] bg-slate-50 flex items-end p-2 transition-all input-sheen-focus shadow-industrial-lg">
+                                <div className="max-w-5xl mx-auto border border-slate-200/80 rounded-[2rem] bg-slate-50 flex items-end p-2 transition-all input-sheen-focus shadow-industrial-lg spring-motion">
                                     <div className="flex gap-1 mb-1">
                                         <button
                                             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                                            className="p-3 hover:bg-white hover:shadow-sm rounded-2xl text-slate-400 hover:text-slate-600 transition-all active:scale-90"
+                                            className="p-3 hover:bg-white hover:shadow-sm rounded-2xl text-slate-400 hover:text-slate-600 transition-all spring-motion active-scale-spring"
                                         >
                                             <span className="material-icons-round text-xl">sentiment_satisfied_alt</span>
                                         </button>
                                         <button
                                             onClick={() => fileInputRef.current?.click()}
-                                            className="p-3 hover:bg-white hover:shadow-sm rounded-2xl text-slate-400 hover:text-slate-600 transition-all active:scale-90"
+                                            className="p-3 hover:bg-white hover:shadow-sm rounded-2xl text-slate-400 hover:text-slate-600 transition-all spring-motion active-scale-spring"
                                         >
                                             <span className="material-icons-round text-xl">attach_file</span>
                                         </button>
@@ -865,7 +878,7 @@ const ChatView: React.FC = () => {
                                     <div className="flex gap-2 mb-1 mr-1">
                                         <button
                                             onClick={startRecording}
-                                            className="p-3 hover:bg-white hover:shadow-sm rounded-2xl text-slate-400 hover:text-blue-500 transition-all active:scale-90"
+                                            className="p-3 hover:bg-white hover:shadow-sm rounded-2xl text-slate-400 hover:text-blue-500 transition-all spring-motion active-scale-spring"
                                         >
                                             <span className="material-icons-round text-xl">mic</span>
                                         </button>
@@ -873,7 +886,7 @@ const ChatView: React.FC = () => {
                                             onClick={handleSendMessage}
                                             disabled={!newMessage.trim()}
                                             className={`
-                                                p-3 rounded-2xl transition-all active:scale-95
+                                                p-3 rounded-2xl transition-all spring-motion active-scale-spring
                                                 ${newMessage.trim()
                                                     ? 'bg-slate-900 text-white shadow-xl shadow-slate-200 border border-white/10 translate-y-[-1px]'
                                                     : 'text-slate-200 bg-slate-100/50'}
@@ -1019,6 +1032,45 @@ const ChatView: React.FC = () => {
                     height: 50%;
                     background: linear-gradient(180deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 100%);
                     pointer-events: none;
+                }
+                
+                /* Materialidade: Signature Noise Texture */
+                .signature-material::before {
+                    content: "";
+                    position: absolute;
+                    inset: 0;
+                    z-index: 100;
+                    opacity: 0.03;
+                    pointer-events: none;
+                    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3%3Cfilter id='noiseFilter'%3%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3%3C/filter%3%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3%3C/svg%3");
+                }
+
+                /* Signature Spring Motion */
+                .spring-motion {
+                    transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+                }
+                
+                .hover-scale-spring:hover {
+                    transform: scale(1.02);
+                }
+                .active-scale-spring:active {
+                    transform: scale(0.97);
+                }
+
+                /* Message Grouping Dynamics */
+                .msg-group-first { border-bottom-left-radius: 0.5rem !important; border-bottom-right-radius: 0.5rem !important; margin-bottom: 2px !important; }
+                .msg-group-mid { border-radius: 0.5rem !important; margin-bottom: 2px !important; }
+                .msg-group-last { border-top-left-radius: 0.5rem !important; border-top-right-radius: 0.5rem !important; margin-top: 0 !important; }
+                
+                /* Skeleton Shimmer Elite */
+                @keyframes shimmer {
+                    0% { background-position: -200% 0; }
+                    100% { background-position: 200% 0; }
+                }
+                .skeleton-shimmer {
+                    background: linear-gradient(90deg, #f1f5f9 25%, #f8fafc 50%, #f1f5f9 75%);
+                    background-size: 200% 100%;
+                    animation: shimmer 1.5s infinite linear;
                 }
 
                 /* Waveform Animation */
