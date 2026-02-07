@@ -20,6 +20,7 @@ import ChatbotView from './components/ChatbotView';
 import ServerHealthView from './components/ServerHealthView';
 import ApiDocsView from './components/ApiDocsView';
 import { AppView } from './types';
+import LandingView from './components/LandingView';
 import { ToastProvider } from './components/ToastContext';
 
 import { useToast } from './components/ToastContext';
@@ -200,6 +201,7 @@ const AppContent: React.FC = () => {
   if (!isAuthenticated) {
     return (
       <Routes>
+        <Route path="/" element={<LandingView />} />
         <Route path="/login" element={
           <AuthView
             initialView="login"
@@ -240,7 +242,7 @@ const AppContent: React.FC = () => {
             isDarkMode={isDarkMode}
           />
         } />
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     );
   }
@@ -312,7 +314,7 @@ const AppContent: React.FC = () => {
                 : <Navigate to="/analytics" replace />
             } />
             <Route path="/api-docs" element={<ApiDocsView />} />
-            <Route path="/" element={<Navigate to="/analytics" replace />} />
+            <Route path="/" element={<LandingView />} />
             <Route path="*" element={<Navigate to="/analytics" replace />} />
           </Routes>
         </div>
