@@ -71,6 +71,7 @@ const ChatView: React.FC = () => {
     const [transferModal, setTransferModal] = useState(false);
     const [agents, setAgents] = useState<{ id: number; name: string }[]>([]);
     const [isImproving, setIsImproving] = useState(false);
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
     // --- Refs ---
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -513,60 +514,59 @@ const ChatView: React.FC = () => {
         const { content, type, mediaUrl } = getMessageContent(msg);
 
         return (
-            <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-4 animate-in fade-in slide-in-from-bottom-2 duration-300`}>
+            <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-4 animate-in fade-in slide-in-from-bottom-3 duration-500 ease-out`}>
                 <div className={`
-                    max-w-[85%] sm:max-w-[70%] lg:max-w-[60%] p-3 rounded-2xl shadow-sm relative
-                    ${isMe ? 'bg-primary text-white rounded-tr-none' :
-                        msg.source === 'ai' ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-900 dark:text-indigo-100 rounded-tl-none border border-indigo-100 dark:border-indigo-800' :
-                            'bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-tl-none border border-slate-100 dark:border-slate-700'}
+                    max-w-[85%] sm:max-w-[70%] lg:max-w-[60%] p-3 rounded-[1.5rem] shadow-sm relative backdrop-blur-sm border
+                    ${isMe ? 'bg-primary/95 text-white rounded-tr-none border-primary/20 shadow-primary/20' :
+                        msg.source === 'ai' ? 'bg-indigo-50/90 dark:bg-indigo-900/40 text-indigo-900 dark:text-indigo-100 rounded-tl-none border-indigo-100 dark:border-indigo-800 shadow-indigo-500/10' :
+                            'bg-white/90 dark:bg-slate-800/90 text-slate-800 dark:text-slate-200 rounded-tl-none border-white/20 dark:border-slate-700 shadow-slate-500/10'}
                 `}>
                     {type === 'image' && mediaUrl && (
-                        <div className="relative group">
-                            <img src={mediaUrl} className="rounded-xl mb-2 max-h-80 w-full object-contain bg-black/5 cursor-pointer hover:opacity-90 transition-opacity" onClick={() => window.open(mediaUrl, '_blank')} />
+                        <div className="relative group overflow-hidden rounded-2xl mb-2">
+                            <img src={mediaUrl} className="max-h-80 w-full object-contain bg-black/5 cursor-pointer hover:scale-105 transition-transform duration-500" onClick={() => window.open(mediaUrl, '_blank')} />
                         </div>
                     )}
                     {type === 'video' && mediaUrl && (
-                        <video src={mediaUrl} controls className="rounded-xl mb-2 max-h-80 w-full bg-black/5" />
+                        <video src={mediaUrl} controls className="rounded-2xl mb-2 max-h-80 w-full bg-black/5" />
                     )}
                     {type === 'sticker' && mediaUrl && (
                         <div className="relative group flex justify-center py-2">
-                            <img src={mediaUrl} className="max-w-[160px] max-h-[160px] object-contain cursor-pointer hover:scale-110 transition-transform" />
+                            <img src={mediaUrl} className="max-w-[160px] max-h-[160px] object-contain cursor-pointer hover:scale-110 transition-transform duration-300" />
                         </div>
                     )}
                     {type === 'audio' && mediaUrl && (
-                        <div className="min-w-[240px] py-2 px-1">
+                        <div className="min-w-[240px] py-1">
                             <audio
                                 src={mediaUrl}
                                 controls
                                 preload="metadata"
                                 className={`w-full h-8 ${isMe ? 'filter invert brightness-200 contrast-100' : ''}`}
-                                onError={(e) => console.error('[AUDIO] Erro ao carregar:', mediaUrl)}
                             >
                                 <source src={mediaUrl} type="audio/ogg" />
                                 <source src={mediaUrl} type="audio/mpeg" />
                             </audio>
-                            <div className="flex justify-between mt-1 text-[9px] uppercase font-bold opacity-50">
+                            <div className="flex justify-between mt-1 px-1 text-[9px] uppercase font-bold opacity-40">
                                 <span>Mensagem de Voz</span>
                             </div>
                         </div>
                     )}
                     {type === 'document' && mediaUrl && (
-                        <div className="flex items-center gap-3 p-3 bg-black/5 dark:bg-white/5 rounded-xl border border-black/10 dark:border-white/10 mb-2 group">
-                            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                        <div className="flex items-center gap-3 p-3 bg-white/10 dark:bg-black/20 rounded-2xl border border-white/10 dark:border-black/10 mb-2 group hover:bg-white/20 transition-all cursor-pointer">
+                            <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
                                 <span className="material-icons-round">description</span>
                             </div>
                             <div className="flex-1 min-w-0">
                                 <p className="text-xs truncate font-bold">{content || 'Arquivo'}</p>
-                                <p className="text-[9px] opacity-50">DOCUMENTO</p>
+                                <p className="text-[9px] opacity-50 font-black tracking-widest uppercase">DOCUMENTO</p>
                             </div>
-                            <a href={mediaUrl} target="_blank" className="p-2 hover:bg-black/5 rounded-lg transition-all"><span className="material-icons-round text-sm">download</span></a>
+                            <a href={mediaUrl} target="_blank" className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl transition-all" onClick={(e) => e.stopPropagation()}><span className="material-icons-round text-sm">download</span></a>
                         </div>
                     )}
-                    {type === 'text' && content && <p className="text-[14px] whitespace-pre-wrap leading-relaxed py-0.5">{content}</p>}
+                    {type === 'text' && content && <p className="text-[14px] whitespace-pre-wrap leading-relaxed py-0.5 px-0.5 tracking-tight">{content}</p>}
 
-                    <div className={`flex items-center justify-end gap-1 mt-1 opacity-60`}>
-                        {msg.source === 'ai' && <span className="material-icons-round text-[10px] mr-1" title="Gerado por IA">smart_toy</span>}
-                        <span className="text-[9px] uppercase font-bold tracking-tighter">
+                    <div className={`flex items-center justify-end gap-1.5 mt-1.5 opacity-50`}>
+                        {msg.source === 'ai' && <span className="material-icons-round text-[10px] mr-0.5" title="Respondido por IA">smart_toy</span>}
+                        <span className="text-[9px] font-black tracking-wider">
                             {new Date(msg.timestamp * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                         </span>
                         {isMe && !msg.isPending && (
@@ -602,21 +602,32 @@ const ChatView: React.FC = () => {
 
             {/* --- Sidebar (Contact List) --- */}
             <div className={`
-                fixed inset-y-0 left-0 z-30 w-full sm:w-[380px] lg:static lg:z-0
-                bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800
-                flex flex-col transition-transform duration-300 ease-in-out
+                fixed inset-y-0 left-0 z-30 lg:static lg:z-0
+                bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-r border-slate-200 dark:border-slate-800
+                flex flex-col transition-all duration-500 ease-in-out shadow-2xl lg:shadow-none
+                ${isSidebarCollapsed ? 'w-[80px]' : 'w-full sm:w-[380px]'}
                 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
             `}>
-                <div className="p-4 bg-[#F0F2F5] dark:bg-slate-800 flex items-center justify-between border-b border-slate-200 dark:border-slate-700">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-white font-black text-xl shadow-lg transform -rotate-6">
+                <div className="p-4 bg-white/50 dark:bg-slate-800/50 flex items-center justify-between border-b border-slate-200/50 dark:border-slate-700/50 backdrop-blur-md">
+                    <div className={`flex items-center gap-3 transition-opacity duration-300 ${isSidebarCollapsed ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100'}`}>
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary-focus flex items-center justify-center text-white font-black text-xl shadow-lg transform -rotate-6 hover:rotate-0 transition-transform cursor-pointer">
                             MZ
                         </div>
                         <h1 className="font-black text-slate-800 dark:text-slate-100 italic tracking-tight text-xl">MyZap</h1>
                     </div>
+
+                    <button
+                        onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                        className={`p-2 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-primary/10 hover:text-primary transition-all shadow-sm ${isSidebarCollapsed ? 'mx-auto' : ''}`}
+                        title={isSidebarCollapsed ? "Expandir" : "Recolher"}
+                    >
+                        <span className="material-icons-round text-xl leading-none">
+                            {isSidebarCollapsed ? 'last_page' : 'first_page'}
+                        </span>
+                    </button>
                 </div>
 
-                <div className="p-4 space-y-4">
+                <div className={`p-4 space-y-4 transition-all duration-300 ${isSidebarCollapsed ? 'opacity-0 scale-95 pointer-events-none h-0 p-0 overflow-hidden' : 'opacity-100 scale-100'}`}>
                     <div className="relative group">
                         <span className="material-icons-round absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">search</span>
                         <input
@@ -624,11 +635,11 @@ const ChatView: React.FC = () => {
                             placeholder="Procurar conversas..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-11 pr-4 py-3 bg-[#F0F2F5] dark:bg-slate-800 rounded-2xl border-none focus:ring-2 focus:ring-primary text-sm transition-all outline-none shadow-inner"
+                            className="w-full pl-11 pr-4 py-3 bg-slate-100/50 dark:bg-slate-800/50 rounded-2xl border-none focus:ring-2 focus:ring-primary/50 text-sm transition-all outline-none shadow-inner"
                         />
                     </div>
 
-                    <div className="flex gap-1 p-1.5 bg-[#F0F2F5] dark:bg-slate-800 rounded-2xl">
+                    <div className="flex gap-1 p-1 bg-slate-100/50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/30 dark:border-slate-700/30">
                         {(['all', 'open', 'pending', 'closed'] as const).map(s => (
                             <button
                                 key={s}
@@ -636,7 +647,7 @@ const ChatView: React.FC = () => {
                                 className={`
                                     flex-1 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-[0.1em] transition-all
                                     ${filterStatus === s
-                                        ? 'bg-white dark:bg-slate-700 text-primary shadow-sm scale-[1.05]'
+                                        ? 'bg-white dark:bg-slate-700 text-primary shadow-md scale-[1.02]'
                                         : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}
                                 `}
                             >
@@ -650,52 +661,74 @@ const ChatView: React.FC = () => {
                     {filteredContacts.length === 0 ? (
                         <div className="flex flex-col items-center justify-center p-12 opacity-30 select-none">
                             <span className="material-icons-round text-6xl mb-4">history</span>
-                            <p className="text-sm font-bold uppercase tracking-widest text-center">Nenhuma conversa encontrada</p>
+                            {!isSidebarCollapsed && (
+                                <p className="text-sm font-bold uppercase tracking-widest text-center">Nenhuma conversa encontrada</p>
+                            )}
                         </div>
                     ) : (
-                        filteredContacts.map(contact => (
+                        filteredContacts.map(c => (
                             <div
-                                key={contact.id}
+                                key={c.id}
                                 onClick={() => {
-                                    setSelectedContact(contact);
+                                    setSelectedContact(c);
+                                    fetchMessages(c.id);
+                                    markAsRead(c.id);
                                     if (window.innerWidth < 1024) setIsSidebarOpen(false);
                                 }}
                                 className={`
-                                    flex items-center gap-4 p-4 cursor-pointer transition-all rounded-[1.75rem] mb-1 relative border border-transparent
-                                    ${selectedContact?.id === contact.id
-                                        ? 'bg-white dark:bg-slate-800 shadow-xl border-slate-100 dark:border-slate-700 scale-[0.98]'
-                                        : 'hover:bg-white/50 dark:hover:bg-slate-800/30'}
+                                    group relative flex items-center gap-4 p-3 rounded-2xl cursor-pointer transition-all duration-300 mb-1
+                                    ${selectedContact?.id === c.id
+                                        ? 'bg-primary/10 dark:bg-primary/20 shadow-sm'
+                                        : 'hover:bg-slate-100 dark:hover:bg-slate-800/50'}
+                                    ${isSidebarCollapsed ? 'justify-center p-2' : ''}
                                 `}
                             >
                                 <div className="relative shrink-0">
-                                    <div className="w-14 h-14 rounded-2xl overflow-hidden bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-500 font-black text-2xl shadow-inner border-2 border-white dark:border-slate-900">
-                                        {contact.profile_pic ? (
-                                            <img src={contact.profile_pic} alt={contact.name} className="w-full h-full object-cover" />
-                                        ) : (contact.name || contact.remote_jid).charAt(0)}
+                                    <div className={`
+                                        w-12 h-12 rounded-2xl flex items-center justify-center text-white font-bold text-lg shadow-inner transition-transform duration-300 group-hover:scale-110
+                                        ${getStatusColor(c.status)}
+                                    `}>
+                                        {c.name.charAt(0).toUpperCase()}
                                     </div>
-                                    <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-4 border-white dark:border-slate-900 shadow-md ${getStatusColor(contact.status)}`}></div>
+                                    {c.unread_count > 0 && (
+                                        <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full border-2 border-white dark:border-slate-900 flex items-center justify-center animate-bounce">
+                                            <span className="text-[10px] text-white font-black">{c.unread_count}</span>
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex justify-between items-baseline mb-1">
-                                        <h3 className="font-bold text-slate-800 dark:text-slate-100 truncate text-[15px]">
-                                            {contact.name || contact.remote_jid.split('@')[0]}
-                                        </h3>
-                                        <span className="text-[10px] font-bold text-slate-400 ml-2">
-                                            {formatFriendlyDate(contact.lastTime || 0)}
-                                        </span>
+
+                                {!isSidebarCollapsed && (
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex justify-between items-baseline mb-1">
+                                            <h3 className="font-bold text-slate-800 dark:text-slate-100 truncate text-sm">
+                                                {c.name}
+                                            </h3>
+                                            {c.lastTime && (
+                                                <span className="text-[10px] text-slate-400 font-medium">
+                                                    {formatFriendlyDate(c.lastTime)}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center justify-between gap-2">
+                                            <p className="text-xs text-slate-500 dark:text-slate-400 truncate leading-snug">
+                                                {c.lastMessage || 'Inicie um atendimento'}
+                                            </p>
+                                            {c.status && (
+                                                <div className={`w-2 h-2 rounded-full shrink-0 shadow-sm ${getStatusColor(c.status)}`}></div>
+                                            )}
+                                        </div>
                                     </div>
-                                    <div className="flex justify-between items-center gap-2">
-                                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate flex-1 leading-normal">
-                                            {contact.lastMessage || 'Inicie um atendimento'}
-                                        </p>
-                                        {(contact.unread_count || 0) > 0 && (
-                                            <span className="bg-primary text-white text-[10px] font-black px-2 py-0.5 rounded-lg shadow-lg animate-pulse">
-                                                {contact.unread_count}
-                                            </span>
-                                        )}
+                                )}
+
+                                {isSidebarCollapsed && (
+                                    <div className="absolute left-full ml-4 px-3 py-2 bg-slate-800 dark:bg-slate-700 text-white text-xs rounded-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 translate-x-[-10px] group-hover:translate-x-0 z-50 whitespace-nowrap shadow-xl border border-white/10">
+                                        <div className="font-bold mb-0.5">{c.name}</div>
+                                        <div className="text-[10px] opacity-70">{c.lastMessage || 'Sem mensagens'}</div>
+                                        <div className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 bg-slate-800 dark:bg-slate-700 rotate-45 border-l border-b border-white/10"></div>
                                     </div>
-                                </div>
-                                {selectedContact?.id === contact.id && (
+                                )}
+
+                                {selectedContact?.id === c.id && !isSidebarCollapsed && (
                                     <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-r-full"></div>
                                 )}
                             </div>
@@ -703,12 +736,30 @@ const ChatView: React.FC = () => {
                     )}
                 </div>
 
-                <div className="p-4 border-t dark:border-slate-800 flex justify-center gap-4">
-                    <button onClick={() => setActiveTab('chats')} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-[11px] uppercase tracking-widest transition-all ${activeTab === 'chats' ? 'bg-primary text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200'}`}>
-                        <span className="material-icons-round text-sm">chat</span> Conversas
+                <div className={`p-4 border-t border-slate-200 dark:border-slate-800 flex ${isSidebarCollapsed ? 'flex-col items-center' : 'justify-center'} gap-2 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md`}>
+                    <button
+                        onClick={() => setActiveTab('chats')}
+                        className={`
+                            flex items-center justify-center gap-2 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all
+                            ${isSidebarCollapsed ? 'w-10 h-10' : 'flex-1 py-2.5'}
+                            ${activeTab === 'chats' ? 'bg-primary text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200'}
+                        `}
+                        title="Conversas"
+                    >
+                        <span className="material-icons-round text-sm">chat</span>
+                        {!isSidebarCollapsed && "Conversas"}
                     </button>
-                    <button onClick={() => setActiveTab('blocked')} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-[11px] uppercase tracking-widest transition-all ${activeTab === 'blocked' ? 'bg-rose-500 text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200'}`}>
-                        <span className="material-icons-round text-sm">block</span> Bloqueados
+                    <button
+                        onClick={() => setActiveTab('blocked')}
+                        className={`
+                            flex items-center justify-center gap-2 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all
+                            ${isSidebarCollapsed ? 'w-10 h-10' : 'flex-1 py-2.5'}
+                            ${activeTab === 'blocked' ? 'bg-rose-500 text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200'}
+                        `}
+                        title="Bloqueados"
+                    >
+                        <span className="material-icons-round text-sm">block</span>
+                        {!isSidebarCollapsed && "Bloqueados"}
                     </button>
                 </div>
             </div>
