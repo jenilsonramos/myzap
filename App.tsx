@@ -318,11 +318,22 @@ const AppContent: React.FC = () => {
                 : <Navigate to="/analytics" replace />
             } />
             <Route path="/api-docs" element={<ApiDocsView />} />
-            <Route path="/" element={<LandingView isAuthenticated={isAuthenticated} />} />
             <Route path="*" element={<Navigate to="/analytics" replace />} />
           </Routes>
         </div>
       </main>
+
+      {/* Global Modals & Overlays */}
+      <Modal
+        isOpen={isLogoutModalOpen}
+        onClose={() => setIsLogoutModalOpen(false)}
+        onConfirm={confirmLogout}
+        title="Deseja sair?"
+        message="Você será desconectado do painel administrativo do MyZap."
+        confirmLabel="Sair agora"
+        cancelLabel="Cancelar"
+        type="danger"
+      />
 
       {/* Mobile Logout (Floating) */}
       <div className="md:hidden fixed bottom-16 left-4 right-4 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-100 dark:border-white/5 p-4 rounded-3xl flex items-center justify-center gap-4 z-40 shadow-2xl">
@@ -340,17 +351,6 @@ const AppContent: React.FC = () => {
         <button onClick={() => navigate('/chat')} className={`material-icons-round transition-colors ${location.pathname === '/chat' ? 'text-primary' : 'text-slate-400'}`}>chat</button>
         <button onClick={() => navigate('/settings')} className={`material-icons-round transition-colors ${location.pathname === '/settings' ? 'text-primary' : 'text-slate-400'}`}>settings</button>
       </div>
-
-      <Modal
-        isOpen={isLogoutModalOpen}
-        onClose={() => setIsLogoutModalOpen(false)}
-        onConfirm={confirmLogout}
-        title="Deseja sair?"
-        message="Você será desconectado do painel administrativo do MyZap."
-        confirmLabel="Sair agora"
-        cancelLabel="Cancelar"
-        type="danger"
-      />
     </div>
   );
 };
