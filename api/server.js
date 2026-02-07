@@ -1589,74 +1589,110 @@ app.get('/api/analytics/dashboard', authenticateToken, async (req, res) => {
         const startTs = Math.floor(start.getTime() / 1000);
         const endTs = Math.floor(end.getTime() / 1000);
 
+        if (isNaN(startTs) || isNaN(endTs)) {
+            throw new Error('Invalid date range');
+        }
+
         console.log(`📊 [ANALYTICS] Stats for ${userId}: ${start.toISOString()} to ${end.toISOString()}`);
         console.log(`📊 [ANALYTICS] TS Range (Seconds): ${startTs} to ${endTs}`);
 
-        // 1. Totais Gerais (Neste Período)
-        // Using timestamp (seconds) confirmed by INSERT lines
-        const [totalMsg] = await pool.query("SELECT COUNT(*) as count FROM messages WHERE user_id = ? AND timestamp >= ? AND timestamp <= ?", [userId, startTs, endTs]);
-        const [sentMsg] = await pool.query("SELECT COUNT(*) as count FROM messages WHERE user_id = ? AND key_from_me = 1 AND timestamp >= ? AND timestamp <= ?", [userId, startTs, endTs]);
+        let totalMsgCount = 0;
+        let sentMsgCount = 0;
+        let contactsCount = 0;
+        let daily = [];
+        let hourly = [];
+        let growth = 0;
 
-        // Contatos (Total Geral - sem filtro de data)
-        const [contacts] = await pool.query("SELECT COUNT(*) as count FROM contacts WHERE user_id = ?", [userId]);
+        // 1. Totais Gerais
+        try {
+            const [totalMsg] = await pool.query("SELECT COUNT(*) as count FROM messages WHERE user_id = ? AND timestamp >= ? AND timestamp <= ?", [userId, startTs, endTs]);
+            totalMsgCount = totalMsg[0]?.count || 0;
+            const [sentMsg] = await pool.query("SELECT COUNT(*) as count FROM messages WHERE user_id = ? AND key_from_me = 1 AND timestamp >= ? AND timestamp <= ?", [userId, startTs, endTs]);
+            sentMsgCount = sentMsg[0]?.count || 0;
+        } catch (e) {
+            console.error('❌ Error fetching totals:', e.message);
+        }
 
-        // 2. Volume Diário (Para Gráfico de Barras)
-        // FROM_UNIXTIME takes seconds, so this is correct.
-        const [daily] = await pool.query(`
-            SELECT 
-                DATE_FORMAT(FROM_UNIXTIME(timestamp), '%d/%m') as name, 
-                DATE(FROM_UNIXTIME(timestamp)) as day_date,
-                COUNT(*) as value 
-            FROM messages 
-            WHERE user_id = ? AND timestamp >= ? AND timestamp <= ?
-            GROUP BY DATE(FROM_UNIXTIME(timestamp)) 
-            ORDER BY day_date ASC
-        `, [userId, startTs, endTs]);
+        // Contatos
+        try {
+            const [contacts] = await pool.query("SELECT COUNT(*) as count FROM contacts WHERE user_id = ?", [userId]);
+            contactsCount = contacts[0]?.count || 0;
+        } catch (e) {
+            console.error('❌ Error fetching contacts:', e.message);
+        }
 
-        // 3. Mapa de Calor por Hora (0-23)
-        const [hourly] = await pool.query(`
-            SELECT 
-                HOUR(FROM_UNIXTIME(timestamp)) as hour,
-                COUNT(*) as count
-            FROM messages
-            WHERE user_id = ? AND timestamp >= ? AND timestamp <= ?
-            GROUP BY HOUR(FROM_UNIXTIME(timestamp))
-            ORDER BY hour ASC
-        `, [userId, startTs, endTs]);
+        // 2. Volume Diário
+        try {
+            // Use strict SQL safe approach, wrap timestamp
+            const [dailyRes] = await pool.query(`
+                SELECT 
+                    DATE_FORMAT(FROM_UNIXTIME(\`timestamp\`), '%d/%m') as name, 
+                    DATE(FROM_UNIXTIME(\`timestamp\`)) as day_date,
+                    COUNT(*) as value 
+                FROM messages 
+                WHERE user_id = ? AND \`timestamp\` >= ? AND \`timestamp\` <= ?
+                GROUP BY DATE(FROM_UNIXTIME(\`timestamp\`)) 
+                ORDER BY day_date ASC
+            `, [userId, startTs, endTs]);
+            daily = dailyRes;
+        } catch (e) {
+            console.error('❌ Error fetching daily stats:', e.message);
+        }
 
-        // 4. Distribuição (Enviadas vs Recebidas vs Erro)
-        const receivedCount = Math.max(0, totalMsg[0].count - sentMsg[0].count);
+        // 3. Mapa de Calor
+        try {
+            const [hourlyRes] = await pool.query(`
+                SELECT 
+                    HOUR(FROM_UNIXTIME(\`timestamp\`)) as hour,
+                    COUNT(*) as count
+                FROM messages
+                WHERE user_id = ? AND \`timestamp\` >= ? AND \`timestamp\` <= ?
+                GROUP BY HOUR(FROM_UNIXTIME(\`timestamp\`))
+                ORDER BY hour ASC
+            `, [userId, startTs, endTs]);
+            hourly = hourlyRes;
+        } catch (e) {
+            console.error('❌ Error fetching hourly stats:', e.message);
+        }
+
+        // 4. Distribuição e Crescimento
+        const receivedCount = Math.max(0, totalMsgCount - sentMsgCount);
         const pieData = [
             { name: 'Recebidas', value: receivedCount, color: '#6366f1' }, // Indigo
-            { name: 'Enviadas', value: sentMsg[0].count, color: '#22c55e' } // Green
+            { name: 'Enviadas', value: sentMsgCount, color: '#22c55e' } // Green
         ];
 
-        // Comparativo com período anterior (Simples)
-        const diffSeconds = endTs - startTs;
-        const prevEndTs = startTs; // Previous period ends where current begins
-        const prevStartTs = prevEndTs - diffSeconds;
+        // Comparativo com período anterior
+        try {
+            const diffSeconds = endTs - startTs;
+            const prevEndTs = startTs;
+            const prevStartTs = prevEndTs - diffSeconds;
 
-        const [prevTotal] = await pool.query("SELECT COUNT(*) as count FROM messages WHERE user_id = ? AND timestamp >= ? AND timestamp < ?", [userId, prevStartTs, prevEndTs]);
+            const [prevTotal] = await pool.query("SELECT COUNT(*) as count FROM messages WHERE user_id = ? AND timestamp >= ? AND timestamp < ?", [userId, prevStartTs, prevEndTs]);
+            const prevCount = prevTotal[0]?.count || 0;
 
-        const growth = prevTotal[0].count > 0
-            ? Math.round(((totalMsg[0].count - prevTotal[0].count) / prevTotal[0].count) * 100)
-            : (totalMsg[0].count > 0 ? 100 : 0);
+            growth = prevCount > 0
+                ? Math.round(((totalMsgCount - prevCount) / prevCount) * 100)
+                : (totalMsgCount > 0 ? 100 : 0);
+        } catch (e) {
+            console.error('❌ Error fetching growth:', e.message);
+        }
 
         res.json({
-            totalMessages: totalMsg[0].count,
-            sentMessages: sentMsg[0].count,
-            totalContacts: contacts[0].count,
+            totalMessages: totalMsgCount,
+            sentMessages: sentMsgCount,
+            totalContacts: contactsCount,
             weeklyVolume: daily,
             hourlyVolume: hourly,
-            pieChart: pieData,
+            pieChart: pieData, // Ensure these names match Frontend exactly
             growth: growth,
             avgResponseTime: "N/A",
             debug: { startTs, endTs, userId }
         });
 
     } catch (err) {
-        console.error('❌ Erro Analytics:', err);
-        res.status(500).json({ error: 'Erro ao gerar análise', details: err.message });
+        console.error('❌ [CRITICAL] Analytics Error:', err);
+        res.status(500).json({ error: 'Erro crítico no analytics', details: err.message });
     }
 });
 
