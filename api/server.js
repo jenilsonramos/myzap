@@ -2618,12 +2618,29 @@ async function processApiNode(node, context) {
 
         console.log(`✅ [FLOW] API Success (${response.status})`);
 
-        // Processar Mapeamento de Resposta
+        // Persistir a resposta inteira no banco para permitir uso direto ({{api_response.campo}})
+        try {
+            const jid = context.remoteJid;
+            await pool.query(
+                "UPDATE contacts SET variables = JSON_SET(COALESCE(variables, '{}'), '$.api_response', ?) WHERE remote_jid = ? AND user_id = ?",
+                [JSON.stringify(data), jid, context.userId]
+            );
+            console.log(`💾 [FLOW] Full api_response persisted for ${jid}`);
+        } catch (dbErr) {
+            console.error('❌ [FLOW] Error persisting full api_response:', dbErr.message);
+        }
+
+        // Processar Mapeamento de Resposta Manual
         if (Array.isArray(node.data.responseMapping)) {
             for (const mapping of node.data.responseMapping) {
                 if (mapping.jsonPath && mapping.variableName) {
-                    // Usar a mesma lógica de busca de replaceVariables
-                    const parts = mapping.jsonPath.split('.');
+                    // Limpar o prefixo 'api_response.' se o usuário digitou por engano
+                    let cleanPath = mapping.jsonPath.trim();
+                    if (cleanPath.startsWith('api_response.')) {
+                        cleanPath = cleanPath.replace('api_response.', '');
+                    }
+
+                    const parts = cleanPath.split('.');
                     let val = data;
                     for (const part of parts) {
                         if (val === null || val === undefined) break;
@@ -2632,7 +2649,7 @@ async function processApiNode(node, context) {
 
                     if (val !== undefined) {
                         context.variables[mapping.variableName] = val;
-                        console.log(`📌 [FLOW] Mapped ${mapping.jsonPath} -> ${mapping.variableName} = ${val}`);
+                        console.log(`📌 [FLOW] Mapped ${cleanPath} -> ${mapping.variableName} = ${val}`);
 
                         // Persistir no banco de dados para o contato
                         try {
