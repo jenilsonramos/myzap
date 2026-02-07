@@ -2,7 +2,6 @@
   "name": "myzap",
   "private": true,
   "version": "2.0.4",
-  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
