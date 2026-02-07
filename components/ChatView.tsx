@@ -546,8 +546,9 @@ const ChatView: React.FC = () => {
 
             {/* Sidebar de Contatos (Minimalista Industrial) */}
             <div className={`
-                ${isSidebarCollapsed ? 'w-20' : 'w-80'} 
-                border-r border-slate-200/50 dark:border-white/5 flex flex-col bg-white dark:bg-slate-900 transition-all duration-300 ease-in-out
+                ${selectedContact ? 'hidden md:flex' : 'flex'} w-full 
+                ${isSidebarCollapsed ? 'md:w-20' : 'md:w-80'} 
+                border-r border-slate-200/50 dark:border-white/5 flex-col bg-white dark:bg-slate-900 transition-all duration-300 ease-in-out
             `}>
                 {/* Header da Sidebar */}
                 <div className="p-6 flex items-center justify-between">
@@ -688,7 +689,7 @@ const ChatView: React.FC = () => {
             </div>
 
             {/* Janela de Chat Principal */}
-            <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 min-w-0">
+            <div className={`${!selectedContact ? 'hidden md:flex' : 'flex'} flex-1 flex-col bg-white dark:bg-slate-900 min-w-0`}>
                 {!selectedContact ? (
                     <div className="flex-1 flex flex-col items-center justify-center p-12 select-none bg-slate-50/20 dark:bg-slate-950/20">
                         <div className="w-24 h-24 bg-white dark:bg-slate-800 rounded-[2rem] flex items-center justify-center mb-8 shadow-xl shadow-slate-100 dark:shadow-black/20 border border-slate-50 dark:border-white/5 group transition-transform hover:scale-110 duration-500">
@@ -700,8 +701,14 @@ const ChatView: React.FC = () => {
                 ) : (
                     <>
                         {/* Header do Chat */}
-                        <div className="h-20 px-8 border-b border-slate-100 dark:border-white/5 flex items-center justify-between shrink-0 bg-white dark:bg-slate-900">
-                            <div className="flex items-center gap-4">
+                        <div className="h-20 px-4 md:px-8 border-b border-slate-100 dark:border-white/5 flex items-center justify-between shrink-0 bg-white dark:bg-slate-900">
+                            <div className="flex items-center gap-3 md:gap-4">
+                                <button
+                                    onClick={() => setSelectedContact(null)}
+                                    className="md:hidden w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors"
+                                >
+                                    <span className="material-icons-round">arrow_back</span>
+                                </button>
                                 <div className="w-11 h-11 rounded-full bg-slate-100 overflow-hidden relative">
                                     {selectedContact.profile_pic ? (
                                         <img src={selectedContact.profile_pic} className="w-full h-full object-cover" alt="" />
