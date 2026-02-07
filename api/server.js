@@ -1829,11 +1829,19 @@ app.post('/api/flows', authenticateToken, async (req, res) => {
             return res.status(403).json(limit);
         }
 
-        const emptyContent = JSON.stringify({ nodes: [], edges: [] });
+        // Criar conteúdo inicial com um nó de Gatilho (Trigger)
+        const initialNodes = [{
+            id: `trigger_${Date.now()}`,
+            type: 'trigger',
+            position: { x: 250, y: 250 },
+            data: { label: 'Início do Fluxo', type: 'keyword', keyword: '' }
+        }];
+        const initialContent = JSON.stringify({ nodes: initialNodes, edges: [], viewport: { x: 0, y: 0, zoom: 1 } });
+
         // Usando .query em vez de .execute para maior compatibilidade em alguns ambientes
         await pool.query(
             'INSERT INTO flows (id, user_id, name, content, status) VALUES (?, ?, ?, ?, ?)',
-            [id, req.user.id, name, emptyContent, 'paused']
+            [id, req.user.id, name, initialContent, 'paused']
         );
         console.log('✅ [DEBUG] Fluxo criado com sucesso no banco!');
         res.status(201).json({ message: 'OK' });

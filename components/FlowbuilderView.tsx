@@ -183,6 +183,15 @@ const FlowbuilderView: React.FC<FlowbuilderViewProps> = ({ flowId, onClose, isDa
     };
 
     const addNode = (type: string) => {
+        // Impedir múltiplos nós de Trigger
+        if (type === 'trigger') {
+            const hasTrigger = nodes.some(n => n.type === 'trigger');
+            if (hasTrigger) {
+                showToast('Apenas um nó de início é permitido por fluxo.', 'warning');
+                return;
+            }
+        }
+
         // Obter o centro da visualização atual
         const center = screenToFlowPosition({
             x: window.innerWidth / 2,
@@ -311,6 +320,10 @@ const FlowbuilderView: React.FC<FlowbuilderViewProps> = ({ flowId, onClose, isDa
             // Excluir: Delete / Backspace
             if (event.key === 'Delete' || event.key === 'Backspace') {
                 if (selectedNode) {
+                    if (selectedNode.type === 'trigger') {
+                        showToast('O nó de início não pode ser excluído.', 'warning');
+                        return;
+                    }
                     setNodes((nds) => nds.filter((n) => n.id !== selectedNode.id));
                     setSelectedNode(null);
                 }
@@ -480,6 +493,10 @@ const FlowbuilderView: React.FC<FlowbuilderViewProps> = ({ flowId, onClose, isDa
                     onUpdate={updateNodeData}
                     onClose={() => setSelectedNode(null)}
                     onDelete={() => {
+                        if (selectedNode.type === 'trigger') {
+                            showToast('O nó de início não pode ser excluído.', 'warning');
+                            return;
+                        }
                         setNodes(nds => nds.filter(n => n.id !== selectedNode.id));
                         setSelectedNode(null);
                     }}
