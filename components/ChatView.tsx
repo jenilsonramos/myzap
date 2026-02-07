@@ -72,6 +72,10 @@ const ChatView: React.FC = () => {
     const [agents, setAgents] = useState<{ id: number; name: string }[]>([]);
     const [isImproving, setIsImproving] = useState(false);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+    const [isSearchingMessages, setIsSearchingMessages] = useState(false);
+    const [messageSearchTerm, setMessageSearchTerm] = useState('');
+    const [messageSearchResults, setMessageSearchResults] = useState<Message[]>([]);
+    const [showAIOptions, setShowAIOptions] = useState(false);
 
     // --- Refs ---
     const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -358,6 +362,7 @@ const ChatView: React.FC = () => {
     const improveText = async (tone: string) => {
         if (!newMessage.trim() || isImproving) return;
         setIsImproving(true);
+        setShowAIOptions(false);
         try {
             const token = localStorage.getItem('myzap_token');
             const res = await fetch('/api/ai/improve-text', {
@@ -384,6 +389,26 @@ const ChatView: React.FC = () => {
             showToast('Erro de conexão ao tentar usar a IA.', 'error');
         } finally {
             setIsImproving(false);
+        }
+    };
+
+    const handleMessageSearch = async (query: string) => {
+        setMessageSearchTerm(query);
+        if (!query.trim() || !selectedContact) {
+            setMessageSearchResults([]);
+            return;
+        }
+        try {
+            const token = localStorage.getItem('myzap_token');
+            const res = await fetch(`${API_URL}/messages/${selectedContact.id}/search?q=${encodeURIComponent(query)}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setMessageSearchResults(data);
+            }
+        } catch (error) {
+            console.error('Erro ao pesquisar mensagens:', error);
         }
     };
 
@@ -758,11 +783,36 @@ const ChatView: React.FC = () => {
                             </div>
 
                             <div className="flex items-center gap-3">
-                                <button className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors border border-slate-100 dark:border-white/5">
-                                    <span className="material-icons-round text-xl">star_outline</span>
-                                </button>
-                                <button className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors border border-slate-100 dark:border-white/5">
-                                    <span className="material-icons-round text-xl">priority_high</span>
+                                {isSearchingMessages ? (
+                                    <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800 rounded-xl px-4 py-1.5 border border-slate-100 dark:border-white/5 animate-in slide-in-from-right-4 duration-300">
+                                        <span className="material-icons-round text-slate-400 text-sm">search</span>
+                                        <input
+                                            autoFocus
+                                            type="text"
+                                            value={messageSearchTerm}
+                                            onChange={(e) => handleMessageSearch(e.target.value)}
+                                            placeholder="Pesquisar mensagens..."
+                                            className="bg-transparent border-none focus:ring-0 text-sm py-0 w-40 text-slate-600 dark:text-slate-200"
+                                        />
+                                        <button onClick={() => { setIsSearchingMessages(false); setMessageSearchTerm(''); setMessageSearchResults([]); }} className="text-slate-400 hover:text-slate-600">
+                                            <span className="material-icons-round text-sm">close</span>
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <button
+                                        onClick={() => { setIsSearchingMessages(true); fetchMessages(selectedContact.id); }}
+                                        className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors border border-slate-100 dark:border-white/5"
+                                        title="Pesquisar mensagens"
+                                    >
+                                        <span className="material-icons-round text-xl">search</span>
+                                    </button>
+                                )}
+                                <button
+                                    onClick={() => { fetchAgents(); setTransferModal(true); }}
+                                    className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors border border-slate-100 dark:border-white/5"
+                                    title="Transferir conversa"
+                                >
+                                    <span className="material-icons-round text-xl">sync_alt</span>
                                 </button>
                                 <button
                                     onClick={() => setShowContactInfo(!showContactInfo)}
@@ -775,7 +825,13 @@ const ChatView: React.FC = () => {
 
                         {/* Área de Mensagens */}
                         <div className="flex-1 overflow-y-auto px-10 py-10 space-y-8 bg-[#fbfbfc] dark:bg-slate-950 custom-scrollbar">
-                            {messages.map((msg, index) => {
+                            {isSearchingMessages && messageSearchTerm.trim() !== '' && messageSearchResults.length === 0 && (
+                                <div className="flex flex-col items-center justify-center h-full text-slate-400 py-20">
+                                    <span className="material-icons-round text-4xl mb-2">search_off</span>
+                                    <p>Nenhuma mensagem encontrada para "{messageSearchTerm}"</p>
+                                </div>
+                            )}
+                            {(isSearchingMessages && messageSearchTerm.trim() !== '' ? messageSearchResults : messages).map((msg, index) => {
                                 const isMe = msg.key_from_me;
                                 const { content, type, mediaUrl } = getMessageContent(msg);
                                 const prevMsg = messages[index - 1];
@@ -844,10 +900,37 @@ const ChatView: React.FC = () => {
 
                         {/* Input de Mensagem Flutuante */}
                         <div className="px-10 pb-10 pt-4 bg-[#fbfbfc] dark:bg-slate-950">
+                            {/* AI Options Menu */}
+                            {showAIOptions && (
+                                <div className="mb-4 p-4 bg-white dark:bg-slate-900 rounded-3xl shadow-industrial-lg border border-slate-100 dark:border-white/5 flex gap-2 overflow-x-auto no-scrollbar animate-in slide-in-from-bottom-4 duration-300">
+                                    {[
+                                        { id: 'serio', label: 'Tom sério', icon: 'gavel' },
+                                        { id: 'educado', label: 'Educado', icon: 'sentiment_satisfied' },
+                                        { id: 'firme', label: 'Bravo', icon: 'priority_high' },
+                                        { id: 'engracado', label: 'Engraçado', icon: 'celebration' },
+                                        { id: 'profissional', label: 'Profissional', icon: 'business_center' },
+                                        { id: 'ortografia', label: 'Corrigir ortografia', icon: 'spellcheck' },
+                                    ].map(tone => (
+                                        <button
+                                            key={tone.id}
+                                            onClick={() => improveText(tone.id)}
+                                            className="whitespace-nowrap flex items-center gap-2 px-4 py-2 rounded-2xl bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-600 dark:hover:text-blue-400 transition-all font-bold text-xs"
+                                        >
+                                            <span className="material-icons-round text-sm">{tone.icon}</span>
+                                            {tone.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+
                             <div className="floating-input-container flex items-center gap-2">
                                 <div className="flex items-center gap-1">
-                                    <button className="p-2.5 text-slate-300 dark:text-slate-600 hover:text-slate-500 transition-colors">
-                                        <span className="material-icons-round text-2xl">settings</span>
+                                    <button
+                                        onClick={() => setShowAIOptions(!showAIOptions)}
+                                        className={`p-2.5 transition-colors ${showAIOptions ? 'text-blue-500' : 'text-slate-300 dark:text-slate-600 hover:text-slate-500'}`}
+                                        title="Melhorar com IA"
+                                    >
+                                        <span className="material-icons-round text-2xl">auto_awesome</span>
                                     </button>
                                     <button
                                         onClick={() => fileInputRef.current?.click()}
@@ -856,28 +939,57 @@ const ChatView: React.FC = () => {
                                         <span className="material-icons-round text-2xl">image</span>
                                     </button>
                                 </div>
-                                <input
-                                    type="text"
-                                    value={newMessage}
-                                    onChange={(e) => setNewMessage(e.target.value)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter' && !e.shiftKey) {
-                                            e.preventDefault();
-                                            handleSendMessage();
-                                        }
-                                    }}
-                                    placeholder="Type your message"
-                                    className="flex-1 bg-transparent border-none focus:ring-0 text-[15px] py-4 placeholder:text-slate-300 dark:placeholder:text-slate-700 text-slate-600 dark:text-slate-200 font-medium"
-                                />
-                                <div className="pr-1">
-                                    <button
-                                        onClick={handleSendMessage}
-                                        disabled={!newMessage.trim()}
-                                        className="send-btn-circle hover:scale-105 active:scale-95 transition-all text-white disabled:opacity-30 disabled:grayscale"
-                                    >
-                                        <span className="material-icons-round text-2xl">send</span>
-                                    </button>
-                                </div>
+                                {isRecording ? (
+                                    <div className="flex-1 flex items-center justify-between px-4 py-3 bg-rose-50 dark:bg-rose-900/20 rounded-full animate-pulse">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-2 h-2 bg-rose-500 rounded-full animate-ping"></div>
+                                            <span className="text-rose-600 dark:text-rose-400 font-bold industrial-mono">
+                                                {Math.floor(recordingTime / 60)}:{String(recordingTime % 60).padStart(2, '0')}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <button onClick={() => stopRecording(false)} className="w-10 h-10 rounded-full flex items-center justify-center text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/40 transition-colors">
+                                                <span className="material-icons-round">delete</span>
+                                            </button>
+                                            <button onClick={() => stopRecording(true)} className="w-10 h-10 bg-rose-500 rounded-full flex items-center justify-center text-white shadow-lg shadow-rose-500/30 hover:scale-105 transition-transform">
+                                                <span className="material-icons-round">send</span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <input
+                                            type="text"
+                                            value={newMessage}
+                                            onChange={(e) => setNewMessage(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && !e.shiftKey) {
+                                                    e.preventDefault();
+                                                    handleSendMessage();
+                                                }
+                                            }}
+                                            placeholder="Digite sua mensagem..."
+                                            className="flex-1 bg-transparent border-none focus:ring-0 text-[15px] py-4 placeholder:text-slate-300 dark:placeholder:text-slate-700 text-slate-600 dark:text-slate-200 font-medium"
+                                        />
+                                        <div className="pr-1 flex items-center gap-1">
+                                            {newMessage.trim() === '' ? (
+                                                <button
+                                                    onClick={startRecording}
+                                                    className="w-12 h-12 flex items-center justify-center text-slate-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-full transition-all"
+                                                >
+                                                    <span className="material-icons-round text-2xl">mic</span>
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    onClick={handleSendMessage}
+                                                    className="send-btn-circle hover:scale-105 active:scale-95 transition-all text-white shadow-lg shadow-blue-500/30"
+                                                >
+                                                    <span className="material-icons-round text-2xl">send</span>
+                                                </button>
+                                            )}
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         </div>
                     </>
