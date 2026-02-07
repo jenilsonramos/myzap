@@ -81,6 +81,7 @@ const FlowbuilderView: React.FC<FlowbuilderViewProps> = ({ flowId, onClose, isDa
     const [edges, setEdges] = useState<Edge[]>([]);
     const [selectedNode, setSelectedNode] = useState<Node | null>(null);
     const [flowName, setFlowName] = useState('Fluxo sem nome');
+    const [isUploading, setIsUploading] = useState(false);
 
     // Refs para o scroll do Dock
     const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -264,6 +265,62 @@ const FlowbuilderView: React.FC<FlowbuilderViewProps> = ({ flowId, onClose, isDa
 
     const onNodeClick = (_: any, node: Node) => {
         setSelectedNode(node);
+    };
+
+    const handleFileUpload = async (file: File) => {
+        if (!selectedNode) return;
+
+        setIsUploading(true);
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const response = await fetch('/api/flows/upload', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('myzap_token')}`
+                },
+                body: formData
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+
+                // Identify mediaType from mime
+                let mediaType = 'document';
+                if (file.type.startsWith('image/')) mediaType = 'image';
+                else if (file.type.startsWith('video/')) mediaType = 'video';
+                else if (file.type.startsWith('audio/')) mediaType = 'audio';
+
+                // Update node data using onUpdate logic
+                const updatedData = {
+                    ...selectedNode.data,
+                    url: data.url,
+                    mediaType: mediaType,
+                    messageType: 'media'
+                };
+
+                setNodes((nds) =>
+                    nds.map((node) => {
+                        if (node.id === selectedNode.id) {
+                            return { ...node, data: updatedData };
+                        }
+                        return node;
+                    })
+                );
+
+                // Also update local selectedNode to reflect changes in Panel
+                setSelectedNode({ ...selectedNode, data: updatedData });
+
+                showToast('Arquivo enviado com sucesso!', 'success');
+            } else {
+                showToast('Erro ao fazer upload do arquivo.', 'error');
+            }
+        } catch (err) {
+            showToast('Falha na conexão ao subir arquivo.', 'error');
+        } finally {
+            setIsUploading(false);
+        }
     };
 
     const updateNodeData = (newData: any) => {
@@ -490,6 +547,8 @@ const FlowbuilderView: React.FC<FlowbuilderViewProps> = ({ flowId, onClose, isDa
             {selectedNode && (
                 <PropertiesPanel
                     node={selectedNode}
+                    isUploading={isUploading}
+                    onUpload={handleFileUpload}
                     onUpdate={updateNodeData}
                     onClose={() => setSelectedNode(null)}
                     onDelete={() => {
@@ -606,7 +665,15 @@ const HelpAlert = ({ type }: { type: string }) => {
     );
 };
 
-const PropertiesPanel = ({ node, onUpdate, onClose, onDelete, onDuplicate }: { node: Node, onUpdate: (data: any) => void, onClose: () => void, onDelete: () => void, onDuplicate: () => void }) => {
+const PropertiesPanel = ({ node, onUpdate, onClose, onDelete, onDuplicate, onUpload, isUploading }: {
+    node: Node,
+    onUpdate: (data: any) => void,
+    onClose: () => void,
+    onDelete: () => void,
+    onDuplicate: () => void,
+    onUpload: (file: File) => void,
+    isUploading: boolean
+}) => {
     // Glassmorphism Styles
     const glassPanel = "bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl border border-white/20 dark:border-white/10 shadow-2xl";
     const glassInput = "w-full bg-white/50 dark:bg-black/20 border border-slate-200/50 dark:border-white/10 rounded-xl px-4 py-3 text-sm dark:text-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500/50 outline-none transition-all placeholder:text-slate-400";
@@ -686,21 +753,78 @@ const PropertiesPanel = ({ node, onUpdate, onClose, onDelete, onDuplicate }: { n
                         {node.data.messageType === 'media' && (
                             <div className="space-y-4 animate-in slide-in-from-top-2">
                                 <div>
-                                    <label className={labelStyle}>Tipo de Arquivo</label>
-                                    <select className={glassSelect} value={node.data.mediaType || 'image'} onChange={(e) => onUpdate({ mediaType: e.target.value })}>
-                                        <option value="image">Imagem</option>
-                                        <option value="video">Vídeo</option>
-                                        <option value="audio">Áudio</option>
-                                        <option value="document">Documento (PDF/Doc)</option>
-                                    </select>
+                                    <label className={labelStyle}>Arquivo do Dispositivo</label>
+                                    <div className="relative group/upload">
+                                        <input
+                                            type="file"
+                                            id="flow-file-upload"
+                                            className="hidden"
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) onUpload(file);
+                                            }}
+                                            disabled={isUploading}
+                                        />
+                                        <label
+                                            htmlFor="flow-file-upload"
+                                            className={`w-full flex items-center justify-center gap-3 py-4 border-2 border-dashed rounded-2xl transition-all cursor-pointer ${isUploading
+                                                ? 'bg-slate-50 border-slate-200 cursor-wait'
+                                                : 'bg-indigo-50/30 border-indigo-200/50 hover:bg-indigo-50 hover:border-indigo-400 group-hover/upload:shadow-md'
+                                                }`}
+                                        >
+                                            {isUploading ? (
+                                                <>
+                                                    <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                                                    <span className="text-xs font-bold text-indigo-600 uppercase">Subindo...</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <span className="material-icons-round text-indigo-500">cloud_upload</span>
+                                                    <div className="text-left">
+                                                        <p className="text-xs font-bold text-indigo-600 uppercase tracking-tight">Escolher Arquivo</p>
+                                                        <p className="text-[10px] text-indigo-400">PDF, Imagem, Vídeo ou Áudio</p>
+                                                    </div>
+                                                </>
+                                            )}
+                                        </label>
+                                    </div>
                                 </div>
+
+                                <div className="relative py-2 flex items-center">
+                                    <div className="flex-grow border-t border-slate-100 dark:border-white/5"></div>
+                                    <span className="flex-shrink mx-4 text-[9px] font-black text-slate-300 dark:text-slate-600 uppercase tracking-widest">ou use um link</span>
+                                    <div className="flex-grow border-t border-slate-100 dark:border-white/5"></div>
+                                </div>
+
                                 <div>
                                     <label className={labelStyle}>URL do Arquivo</label>
-                                    <textarea className={`${glassInput} h-20 font-mono text-xs`} value={node.data.url || ''} onChange={(e) => onUpdate({ url: e.target.value })} placeholder="https://..." />
+                                    <textarea
+                                        className={`${glassInput} h-20 font-mono text-[10px] leading-tight`}
+                                        value={node.data.url || ''}
+                                        onChange={(e) => onUpdate({ url: e.target.value })}
+                                        placeholder="https://sua-url.com/arquivo.jpg"
+                                    />
                                 </div>
-                                <div>
-                                    <label className={labelStyle}>Legenda (Opcional)</label>
-                                    <input className={glassInput} value={node.data.caption || ''} onChange={(e) => onUpdate({ caption: e.target.value })} placeholder="Descrição do arquivo..." />
+
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className={labelStyle}>Tipo de Mídia</label>
+                                        <select className={glassSelect} value={node.data.mediaType || 'image'} onChange={(e) => onUpdate({ mediaType: e.target.value })}>
+                                            <option value="image">Imagem</option>
+                                            <option value="video">Vídeo</option>
+                                            <option value="audio">Áudio</option>
+                                            <option value="document">Documento</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className={labelStyle}>Legenda (Opcional)</label>
+                                        <input
+                                            className={glassInput}
+                                            value={node.data.caption || ''}
+                                            onChange={(e) => onUpdate({ caption: e.target.value })}
+                                            placeholder="Descrição..."
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         )}

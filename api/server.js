@@ -1858,6 +1858,31 @@ app.post('/api/flows', authenticateToken, async (req, res) => {
     }
 });
 
+// Endpoint para upload de arquivos no Flow Builder
+app.post('/api/flows/upload', authenticateToken, upload.single('file'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'Nenhum arquivo enviado' });
+        }
+
+        // Buscar URL base da aplicação
+        const [rows] = await pool.query("SELECT setting_value FROM system_settings WHERE setting_key = 'app_url'");
+        const appUrl = rows[0]?.setting_value || 'https://ublochat.com.br';
+
+        const fileUrl = `${appUrl}/api/uploads/${req.file.filename}`;
+
+        res.json({
+            url: fileUrl,
+            filename: req.file.filename,
+            originalname: req.file.originalname,
+            mimetype: req.file.mimetype
+        });
+    } catch (err) {
+        console.error('❌ Erro no upload do Flow:', err);
+        res.status(500).json({ error: 'Erro interno no servidor' });
+    }
+});
+
 app.get('/api/flows/:id', authenticateToken, async (req, res) => {
     try {
         const [rows] = await pool.query('SELECT * FROM flows WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
