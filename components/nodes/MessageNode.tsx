@@ -27,7 +27,7 @@ const MessageNode = ({ data, selected }: any) => {
                 <div className="p-4 relative">
                     {isMedia ? (
                         <div className="flex flex-col gap-3">
-                            <div className="aspect-video w-full bg-slate-100 dark:bg-white/5 rounded-xl flex items-center justify-center overflow-hidden border border-slate-200/50 dark:border-white/5 relative group/preview">
+                            <div className="h-28 w-full bg-slate-100 dark:bg-white/5 rounded-xl flex items-center justify-center overflow-hidden border border-slate-200/50 dark:border-white/5 relative group/preview">
                                 {data.url ? (
                                     data.mediaType === 'image' ? (
                                         <img src={data.url} className="w-full h-full object-cover transition-transform duration-500 group-hover/preview:scale-110" alt="Preview" />
