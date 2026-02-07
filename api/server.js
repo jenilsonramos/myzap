@@ -1744,16 +1744,15 @@ app.get('/api/analytics/dashboard', authenticateToken, async (req, res) => {
         // 2. Volume Diário
         try {
             // Use strict SQL safe approach, wrap timestamp
-            const [dailyRes] = await pool.query(`
-                SELECT 
-                    DATE_FORMAT(FROM_UNIXTIME(\`timestamp\`), '%d/%m') as name, 
-                    DATE(FROM_UNIXTIME(\`timestamp\`)) as day_date,
-                    COUNT(*) as value 
+            SELECT
+            DATE_FORMAT(FROM_UNIXTIME(`timestamp`), '%d/%m') as name,
+                DATE(FROM_UNIXTIME(`timestamp`)) as day_date,
+                COUNT(*) as value 
                 FROM messages 
-                WHERE user_id = ? AND \`timestamp\` >= ? AND \`timestamp\` <= ?
-                GROUP BY DATE(FROM_UNIXTIME(\`timestamp\`)) 
+                WHERE user_id = ? AND`timestamp` >= ? AND`timestamp` <= ?
+                GROUP BY day_date, name
                 ORDER BY day_date ASC
-            `, [userId, startTs, endTs]);
+                `, [userId, startTs, endTs]);
             daily = dailyRes;
         } catch (e) {
             console.error('❌ Error fetching daily stats:', e.message);
@@ -1762,8 +1761,8 @@ app.get('/api/analytics/dashboard', authenticateToken, async (req, res) => {
         // 3. Mapa de Calor
         try {
             const [hourlyRes] = await pool.query(`
-                SELECT 
-                    HOUR(FROM_UNIXTIME(\`timestamp\`)) as hour,
+            SELECT
+            HOUR(FROM_UNIXTIME(\`timestamp\`)) as hour,
                     COUNT(*) as count
                 FROM messages
                 WHERE user_id = ? AND \`timestamp\` >= ? AND \`timestamp\` <= ?
