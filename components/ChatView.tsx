@@ -606,7 +606,7 @@ const ChatView: React.FC = () => {
     };
 
     return (
-        <div className="h-full w-full flex bg-[#fbfbfc] text-slate-900 modern-chat overflow-hidden relative spring-motion">
+        <div className="h-full w-full flex bg-[#fbfbfc] dark:bg-slate-950 text-slate-900 dark:text-slate-100 modern-chat overflow-hidden relative spring-motion">
             {/* Signature Overlay - High Priority noise */}
             <div className="fixed inset-0 pointer-events-none z-[9999] opacity-[0.08] mix-blend-overlay signature-material-overlay"></div>
 
@@ -614,11 +614,11 @@ const ChatView: React.FC = () => {
             {/* Sidebar de Contatos (Minimalista Industrial) */}
             <div className={`
                 ${isSidebarCollapsed ? 'w-20' : 'w-80'} 
-                border-r border-slate-200/50 flex flex-col bg-white transition-all duration-300 ease-in-out
+                border-r border-slate-200/50 dark:border-white/5 flex flex-col bg-white dark:bg-slate-900 transition-all duration-300 ease-in-out
             `}>
                 {/* Header da Sidebar */}
                 <div className="p-6 flex items-center justify-between">
-                    {!isSidebarCollapsed && <h2 className="text-2xl font-black tracking-tight text-slate-800">Chat</h2>}
+                    {!isSidebarCollapsed && <h2 className="text-2xl font-black tracking-tight text-slate-800 dark:text-slate-100">Chat</h2>}
                     <div className="flex items-center gap-2">
                         {!isSidebarCollapsed && (
                             <button className="w-10 h-10 bg-[#3b66f5] rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-500/30 hover:scale-105 transition-transform">
@@ -642,13 +642,13 @@ const ChatView: React.FC = () => {
                         <div className="capsule-tab-container flex">
                             <button
                                 onClick={() => setFilterStatus('all')}
-                                className={`flex-1 capsule-tab ${filterStatus === 'all' ? 'capsule-tab-active' : 'text-slate-400'}`}
+                                className={`flex-1 capsule-tab ${filterStatus === 'all' ? 'capsule-tab-active' : 'text-slate-400 dark:text-slate-500'}`}
                             >
                                 Open
                             </button>
                             <button
                                 onClick={() => setFilterStatus('closed')}
-                                className={`flex-1 capsule-tab ${filterStatus === 'closed' ? 'capsule-tab-active' : 'text-slate-400'}`}
+                                className={`flex-1 capsule-tab ${filterStatus === 'closed' ? 'capsule-tab-active' : 'text-slate-400 dark:text-slate-500'}`}
                             >
                                 Archived
                             </button>
@@ -666,8 +666,8 @@ const ChatView: React.FC = () => {
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className={`
-                                w-full bg-slate-50 border border-slate-200/60 py-2.5 rounded-lg outline-none text-sm transition-all
-                                ${isSidebarCollapsed ? 'px-0 text-center placeholder:opacity-0' : 'pl-10 pr-4 focus:ring-2 focus:ring-slate-100 focus:bg-white'}
+                                w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 dark:border-white/5 py-2.5 rounded-lg outline-none text-sm transition-all text-slate-700 dark:text-slate-200
+                                ${isSidebarCollapsed ? 'px-0 text-center placeholder:opacity-0' : 'pl-10 pr-4 focus:ring-2 focus:ring-slate-100 dark:focus:ring-white/5 focus:bg-white dark:focus:bg-slate-800'}
                             `}
                         />
                     </div>
@@ -685,7 +685,7 @@ const ChatView: React.FC = () => {
                             }}
                             className={`
                                 group flex items-center px-6 py-4 cursor-pointer transition-all soft-card
-                                ${selectedContact?.id === c.id ? 'soft-card-selected' : 'hover:bg-slate-50/50'}
+                                ${selectedContact?.id === c.id ? 'soft-card-selected' : 'hover:bg-slate-50/50 dark:hover:bg-white/5'}
                             `}
                         >
                             <div className="relative shrink-0">
@@ -698,17 +698,17 @@ const ChatView: React.FC = () => {
                                         </div>
                                     )}
                                 </div>
-                                <div className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-white ${getStatusColor(c.status)}`}></div>
+                                <div className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-white dark:border-slate-900 ${getStatusColor(c.status)}`}></div>
                             </div>
 
                             {!isSidebarCollapsed && (
                                 <div className="flex-1 min-w-0 ml-4">
                                     <div className="flex items-center justify-between mb-1">
-                                        <h3 className="text-[15px] font-bold text-slate-800 truncate leading-none">{c.name}</h3>
-                                        <span className="text-[11px] font-medium text-slate-400 uppercase industrial-mono">{formatFriendlyDate(c.lastTime)}</span>
+                                        <h3 className="text-[15px] font-bold text-slate-800 dark:text-slate-100 truncate leading-none">{c.name}</h3>
+                                        <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500 uppercase industrial-mono">{formatFriendlyDate(c.lastTime)}</span>
                                     </div>
                                     <div className="flex items-center justify-between">
-                                        <p className="text-[13px] text-slate-400 truncate pr-4 font-medium leading-tight">
+                                        <p className="text-[13px] text-slate-400 dark:text-slate-500 truncate pr-4 font-medium leading-tight">
                                             {c.last_message || 'Inicie uma conversa...'}
                                         </p>
                                         {c.unread_count > 0 && (
@@ -725,19 +725,19 @@ const ChatView: React.FC = () => {
             </div>
 
             {/* Janela de Chat Principal */}
-            <div className="flex-1 flex flex-col bg-white min-w-0">
+            <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 min-w-0">
                 {!selectedContact ? (
-                    <div className="flex-1 flex flex-col items-center justify-center p-12 select-none bg-slate-50/20">
-                        <div className="w-24 h-24 bg-white rounded-[2rem] flex items-center justify-center mb-8 shadow-xl shadow-slate-100 border border-slate-50 group transition-transform hover:scale-110 duration-500">
+                    <div className="flex-1 flex flex-col items-center justify-center p-12 select-none bg-slate-50/20 dark:bg-slate-950/20">
+                        <div className="w-24 h-24 bg-white dark:bg-slate-800 rounded-[2rem] flex items-center justify-center mb-8 shadow-xl shadow-slate-100 dark:shadow-black/20 border border-slate-50 dark:border-white/5 group transition-transform hover:scale-110 duration-500">
                             <span className="material-icons-round text-5xl text-blue-500 opacity-20 group-hover:opacity-100 transition-opacity">forum</span>
                         </div>
-                        <h2 className="text-2xl font-black tracking-tight text-slate-800">Seu Chat de Elite</h2>
-                        <p className="text-slate-400 mt-3 font-medium text-center max-w-xs">Selecione um contato para experimentar a nova interface ultra-minimalista.</p>
+                        <h2 className="text-2xl font-black tracking-tight text-slate-800 dark:text-slate-100">Seu Chat de Elite</h2>
+                        <p className="text-slate-400 dark:text-slate-500 mt-3 font-medium text-center max-w-xs">Selecione um contato para experimentar a nova interface ultra-minimalista.</p>
                     </div>
                 ) : (
                     <>
                         {/* Header do Chat */}
-                        <div className="h-20 px-8 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white">
+                        <div className="h-20 px-8 border-b border-slate-100 dark:border-white/5 flex items-center justify-between shrink-0 bg-white dark:bg-slate-900">
                             <div className="flex items-center gap-4">
                                 <div className="w-11 h-11 rounded-full bg-slate-100 overflow-hidden relative">
                                     {selectedContact.profile_pic ? (
@@ -749,24 +749,24 @@ const ChatView: React.FC = () => {
                                     )}
                                 </div>
                                 <div className="min-w-0">
-                                    <h2 className="text-[17px] font-bold text-slate-800 leading-none mb-1">{selectedContact.name}</h2>
+                                    <h2 className="text-[17px] font-bold text-slate-800 dark:text-slate-100 leading-none mb-1">{selectedContact.name}</h2>
                                     <div className="flex items-center gap-1.5">
                                         <div className={`w-1.5 h-1.5 rounded-full ${getStatusColor(selectedContact.status)} animate-pulse-soft`}></div>
-                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest industrial-mono">online</span>
+                                        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest industrial-mono">online</span>
                                     </div>
                                 </div>
                             </div>
 
                             <div className="flex items-center gap-3">
-                                <button className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 hover:bg-slate-50 transition-colors border border-slate-100">
+                                <button className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors border border-slate-100 dark:border-white/5">
                                     <span className="material-icons-round text-xl">star_outline</span>
                                 </button>
-                                <button className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 hover:bg-slate-50 transition-colors border border-slate-100">
+                                <button className="w-10 h-10 rounded-xl flex items-center justify-center text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors border border-slate-100 dark:border-white/5">
                                     <span className="material-icons-round text-xl">priority_high</span>
                                 </button>
                                 <button
                                     onClick={() => setShowContactInfo(!showContactInfo)}
-                                    className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all border ${showContactInfo ? 'bg-blue-50 border-blue-100 text-blue-500' : 'text-slate-400 border-slate-100 hover:bg-slate-50'}`}
+                                    className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all border ${showContactInfo ? 'bg-blue-50 dark:bg-blue-500/10 border-blue-100 dark:border-blue-500/20 text-blue-500' : 'text-slate-400 dark:text-slate-500 border-slate-100 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5'}`}
                                 >
                                     <span className="material-icons-round text-xl">person_outline</span>
                                 </button>
@@ -774,7 +774,7 @@ const ChatView: React.FC = () => {
                         </div>
 
                         {/* Área de Mensagens */}
-                        <div className="flex-1 overflow-y-auto px-10 py-10 space-y-8 bg-[#fbfbfc] custom-scrollbar">
+                        <div className="flex-1 overflow-y-auto px-10 py-10 space-y-8 bg-[#fbfbfc] dark:bg-slate-950 custom-scrollbar">
                             {messages.map((msg, index) => {
                                 const isMe = msg.key_from_me;
                                 const { content, type, mediaUrl } = getMessageContent(msg);
@@ -808,28 +808,28 @@ const ChatView: React.FC = () => {
                                                     </div>
                                                 )}
                                                 {type === 'audio' && mediaUrl && (
-                                                    <div className="audio-wave-container min-w-[240px] border border-blue-50">
+                                                    <div className="audio-wave-container min-w-[240px] border border-blue-50 dark:border-white/5">
                                                         <button className="play-btn-circle spring-motion active-scale-spring">
                                                             <span className="material-icons-round">play_arrow</span>
                                                         </button>
                                                         <div className="flex-1 flex gap-1 items-end h-6 px-2">
                                                             {[...Array(24)].map((_, i) => (
-                                                                <div key={i} className="w-[3px] bg-blue-200 rounded-full" style={{ height: `${20 + Math.random() * 80}%` }} />
+                                                                <div key={i} className="w-[3px] bg-blue-200 dark:bg-blue-900 rounded-full" style={{ height: `${20 + Math.random() * 80}%` }} />
                                                             ))}
                                                         </div>
-                                                        <span className="text-[11px] font-bold text-slate-400 industrial-mono">1:23</span>
+                                                        <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 industrial-mono">1:23</span>
                                                     </div>
                                                 )}
                                                 {type === 'text' && content && (
-                                                    <p className="text-[15px] text-slate-800 leading-relaxed font-medium whitespace-pre-wrap">{content}</p>
+                                                    <p className="text-[15px] text-slate-800 dark:text-slate-200 leading-relaxed font-medium whitespace-pre-wrap">{content}</p>
                                                 )}
 
                                                 <div className="flex items-center justify-end gap-2 mt-2">
-                                                    <span className="text-[10px] font-bold text-slate-300 uppercase industrial-mono">
+                                                    <span className="text-[10px] font-bold text-slate-300 dark:text-slate-600 uppercase industrial-mono">
                                                         {new Date(msg.timestamp * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                                                     </span>
                                                     {isMe && (
-                                                        <span className={`material-icons-round text-sm ${msg.status === 'read' ? 'text-blue-500' : 'text-slate-200'}`}>
+                                                        <span className={`material-icons-round text-sm ${msg.status === 'read' ? 'text-blue-500' : 'text-slate-200 dark:text-slate-700'}`}>
                                                             {msg.status === 'read' ? 'done_all' : 'done'}
                                                         </span>
                                                     )}
@@ -843,15 +843,15 @@ const ChatView: React.FC = () => {
                         </div>
 
                         {/* Input de Mensagem Flutuante */}
-                        <div className="px-10 pb-10 pt-4 bg-[#fbfbfc]">
+                        <div className="px-10 pb-10 pt-4 bg-[#fbfbfc] dark:bg-slate-950">
                             <div className="floating-input-container flex items-center gap-2">
                                 <div className="flex items-center gap-1">
-                                    <button className="p-2.5 text-slate-300 hover:text-slate-500 transition-colors">
+                                    <button className="p-2.5 text-slate-300 dark:text-slate-600 hover:text-slate-500 transition-colors">
                                         <span className="material-icons-round text-2xl">settings</span>
                                     </button>
                                     <button
                                         onClick={() => fileInputRef.current?.click()}
-                                        className="p-2.5 text-slate-300 hover:text-slate-500 transition-colors"
+                                        className="p-2.5 text-slate-300 dark:text-slate-600 hover:text-slate-500 transition-colors"
                                     >
                                         <span className="material-icons-round text-2xl">image</span>
                                     </button>
@@ -867,7 +867,7 @@ const ChatView: React.FC = () => {
                                         }
                                     }}
                                     placeholder="Type your message"
-                                    className="flex-1 bg-transparent border-none focus:ring-0 text-[15px] py-4 placeholder:text-slate-300 text-slate-600 font-medium"
+                                    className="flex-1 bg-transparent border-none focus:ring-0 text-[15px] py-4 placeholder:text-slate-300 dark:placeholder:text-slate-700 text-slate-600 dark:text-slate-200 font-medium"
                                 />
                                 <div className="pr-1">
                                     <button
@@ -886,12 +886,12 @@ const ChatView: React.FC = () => {
 
             {/* Painel de Informações do Contato (Retrátil) */}
             {showContactInfo && selectedContact && (
-                <div className="w-96 border-l border-slate-100 bg-white flex flex-col animate-in slide-in-from-right duration-500 ease-out shadow-2xl shadow-slate-200/50 z-20">
-                    <div className="p-8 border-b border-slate-50 flex items-center justify-between bg-white/80 backdrop-blur-md sticky top-0">
-                        <h4 className="text-lg font-black text-slate-800 tracking-tight">Detalhes do Contato</h4>
+                <div className="w-96 border-l border-slate-100 dark:border-white/5 bg-white dark:bg-slate-900 flex flex-col animate-in slide-in-from-right duration-500 ease-out shadow-2xl shadow-slate-200/50 dark:shadow-black/50 z-20">
+                    <div className="p-8 border-b border-slate-50 dark:border-white/5 flex items-center justify-between bg-white/80 dark:bg-slate-900/80 backdrop-blur-md sticky top-0">
+                        <h4 className="text-lg font-black text-slate-800 dark:text-slate-100 tracking-tight">Detalhes do Contato</h4>
                         <button
                             onClick={() => setShowContactInfo(false)}
-                            className="w-10 h-10 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-50 transition-colors"
+                            className="w-10 h-10 rounded-full flex items-center justify-center text-slate-400 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-white/5 transition-colors"
                         >
                             <span className="material-icons-round">close</span>
                         </button>
@@ -899,50 +899,50 @@ const ChatView: React.FC = () => {
 
                     <div className="flex-1 overflow-y-auto p-10 space-y-12 custom-scrollbar">
                         <div className="flex flex-col items-center">
-                            <div className="w-32 h-32 rounded-full bg-slate-50 mb-6 border-4 border-white shadow-xl shadow-slate-100 overflow-hidden relative group">
+                            <div className="w-32 h-32 rounded-full bg-slate-50 dark:bg-slate-800 mb-6 border-4 border-white dark:border-slate-800 shadow-xl shadow-slate-100 dark:shadow-black/20 overflow-hidden relative group">
                                 {selectedContact.profile_pic ? (
                                     <img src={selectedContact.profile_pic} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="" />
                                 ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-5xl font-black text-blue-500 bg-blue-50">{selectedContact.name?.charAt(0)}</div>
+                                    <div className="w-full h-full flex items-center justify-center text-5xl font-black text-blue-500 bg-blue-50 dark:bg-blue-900/30">{selectedContact.name?.charAt(0)}</div>
                                 )}
                             </div>
-                            <h3 className="text-2xl font-black text-slate-900 text-center leading-tight mb-2">{selectedContact.name}</h3>
-                            <div className="px-4 py-1.5 bg-slate-50 rounded-full border border-slate-100">
-                                <span className="text-xs font-bold text-slate-400 industrial-mono">+{selectedContact.remote_jid.split('@')[0]}</span>
+                            <h3 className="text-2xl font-black text-slate-900 dark:text-slate-100 text-center leading-tight mb-2">{selectedContact.name}</h3>
+                            <div className="px-4 py-1.5 bg-slate-50 dark:bg-slate-800 rounded-full border border-slate-100 dark:border-white/5">
+                                <span className="text-xs font-bold text-slate-400 dark:text-slate-500 industrial-mono">+{selectedContact.remote_jid.split('@')[0]}</span>
                             </div>
                         </div>
 
                         <div className="space-y-6">
                             <div className="flex items-center justify-between px-2">
-                                <p className="text-[11px] font-black text-slate-300 uppercase tracking-[0.2em]">Configurações Rápidas</p>
+                                <p className="text-[11px] font-black text-slate-300 dark:text-slate-600 uppercase tracking-[0.2em]">Configurações Rápidas</p>
                             </div>
                             <div className="space-y-3">
-                                <div className="flex items-center justify-between p-5 bg-slate-50/50 rounded-3xl border border-slate-100 group hover:bg-white hover:shadow-lg hover:shadow-slate-100 transition-all duration-300">
+                                <div className="flex items-center justify-between p-5 bg-slate-50/50 dark:bg-white/5 rounded-3xl border border-slate-100 dark:border-white/5 group hover:bg-white dark:hover:bg-slate-800 hover:shadow-lg dark:hover:shadow-black/20 hover:shadow-slate-100 transition-all duration-300">
                                     <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center text-slate-400 shadow-sm">
+                                        <div className="w-10 h-10 rounded-2xl bg-white dark:bg-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 shadow-sm">
                                             <span className="material-icons-round">smart_toy</span>
                                         </div>
                                         <div>
-                                            <p className="text-sm font-bold text-slate-700">Automação IA</p>
-                                            <p className="text-[11px] text-slate-400 font-medium">Resposta Inteligente</p>
+                                            <p className="text-sm font-bold text-slate-700 dark:text-slate-200">Automação IA</p>
+                                            <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">Resposta Inteligente</p>
                                         </div>
                                     </div>
                                     <button
                                         onClick={toggleAI}
-                                        className={`w-12 h-6 rounded-full transition-all relative ${selectedContact.ai_paused ? 'bg-slate-200' : 'bg-blue-500 shadow-md shadow-blue-200'}`}
+                                        className={`w-12 h-6 rounded-full transition-all relative ${selectedContact.ai_paused ? 'bg-slate-200 dark:bg-slate-700' : 'bg-blue-500 shadow-md shadow-blue-200 dark:shadow-blue-500/20'}`}
                                     >
                                         <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${selectedContact.ai_paused ? 'left-1' : 'left-7'}`} />
                                     </button>
                                 </div>
 
-                                <div className="flex items-center justify-between p-5 bg-slate-50/50 rounded-3xl border border-slate-100">
+                                <div className="flex items-center justify-between p-5 bg-slate-50/50 dark:bg-white/5 rounded-3xl border border-slate-100 dark:border-white/5">
                                     <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center text-slate-400 shadow-sm">
+                                        <div className="w-10 h-10 rounded-2xl bg-white dark:bg-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 shadow-sm">
                                             <span className="material-icons-round">offline_bolt</span>
                                         </div>
                                         <div>
-                                            <p className="text-sm font-bold text-slate-700">Status Ativo</p>
-                                            <p className="text-[11px] text-slate-400 font-medium">{selectedContact.status}</p>
+                                            <p className="text-sm font-bold text-slate-700 dark:text-slate-200">Status Ativo</p>
+                                            <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">{selectedContact.status}</p>
                                         </div>
                                     </div>
                                     <div className={`w-3 h-3 rounded-full ${getStatusColor(selectedContact.status)} shadow-lg`} />
@@ -950,16 +950,16 @@ const ChatView: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="pt-8 border-t border-slate-50 space-y-4">
+                        <div className="pt-8 border-t border-slate-50 dark:border-white/5 space-y-4">
                             <button
                                 onClick={toggleBlock}
-                                className={`w-full py-5 rounded-[2rem] text-xs font-black uppercase tracking-widest border transition-all active-scale-spring ${selectedContact.is_blocked ? 'bg-emerald-50 text-emerald-600 border-emerald-100 hover:bg-emerald-100' : 'bg-rose-50 text-rose-500 border-rose-100 hover:bg-rose-100'}`}
+                                className={`w-full py-5 rounded-[2rem] text-xs font-black uppercase tracking-widest border transition-all active-scale-spring ${selectedContact.is_blocked ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-500 border-emerald-100 dark:border-emerald-500/20 hover:bg-emerald-100 dark:hover:bg-emerald-500/20' : 'bg-rose-50 dark:bg-rose-500/10 text-rose-500 border-rose-100 dark:border-rose-500/20 hover:bg-rose-100 dark:hover:bg-rose-500/20'}`}
                             >
                                 {selectedContact.is_blocked ? 'Desbloquear Contato' : 'Bloquear Contato'}
                             </button>
                             <button
                                 onClick={deleteConversation}
-                                className="w-full py-5 bg-slate-900 hover:bg-black text-white rounded-[2rem] text-xs font-black uppercase tracking-widest shadow-2xl shadow-slate-200 active-scale-spring transition-all"
+                                className="w-full py-5 bg-slate-900 dark:bg-black hover:bg-black dark:hover:bg-slate-800 text-white rounded-[2rem] text-xs font-black uppercase tracking-widest shadow-2xl shadow-slate-200 dark:shadow-black/20 active-scale-spring transition-all"
                             >
                                 Apagar Histórico
                             </button>
@@ -1020,9 +1020,15 @@ const ChatView: React.FC = () => {
                     background: #ffffff;
                     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                 }
+                .dark .soft-card {
+                    background: #0f172a;
+                }
                 .soft-card-selected {
                     background: #f8faff;
                     position: relative;
+                }
+                .dark .soft-card-selected {
+                    background: rgba(59, 102, 245, 0.1);
                 }
                 .soft-card-selected::after {
                     content: "";
@@ -1040,6 +1046,9 @@ const ChatView: React.FC = () => {
                     border-radius: 100px;
                     padding: 4px;
                 }
+                .dark .capsule-tab-container {
+                    background: rgba(255,255,255,0.05);
+                }
                 .capsule-tab {
                     border-radius: 100px;
                     padding: 6px 20px;
@@ -1051,6 +1060,10 @@ const ChatView: React.FC = () => {
                     background: #ffffff;
                     color: #3b66f5;
                     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+                }
+                .dark .capsule-tab-active {
+                    background: #3b66f5;
+                    color: white;
                 }
 
                 .pink-badge {
@@ -1078,10 +1091,20 @@ const ChatView: React.FC = () => {
                     color: #333;
                     border-top-right-radius: 4px;
                 }
+                .dark .bubble-me {
+                    background: #1e293b;
+                    border-color: rgba(255,255,255,0.05);
+                    color: #f1f5f9;
+                }
                 .bubble-other {
                     background: #ffffff;
                     color: #333;
                     border-top-left-radius: 4px;
+                }
+                .dark .bubble-other {
+                    background: #0f172a;
+                    border-color: rgba(255,255,255,0.05);
+                    color: #f1f5f9;
                 }
 
                 /* Audio - Soft Gradient */
@@ -1092,6 +1115,9 @@ const ChatView: React.FC = () => {
                     display: flex;
                     align-items: center;
                     gap: 12px;
+                }
+                .dark .audio-wave-container {
+                    background: linear-gradient(90deg, #1e293b 0%, #0f172a 100%);
                 }
                 .play-btn-circle {
                     width: 36px;
@@ -1113,6 +1139,11 @@ const ChatView: React.FC = () => {
                     box-shadow: 0 4px 25px rgba(0,0,0,0.04);
                     border: 1px solid #f0f0f5;
                 }
+                .dark .floating-input-container {
+                    background: #0f172a;
+                    border-color: rgba(255,255,255,0.05);
+                    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+                }
                 .send-btn-circle {
                     width: 48px;
                     height: 48px;
@@ -1127,7 +1158,7 @@ const ChatView: React.FC = () => {
 
                 /* Signature Noise Overlay - Softened */
                 .signature-material-overlay {
-                    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3%3Cfilter id='noiseFilter'%3%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3%3C/filter%3%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3%3C/svg%3");
+                    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
                     opacity: 0.04;
                 }
 
@@ -1147,6 +1178,9 @@ const ChatView: React.FC = () => {
                 .custom-scrollbar::-webkit-scrollbar-thumb {
                     background: rgba(0, 0, 0, 0.05);
                     border-radius: 10px;
+                }
+                .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+                    background: rgba(255, 255, 255, 0.1);
                 }
 
                 /* Waveform Animation */
@@ -1175,22 +1209,6 @@ const ChatView: React.FC = () => {
                     box-shadow: 0 0 0 2px #fff, 0 0 0 4px #10b981;
                 }
 
-                .custom-scrollbar::-webkit-scrollbar {
-                    width: 4px;
-                }
-                .custom-scrollbar::-webkit-scrollbar-track {
-                    background: transparent;
-                }
-                .custom-scrollbar::-webkit-scrollbar-thumb {
-                    background: rgba(0, 0, 0, 0.08);
-                    border-radius: 10px;
-                }
-                .custom-scrollbar:hover::-webkit-scrollbar-thumb {
-                    background: rgba(0, 0, 0, 0.15);
-                }
-                .no-scrollbar::-webkit-scrollbar {
-                    display: none;
-                }
                 textarea {
                     line-height: 1.6 !important;
                 }
