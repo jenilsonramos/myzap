@@ -24,6 +24,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onToggleTheme, isDarkMode, onLogout, 
 
   const menuItems = [
     { view: AppView.ADMIN, icon: 'admin_panel_settings', path: '/admin', title: 'Admin', adminOnly: true },
+    { view: AppView.ADMIN, icon: 'palette', path: '/branding', title: 'Branding & SEO', adminOnly: true },
     { view: AppView.SERVER_HEALTH, icon: 'monitor_heart', path: '/server-health', title: 'Saúde do Servidor', adminOnly: true },
     { view: AppView.ANALYTICS, icon: 'analytics', path: '/analytics', title: 'Analytics' },
     { view: AppView.INSTANCES, icon: 'grid_view', path: '/instances', title: 'Instâncias' },
@@ -35,7 +36,6 @@ const Sidebar: React.FC<SidebarProps> = ({ onToggleTheme, isDarkMode, onLogout, 
     { view: AppView.AI_INTEGRATION, icon: 'psychology', path: '/ai-integration', title: 'Integração IA' },
     { view: AppView.MY_PLAN, icon: 'workspace_premium', path: '/my-plan', title: 'Meu Plano' },
     { view: AppView.SETTINGS, icon: 'settings', path: '/settings', title: 'Configurações' },
-    { view: AppView.ADMIN, icon: 'palette', path: '/branding', title: 'Branding & SEO', adminOnly: true },
     { view: AppView.API_DOCS, icon: 'integration_instructions', path: '/api-docs', title: 'Api Developer' },
   ].filter(item => !item.adminOnly || isAdmin);
 
