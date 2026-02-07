@@ -26,17 +26,37 @@ const MessageNode = ({ data, selected }: any) => {
                 {/* Body Clean */}
                 <div className="p-4 relative">
                     {isMedia ? (
-                        <div className="flex items-center gap-3 bg-slate-50 dark:bg-white/5 p-3 rounded-xl border border-slate-100 dark:border-white/5">
-                            <div className="w-10 h-10 rounded-lg bg-slate-200 dark:bg-white/10 flex items-center justify-center shrink-0">
-                                <span className="material-icons-round text-slate-500 text-lg">
-                                    {data.mediaType === 'image' ? 'image' :
-                                        data.mediaType === 'video' ? 'movie' :
-                                            data.mediaType === 'audio' ? 'mic' : 'description'}
-                                </span>
+                        <div className="flex flex-col gap-3">
+                            <div className="aspect-video w-full bg-slate-100 dark:bg-white/5 rounded-xl flex items-center justify-center overflow-hidden border border-slate-200/50 dark:border-white/5 relative group/preview">
+                                {data.url ? (
+                                    data.mediaType === 'image' ? (
+                                        <img src={data.url} className="w-full h-full object-cover transition-transform duration-500 group-hover/preview:scale-110" alt="Preview" />
+                                    ) : (
+                                        <div className="flex flex-col items-center gap-2">
+                                            <div className="w-12 h-12 rounded-2xl bg-white/50 dark:bg-white/10 flex items-center justify-center shadow-sm">
+                                                <span className="material-icons-round text-cyan-500 text-3xl">
+                                                    {data.mediaType === 'video' ? 'play_circle' :
+                                                        data.mediaType === 'audio' ? 'mic' : 'description'}
+                                                </span>
+                                            </div>
+                                            <span className="text-[10px] font-black text-cyan-500/50 uppercase tracking-widest">{data.mediaType}</span>
+                                        </div>
+                                    )
+                                ) : (
+                                    <div className="flex flex-col items-center gap-2">
+                                        <span className="material-icons-round text-slate-300 dark:text-slate-600 text-3xl">cloud_off</span>
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sem arquivo</span>
+                                    </div>
+                                )}
                             </div>
-                            <div className="flex-1 min-w-0">
-                                <p className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">{data.caption || (data.mediaType ? data.mediaType.toUpperCase() : 'MÍDIA')}</p>
-                                <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{data.url || 'URL vazia'}</p>
+                            <div className="flex flex-col gap-1 px-1">
+                                <p className="text-[11px] font-bold text-slate-700 dark:text-slate-200 truncate pr-6 relative">
+                                    {data.caption || (data.mediaType ? data.mediaType.toUpperCase() : 'MÍDIA')}
+                                    <span className="material-icons-round absolute right-0 top-0 text-[14px] text-slate-400">info_outline</span>
+                                </p>
+                                <p className="text-[9px] text-slate-400 dark:text-slate-500 truncate font-mono bg-slate-50 dark:bg-black/20 py-1 px-2 rounded-md border border-slate-100 dark:border-white/5">
+                                    {data.url || 'URL não configurada'}
+                                </p>
                             </div>
                         </div>
                     ) : (
