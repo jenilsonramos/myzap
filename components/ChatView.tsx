@@ -505,30 +505,24 @@ const ChatView: React.FC = () => {
             const baseUrl = settings.app_url || window.location.origin;
             const currentOrigin = window.location.origin;
 
-            // Handle localhost replacement if strictly different from current origin
+            // Normalize URL (handle localhost and relative paths)
             if (mediaUrl.includes('localhost') && !currentOrigin.includes('localhost')) {
                 mediaUrl = mediaUrl.replace(/https?:\/\/localhost(:\d+)?/, currentOrigin.replace(/\/$/, ''));
             }
 
-            if (!mediaUrl.startsWith('http')) {
-                // Handle both filename-only and relative paths
+            // WhatsApp Media Proxy Logic (Only for external or encrypted content)
+            if (mediaUrl.includes('whatsapp.net') || mediaUrl.includes('.enc') || mediaUrl.includes('mmg.whatsapp.net') || mediaUrl.startsWith('/mms/')) {
+                let fullUrl = mediaUrl;
+                if (mediaUrl.startsWith('/mms/')) {
+                    fullUrl = `https://mmg.whatsapp.net${mediaUrl}`;
+                }
+                const apiPath = `/api/media/proxy?url=${encodeURIComponent(fullUrl)}&msgId=${msg.uid || ''}&instance=${msg.instance_name || ''}&remoteJid=${encodeURIComponent(selectedContact?.remote_jid || '')}&fromMe=${msg.key_from_me ? 'true' : 'false'}`;
+                mediaUrl = `${baseUrl.replace(/\/$/, '')}${apiPath}`;
+            } else if (!mediaUrl.startsWith('http')) {
+                // Ensure local uploads use the absolute API path
                 const path = mediaUrl.startsWith('/') ? mediaUrl : `/api/uploads/${mediaUrl}`;
                 mediaUrl = `${baseUrl.replace(/\/$/, '')}${path}`;
             }
-        }
-
-        // WhatsApp Media Proxy Logic
-        if (mediaUrl && (mediaUrl.includes('whatsapp.net') || mediaUrl.includes('.enc') || mediaUrl.includes('mmg.whatsapp.net') || mediaUrl.startsWith('/mms/'))) {
-            let fullUrl = mediaUrl;
-            if (mediaUrl.startsWith('/mms/')) {
-                fullUrl = `https://mmg.whatsapp.net${mediaUrl}`;
-            }
-
-            const settings = JSON.parse(localStorage.getItem('myzap_settings') || '{}');
-            const baseUrl = settings.app_url || window.location.origin;
-            const apiPath = `/api/media/proxy?url=${encodeURIComponent(fullUrl)}&msgId=${msg.uid || ''}&instance=${msg.instance_name || ''}&remoteJid=${encodeURIComponent(selectedContact?.remote_jid || '')}&fromMe=${msg.key_from_me ? 'true' : 'false'}`;
-
-            mediaUrl = `${baseUrl.replace(/\/$/, '')}${apiPath}`;
         }
 
         return { content, type, mediaUrl };
@@ -791,17 +785,35 @@ const ChatView: React.FC = () => {
                                                         <img src={mediaUrl} className="max-h-72 w-full object-contain cursor-pointer" onClick={() => window.open(mediaUrl, '_blank')} alt="" />
                                                     </div>
                                                 )}
+                                                {type === 'video' && mediaUrl && (
+                                                    <div className="rounded-xl overflow-hidden mb-2">
+                                                        <video src={mediaUrl} controls className="max-h-72 w-full" />
+                                                    </div>
+                                                )}
                                                 {type === 'audio' && mediaUrl && (
-                                                    <div className="audio-wave-container min-w-[240px] border border-blue-50 dark:border-white/5">
-                                                        <button className="play-btn-circle spring-motion active-scale-spring">
-                                                            <span className="material-icons-round">play_arrow</span>
-                                                        </button>
-                                                        <div className="flex-1 flex gap-1 items-end h-6 px-2">
-                                                            {[...Array(24)].map((_, i) => (
-                                                                <div key={i} className="w-[3px] bg-blue-200 dark:bg-blue-900 rounded-full" style={{ height: `${20 + Math.random() * 80}%` }} />
-                                                            ))}
+                                                    <div className="audio-wave-container min-w-[240px] border border-blue-50 dark:border-white/5 py-3 px-4">
+                                                        <audio
+                                                            src={mediaUrl}
+                                                            className="w-full h-8 opacity-80"
+                                                            controls
+                                                            onError={(e) => console.error('Audio Error:', mediaUrl, e)}
+                                                        />
+                                                    </div>
+                                                )}
+                                                {type === 'document' && mediaUrl && (
+                                                    <div className="flex items-center gap-3 p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-white/5 mb-2 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer" onClick={() => window.open(mediaUrl, '_blank')}>
+                                                        <div className="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center text-white">
+                                                            <span className="material-icons-round">description</span>
                                                         </div>
-                                                        <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 industrial-mono">1:23</span>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className="text-sm font-bold truncate dark:text-slate-100">{content || 'Documento'}</p>
+                                                            <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase industrial-mono">Clique para abrir</p>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                {type === 'sticker' && mediaUrl && (
+                                                    <div className="w-32 h-32 mb-2">
+                                                        <img src={mediaUrl} className="w-full h-full object-contain" alt="" />
                                                     </div>
                                                 )}
                                                 {type === 'text' && content && (

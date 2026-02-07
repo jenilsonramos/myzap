@@ -130,17 +130,18 @@ class EvolutionService {
     }
 
     async sendAudio(instanceName, number, url) {
-        // Na v2, o endpoint sendWhatsAppAudio é mais robusto para PTT
-        return this._request(`/message/sendWhatsAppAudio/${instanceName}`, 'POST', {
+        // Na v2, o endpoint sendMedia com mediatype: 'audio' e ptt: true é o padrão para notas de voz
+        return this._request(`/message/sendMedia/${instanceName}`, 'POST', {
             number: number.replace(/\D/g, ''),
-            audio: url,
+            mediatype: 'audio',
+            media: url,
             delay: 1200,
-            encoding: true // Forçar encodamento na Evolution se necessário
+            ptt: true
         });
     }
 
-    // Método v2 genérico para mídia
-    async sendMedia(instanceName, number, mediaUrl, mediaType, caption = '', fileName = '') {
+    // Método v2 genérico para mídia - Argumentos Corrigidos para (..., mediaType, mediaUrl, ...)
+    async sendMedia(instanceName, number, mediaType, mediaUrl, caption = '', fileName = '') {
         return this._request(`/message/sendMedia/${instanceName}`, 'POST', {
             number: number.replace(/\D/g, ''),
             mediatype: mediaType,

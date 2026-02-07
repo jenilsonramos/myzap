@@ -2075,12 +2075,21 @@ app.post('/api/messages/send-audio', authenticateToken, async (req, res) => {
 
         console.log(`🎤 [AUDIO] Enviando áudio via URL: ${audioUrl}`);
 
-        // Enviar como mensagem de áudio PTT (Push-to-Talk) usando URL (mais estável)
-        const result = await sendWhatsAppMessage(instanceName, remoteJid, 'Áudio', {
-            mediaUrl: audioUrl,
-            mediaType: 'audio'
-        });
-        console.log(`[AUDIO] Resposta da Evolution:`, JSON.stringify(result));
+        // Enviar como mensagem de áudio PTT (Push-to-Talk) usando URL
+        let result;
+        const [instanceRows] = await pool.query("SELECT provider FROM whatsapp_accounts WHERE business_name = ?", [instanceName]);
+        const provider = instanceRows[0]?.provider || 'evolution';
+
+        if (provider === 'evolution') {
+            const evo = await getEvolutionService();
+            result = await evo.sendAudio(instanceName, remoteJid, audioUrl);
+        } else {
+            result = await sendWhatsAppMessage(instanceName, remoteJid, 'Áudio', {
+                mediaUrl: audioUrl,
+                mediaType: 'audio'
+            });
+        }
+        console.log(`[AUDIO] Resposta de envio:`, JSON.stringify(result));
 
         // Salvar mensagem no banco
         const msgId = result?.key?.id || result?.id || `AUDIO-${Date.now()}`;
@@ -3087,19 +3096,26 @@ async function processMediaNode(node, context) {
     const mediaType = node.data.mediaType || 'image';
 
     try {
-        const evo = await getEvolutionService();
-        if (evo) {
-            await evo.sendMedia(
-                node.data.instanceName,
-                context.chatId,
-                mediaType,
-                mediaUrl,
-                caption
-            );
-            console.log(`📷 [FLOW] Media sent: ${mediaType}`);
+        const result = await sendWhatsAppMessage(context.instanceName, context.remoteJid, caption, {
+            mediaUrl: mediaUrl,
+            mediaType: mediaType,
+            userId: context.userId
+        });
+
+        // Save message to database with source='flow'
+        try {
+            const msgId = result?.key?.id || result?.id || `FLOW-MEDIA-${Date.now()}`;
+            await pool.query(`
+                INSERT INTO messages (user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp, media_url, source)
+                VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, 'flow')
+            `, [context.userId, context.contactId, context.instanceName, msgId, caption || `[Mídia: ${mediaType}]`, mediaType, Math.floor(Date.now() / 1000), mediaUrl]);
+        } catch (dbErr) {
+            console.error('❌ [FLOW] Error saving flow media message:', dbErr.message);
         }
+
+        console.log(`📷 [FLOW] Media sent: ${mediaType}`);
     } catch (err) {
-        console.error('Media Node Error:', err);
+        console.error('❌ [FLOW] Media Node Error:', err.message);
     }
 }
 
