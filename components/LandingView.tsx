@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 interface LandingViewProps {
@@ -7,30 +7,31 @@ interface LandingViewProps {
 
 const LandingView: React.FC<LandingViewProps> = ({ isAuthenticated }) => {
     const navigate = useNavigate();
+    const [plans, setPlans] = useState<any[]>([]);
+    const [loadingPlans, setLoadingPlans] = useState(true);
 
-    const plans = [
-        {
-            name: 'Básico',
-            price: 'R$ 97',
-            period: '/mês',
-            features: ['1 Instância WhatsApp', 'Mensagens Ilimitadas', 'Suporte via Ticket', 'Dashboard Básico'],
-            recommended: false,
-        },
-        {
-            name: 'Profissional',
-            price: 'R$ 197',
-            period: '/mês',
-            features: ['5 Instâncias WhatsApp', 'Multi-chat Atendimento', 'Chatbot com IA', 'Relatórios Avançados'],
-            recommended: true,
-        },
-        {
-            name: 'Enterprise',
-            price: 'R$ 497',
-            period: '/mês',
-            features: ['Instâncias Ilimitadas', 'API de Integração', 'Gerente de Contas', 'Personalização Total'],
-            recommended: false,
-        }
-    ];
+    useEffect(() => {
+        const fetchPlans = async () => {
+            try {
+                const res = await fetch('/api/plans');
+                if (res.ok) {
+                    const data = await res.json();
+                    setPlans(data.map((p: any) => ({
+                        name: p.name,
+                        price: `R$ ${Math.floor(p.price)}`,
+                        period: '/mês',
+                        features: typeof p.features === 'string' ? JSON.parse(p.features) : (Array.isArray(p.features) ? p.features : []),
+                        recommended: p.name.toLowerCase().includes('profissional') || p.name.toLowerCase().includes('pro')
+                    })));
+                }
+            } catch (err) {
+                console.error('Erro ao buscar planos:', err);
+            } finally {
+                setLoadingPlans(false);
+            }
+        };
+        fetchPlans();
+    }, []);
 
     const features = [
         { icon: 'bolt', title: 'Automação Rápida', description: 'Crie fluxos de atendimento em minutos sem precisar programar.' },

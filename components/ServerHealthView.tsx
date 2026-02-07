@@ -7,6 +7,12 @@ interface HealthData {
         ram_used_mb: number;
         ram_total_mb: number;
         classification: 'boa' | 'estavel' | 'ruim' | 'pessima';
+        disk_info: {
+            total: string;
+            used: string;
+            free: string;
+            usage: number;
+        };
     };
     peak: {
         timestamp: string;
@@ -162,18 +168,40 @@ const ServerHealthView: React.FC = () => {
                     </p>
                 </div>
 
-                {/* Classificação */}
+                {/* Arraste / Disco */}
                 <div className="bg-white dark:bg-card-dark rounded-2xl p-6 shadow-xl border border-white/20">
+                    <div className="flex items-center justify-between mb-4">
+                        <span className="text-slate-500 text-sm font-medium">Armazenamento (Disco)</span>
+                        <span className="material-icons-round text-amber-500">storage</span>
+                    </div>
+                    <div className="text-3xl font-bold dark:text-white mb-2">
+                        {health?.current.disk_info.usage}%
+                    </div>
+                    <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 mb-2">
+                        <div
+                            className="bg-amber-500 h-2 rounded-full transition-all"
+                            style={{ width: `${Math.min(health?.current.disk_info.usage || 0, 100)}%` }}
+                        />
+                    </div>
+                    <p className="text-xs text-slate-500">
+                        {health?.current.disk_info.used} usado / {health?.current.disk_info.total} total ({health?.current.disk_info.free} livre)
+                    </p>
+                </div>
+
+                {/* Classificação */}
+                <div className="bg-white dark:bg-card-dark rounded-2xl p-6 shadow-xl border border-white/20 md:col-span-3 lg:col-span-3">
                     <div className="flex items-center justify-between mb-4">
                         <span className="text-slate-500 text-sm font-medium">Status</span>
                         <span className="material-icons-round text-emerald-500">speed</span>
                     </div>
-                    <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-lg font-bold ${getClassificationColor(health?.current.classification || '')}`}>
-                        {getClassificationLabel(health?.current.classification || '')}
+                    <div className="flex items-center justify-between">
+                        <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-lg font-bold ${getClassificationColor(health?.current.classification || '')}`}>
+                            {getClassificationLabel(health?.current.classification || '')}
+                        </div>
+                        <p className="text-xs text-slate-500 mt-2">
+                            Uptime: {formatUptime(health?.uptime || 0)}
+                        </p>
                     </div>
-                    <p className="text-xs text-slate-500 mt-2">
-                        Uptime: {formatUptime(health?.uptime || 0)}
-                    </p>
                 </div>
             </div>
 
@@ -230,8 +258,8 @@ const ServerHealthView: React.FC = () => {
                                 </div>
                                 <div className="text-right">
                                     <span className={`px-3 py-1 rounded-full text-xs font-bold ${log?.status === 'success' ? 'bg-emerald-100 text-emerald-600' :
-                                            log?.status === 'error' ? 'bg-red-100 text-red-600' :
-                                                'bg-slate-100 text-slate-600'
+                                        log?.status === 'error' ? 'bg-red-100 text-red-600' :
+                                            'bg-slate-100 text-slate-600'
                                         }`}>
                                         {log?.status === 'success' ? 'Sucesso' : log?.status === 'error' ? 'Erro' : 'Pendente'}
                                     </span>

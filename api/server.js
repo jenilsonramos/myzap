@@ -4270,6 +4270,22 @@ app.get('/api/admin/server-health', authenticateAdmin, async (req, res) => {
         }
         cpuUsage = (cpuUsage / cpus.length).toFixed(2);
 
+        // Espaço em Disco (Linux/Unix)
+        let diskInfo = { total: '0GB', used: '0GB', free: '0GB', usage: 0 };
+        try {
+            const { execSync } = require('child_process');
+            const output = execSync("df -h / | tail -1").toString().split(/\s+/);
+            // Saída df -h: Filesystem Size Used Avail Use% Mounted
+            diskInfo = {
+                total: output[1],
+                used: output[2],
+                free: output[3],
+                usage: parseInt(output[4].replace('%', ''))
+            };
+        } catch (e) {
+            console.error('Erro ao ler disco:', e);
+        }
+
         // Classificação
         let classification = 'boa';
         if (ramUsage > 90 || cpuUsage > 90) classification = 'pessima';
@@ -4298,7 +4314,8 @@ app.get('/api/admin/server-health', authenticateAdmin, async (req, res) => {
                 ram_usage: parseFloat(ramUsage),
                 ram_used_mb: Math.round(usedMem / 1024 / 1024),
                 ram_total_mb: Math.round(totalMem / 1024 / 1024),
-                classification
+                classification,
+                disk_info: diskInfo
             },
             peak: peak[0] || null,
             uptime: os.uptime(),

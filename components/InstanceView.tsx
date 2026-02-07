@@ -88,6 +88,10 @@ const InstanceView: React.FC = () => {
 
   const handleCreateInstance = async () => {
     if (!newInstanceName) return;
+    if (provider === 'official') {
+      showToast('O provedor WhatsApp Oficial (Meta Cloud) ainda não está liberado para ativação.', 'warning');
+      return;
+    }
     setIsCreating(true);
     try {
       const res = await fetch('/api/instances', {
@@ -243,10 +247,15 @@ const InstanceView: React.FC = () => {
                   Evolution API
                 </button>
                 <button
-                  onClick={() => setProvider('official')}
-                  className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${provider === 'official' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                  type="button"
+                  onClick={() => {
+                    setProvider('official');
+                    showToast('WhatsApp Oficial (Meta Cloud) estará disponível em breve!', 'info');
+                  }}
+                  className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1 ${provider === 'official' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                 >
-                  Meta Cloud (Oficial)
+                  Meta Cloud
+                  <span className="text-[8px] bg-emerald-100 text-emerald-600 px-1.5 py-0.5 rounded-full">Em Breve</span>
                 </button>
               </div>
             </div>
