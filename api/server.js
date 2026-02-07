@@ -2319,21 +2319,7 @@ async function getEvolutionService() {
     return new EvolutionService(settings.evolution_url, settings.evolution_apikey);
 }
 
-// Assuming WhatsAppCloudService is defined or imported elsewhere
-// For this example, let's define a placeholder if it's not in the original document
-const WhatsAppCloudService = {
-    async sendText(instance, to, text) {
-        console.log(`[WhatsAppCloudService] Sending text to ${to} via ${instance.business_name}: ${text}`);
-        // Implement actual Meta Cloud API call here
-        // Example: axios.post(`https://graph.facebook.com/v18.0/${instance.phone_number_id}/messages`, { ... }, { headers: { Authorization: `Bearer ${instance.access_token}` } });
-        return { id: `meta-msg-${Date.now()}` }; // Placeholder response
-    },
-    async sendMedia(instance, to, type, mediaUrl, caption) {
-        console.log(`[WhatsAppCloudService] Sending ${type} to ${to} via ${instance.business_name}: ${mediaUrl} with caption: ${caption}`);
-        // Implement actual Meta Cloud API media send here
-        return { id: `meta-media-${Date.now()}` }; // Placeholder response
-    }
-};
+
 
 // --- INTEGRAÇÃO HÍBRIDA: ENVIO DE MENSAGENS ---
 const sendWhatsAppMessage = async (instanceName, to, content, options = {}) => {
