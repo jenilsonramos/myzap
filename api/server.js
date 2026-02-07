@@ -1589,10 +1589,15 @@ app.get('/api/analytics/dashboard', authenticateToken, async (req, res) => {
         const endTs = Math.floor(end.getTime() / 1000);
 
         console.log(`📊 [ANALYTICS] Stats for ${userId}: ${start.toISOString()} to ${end.toISOString()}`);
+        console.log(`📊 [ANALYTICS] TS Range: ${startTs} to ${endTs}`);
+
+        // Debug: Check raw data
+        const [debugRows] = await pool.query("SELECT id, timestamp, created_at FROM messages WHERE user_id = ? ORDER BY id DESC LIMIT 5", [userId]);
+        console.log('🔍 [DEBUG] Sample Messages:', JSON.stringify(debugRows));
 
         // 1. Totais Gerais (Neste Período)
-        const [totalMsg] = await pool.query("SELECT COUNT(*) as count FROM messages WHERE user_id = ? AND timestamp >= ? AND timestamp <= ?", [userId, startTs, endTs]);
-        const [sentMsg] = await pool.query("SELECT COUNT(*) as count FROM messages WHERE user_id = ? AND key_from_me = 1 AND timestamp >= ? AND timestamp <= ?", [userId, startTs, endTs]);
+        const [totalMsg] = await pool.query("SELECT COUNT(*) as count FROM messages WHERE user_id = ? AND created_at >= FROM_UNIXTIME(?) AND created_at <= FROM_UNIXTIME(?)", [userId, startTs, endTs]);
+        const [sentMsg] = await pool.query("SELECT COUNT(*) as count FROM messages WHERE user_id = ? AND key_from_me = 1 AND created_at >= FROM_UNIXTIME(?) AND created_at <= FROM_UNIXTIME(?)", [userId, startTs, endTs]);
 
         // Contatos (Total Geral)
         const [contacts] = await pool.query("SELECT COUNT(*) as count FROM contacts WHERE user_id = ?", [userId]);
@@ -1600,23 +1605,23 @@ app.get('/api/analytics/dashboard', authenticateToken, async (req, res) => {
         // 2. Volume Diário (Para Gráfico de Barras)
         const [daily] = await pool.query(`
             SELECT 
-                DATE_FORMAT(FROM_UNIXTIME(timestamp), '%d/%m') as name, 
-                DATE(FROM_UNIXTIME(timestamp)) as day_date,
+                DATE_FORMAT(created_at, '%d/%m') as name, 
+                DATE(created_at) as day_date,
                 COUNT(*) as value 
             FROM messages 
-            WHERE user_id = ? AND timestamp >= ? AND timestamp <= ?
-            GROUP BY DATE(FROM_UNIXTIME(timestamp)) 
+            WHERE user_id = ? AND created_at >= FROM_UNIXTIME(?) AND created_at <= FROM_UNIXTIME(?)
+            GROUP BY DATE(created_at) 
             ORDER BY day_date ASC
         `, [userId, startTs, endTs]);
 
         // 3. Mapa de Calor por Hora (0-23)
         const [hourly] = await pool.query(`
             SELECT 
-                HOUR(FROM_UNIXTIME(timestamp)) as hour,
+                HOUR(created_at) as hour,
                 COUNT(*) as count
             FROM messages
-            WHERE user_id = ? AND timestamp >= ? AND timestamp <= ?
-            GROUP BY HOUR(FROM_UNIXTIME(timestamp))
+            WHERE user_id = ? AND created_at >= FROM_UNIXTIME(?) AND created_at <= FROM_UNIXTIME(?)
+            GROUP BY HOUR(created_at)
             ORDER BY hour ASC
         `, [userId, startTs, endTs]);
 
@@ -1630,7 +1635,7 @@ app.get('/api/analytics/dashboard', authenticateToken, async (req, res) => {
         // Comparativo com período anterior (Simples)
         const diff = endTs - startTs;
         const prevStartTs = startTs - diff;
-        const [prevTotal] = await pool.query("SELECT COUNT(*) as count FROM messages WHERE user_id = ? AND timestamp >= ? AND timestamp < ?", [userId, prevStartTs, startTs]);
+        const [prevTotal] = await pool.query("SELECT COUNT(*) as count FROM messages WHERE user_id = ? AND created_at >= FROM_UNIXTIME(?) AND created_at < FROM_UNIXTIME(?)", [userId, prevStartTs, startTs]);
 
         const growth = prevTotal[0].count > 0
             ? Math.round(((totalMsg[0].count - prevTotal[0].count) / prevTotal[0].count) * 100)
