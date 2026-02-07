@@ -16,6 +16,7 @@ export enum AppView {
   RECOVER = 'RECOVER',
   CHATBOT = 'CHATBOT',
   SERVER_HEALTH = 'SERVER_HEALTH',
+  API_DOCS = 'API_DOCS',
 }
 
 export interface Flow {

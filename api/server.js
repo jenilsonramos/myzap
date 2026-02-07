@@ -1853,6 +1853,67 @@ app.get('/api/analytics/debug', authenticateToken, async (req, res) => {
     }
 });
 
+// --- NOVO ENDPOINT DE API (Developer Friendly) ---
+app.post('/api/messages/send-text', authenticateToken, async (req, res) => {
+    const { instanceName, number, text } = req.body;
+
+    if (!instanceName || !number || !text) {
+        return res.status(400).json({ error: 'Missing required fields: instanceName, number, text' });
+    }
+
+    try {
+        // --- VERIFICAR LIMITE DE MENSAGENS ---
+        const limit = await checkUserLimit(req.user.id, 'messages');
+        if (!limit.allowed) return res.status(403).json({ error: limit.error, code: limit.code });
+
+        // 1. Verificar se a instância pertence ao usuário
+        const [instance] = await pool.execute(
+            'SELECT id FROM whatsapp_accounts WHERE business_name = ? AND user_id = ?',
+            [instanceName, req.user.id]
+        );
+
+        if (instance.length === 0) {
+            return res.status(404).json({ error: 'Instance not found or access denied' });
+        }
+
+        // 2. Normalizar número e encontrar/criar contato
+        const remoteJid = number.includes('@s.whatsapp.net') ? number : `${number}@s.whatsapp.net`;
+
+        // Upsert Contact to ensure we have an ID for the message
+        await pool.query(`
+            INSERT INTO contacts (user_id, name, remote_jid, instance_name, profile_pic_url)
+            VALUES (?, ?, ?, ?, '')
+            ON DUPLICATE KEY UPDATE instance_name = VALUES(instance_name)
+        `, [req.user.id, number, remoteJid, instanceName]);
+
+        const [contact] = await pool.query(
+            'SELECT id FROM contacts WHERE user_id = ? AND remote_jid = ?',
+            [req.user.id, remoteJid]
+        );
+        const contactId = contact[0]?.id;
+
+        // 3. Enviar mensagem
+        const result = await sendWhatsAppMessage(instanceName, remoteJid, text, { userId: req.user.id });
+
+        // 4. Salvar msg no banco
+        const msgId = result?.key?.id || result?.id || `API-${Date.now()}`;
+        const timestamp = Math.floor(Date.now() / 1000);
+
+        await pool.query(`
+            INSERT INTO messages (user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp)
+            VALUES (?, ?, ?, ?, 1, ?, 'text', ?)
+            ON DUPLICATE KEY UPDATE content = VALUES(content)
+        `, [req.user.id, contactId, instanceName, msgId, text, timestamp]);
+
+        console.log(`✅ [API] Mensagem enviada via API Dev: ${msgId}`);
+        res.json({ success: true, messageId: msgId, status: 'SENT' });
+
+    } catch (err) {
+        console.error('❌ [API] Erro ao enviar mensagem:', err.message);
+        res.status(500).json({ error: 'Internal Server Error', details: err.message });
+    }
+});
+
 app.post('/api/messages/send', authenticateToken, async (req, res) => {
     const { contactId, content } = req.body;
     try {

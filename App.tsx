@@ -18,6 +18,7 @@ import SubscriptionView from './components/SubscriptionView';
 import AuthView from './components/AuthView';
 import ChatbotView from './components/ChatbotView';
 import ServerHealthView from './components/ServerHealthView';
+import ApiDocsView from './components/ApiDocsView';
 import { AppView } from './types';
 import { ToastProvider } from './components/ToastContext';
 
@@ -310,6 +311,7 @@ const AppContent: React.FC = () => {
                 ? <ServerHealthView />
                 : <Navigate to="/analytics" replace />
             } />
+            <Route path="/api-docs" element={<ApiDocsView />} />
             <Route path="/" element={<Navigate to="/analytics" replace />} />
             <Route path="*" element={<Navigate to="/analytics" replace />} />
           </Routes>

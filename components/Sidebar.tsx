@@ -34,6 +34,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onToggleTheme, isDarkMode, onLogout }
     { view: AppView.AI_INTEGRATION, icon: 'psychology', path: '/ai-integration', title: 'Integração IA' },
     { view: AppView.MY_PLAN, icon: 'workspace_premium', path: '/my-plan', title: 'Meu Plano' },
     { view: AppView.SETTINGS, icon: 'settings', path: '/settings', title: 'Configurações' },
+    { view: AppView.API_DOCS, icon: 'integration_instructions', path: '/api-docs', title: 'Api Developer' },
   ].filter(item => !item.adminOnly || isAdmin);
 
   return (
