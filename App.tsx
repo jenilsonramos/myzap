@@ -60,6 +60,63 @@ const AppContent: React.FC = () => {
   }, []);
 
   const [status, setStatus] = useState<string>('active');
+  const [publicSettings, setPublicSettings] = useState({
+    system_name: 'MyZap',
+    primary_color: '#166534',
+    logo_url: '',
+    favicon_url: '',
+    seo_title: '',
+    seo_description: '',
+    seo_keywords: ''
+  });
+
+  // --- BUSCA DE CONFIGURAÇÕES PÚBLICAS (BRANDING & SEO) ---
+  React.useEffect(() => {
+    const fetchPublicSettings = async () => {
+      try {
+        const res = await fetch('/api/settings/public');
+        if (res.ok) {
+          const data = await res.json();
+          setPublicSettings(data);
+
+          // Aplicar Título e SEO
+          if (data.seo_title) document.title = data.seo_title;
+          else if (data.system_name) document.title = data.system_name;
+
+          // Atualizar Meta Description
+          if (data.seo_description) {
+            let metaDesc = document.querySelector('meta[name="description"]');
+            if (!metaDesc) {
+              metaDesc = document.createElement('meta');
+              metaDesc.setAttribute('name', 'description');
+              document.head.appendChild(metaDesc);
+            }
+            metaDesc.setAttribute('content', data.seo_description);
+          }
+
+          // Aplicar Favicon
+          if (data.favicon_url) {
+            let link: HTMLLinkElement | null = document.querySelector("link[rel~='icon']");
+            if (!link) {
+              link = document.createElement('link');
+              link.rel = 'icon';
+              document.head.appendChild(link);
+            }
+            link.href = data.favicon_url;
+          }
+
+          // Injetar Cor Primária no CSS
+          if (data.primary_color) {
+            document.documentElement.style.setProperty('--primary-color', data.primary_color);
+            // Se o Tailwind estiver usando a variável, ele atualizará automaticamente
+          }
+        }
+      } catch (err) {
+        console.error('Erro ao buscar configurações públicas:', err);
+      }
+    };
+    fetchPublicSettings();
+  }, []);
 
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
@@ -262,6 +319,7 @@ const AppContent: React.FC = () => {
         onToggleTheme={toggleTheme}
         isDarkMode={isDarkMode}
         onLogout={() => setIsLogoutModalOpen(true)}
+        publicSettings={publicSettings}
       />
 
       <main className="flex-1 flex flex-col gap-6 overflow-hidden min-w-0">
@@ -278,7 +336,10 @@ const AppContent: React.FC = () => {
             <button onClick={() => navigate('/my-plan')} className="bg-white text-rose-500 px-4 py-1.5 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-50 transition-all ml-4 shrink-0">Ver Detalhes</button>
           </div>
         )}
-        <Header currentView={getCurrentView()} />
+        <Header
+          currentView={getCurrentView()}
+          systemName={publicSettings.system_name}
+        />
 
         <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 md:pr-2">
           <Routes>

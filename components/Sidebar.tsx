@@ -9,9 +9,10 @@ interface SidebarProps {
   onToggleTheme: () => void;
   isDarkMode: boolean;
   onLogout: () => void;
+  publicSettings?: any;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ onToggleTheme, isDarkMode, onLogout }) => {
+const Sidebar: React.FC<SidebarProps> = ({ onToggleTheme, isDarkMode, onLogout, publicSettings }) => {
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -42,9 +43,14 @@ const Sidebar: React.FC<SidebarProps> = ({ onToggleTheme, isDarkMode, onLogout }
       {/* Sidebar Header: Logo */}
       <div
         onClick={() => navigate('/')}
-        className="w-14 h-14 lg:w-16 lg:h-16 bg-white/20 rounded-2xl flex items-center justify-center mb-8 cursor-pointer hover:bg-white/30 transition-all shadow-inner shrink-0"
+        className="w-14 h-14 lg:w-16 lg:h-16 bg-white/20 rounded-2xl flex items-center justify-center mb-8 cursor-pointer hover:bg-white/30 transition-all shadow-inner shrink-0 overflow-hidden"
+        title={publicSettings?.system_name || 'MyZap'}
       >
-        <span className="material-icons-round text-white text-4xl">hub</span>
+        {publicSettings?.logo_url ? (
+          <img src={publicSettings.logo_url} alt="Logo" className="w-full h-full object-cover" />
+        ) : (
+          <span className="material-icons-round text-white text-4xl">hub</span>
+        )}
       </div>
 
       {/* Scrollable Navigation Body */}

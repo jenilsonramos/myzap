@@ -4,7 +4,7 @@ import { emailTemplates } from '../lib/EmailTemplates';
 
 const AdminView: React.FC = () => {
     const { showToast } = useToast();
-    const [activeTab, setActiveTab] = useState<'users' | 'plans' | 'payments' | 'emails' | 'analytics' | 'system'>('analytics');
+    const [activeTab, setActiveTab] = useState<'users' | 'plans' | 'payments' | 'emails' | 'analytics' | 'system' | 'branding'>('analytics');
     const [dbTemplates, setDbTemplates] = useState<any[]>([]);
     const [previewEmail, setPreviewEmail] = useState<keyof typeof emailTemplates | null>(null);
     const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
@@ -24,7 +24,14 @@ const AdminView: React.FC = () => {
         smtp_from_email: '',
         smtp_from_name: '',
         smtp_test_email: '',
-        require_email_activation: 'false'
+        require_email_activation: 'false',
+        system_name: 'MyZap',
+        primary_color: '#166534',
+        logo_url: '',
+        favicon_url: '',
+        seo_title: '',
+        seo_description: '',
+        seo_keywords: ''
     });
     const [loadingSettings, setLoadingSettings] = useState(true);
 
@@ -61,7 +68,14 @@ const AdminView: React.FC = () => {
                     smtp_from_email: data.smtp_from_email || '',
                     smtp_from_name: data.smtp_from_name || '',
                     smtp_test_email: '',
-                    require_email_activation: data.require_email_activation || 'false'
+                    require_email_activation: data.require_email_activation || 'false',
+                    system_name: data.system_name || 'MyZap',
+                    primary_color: data.primary_color || '#166534',
+                    logo_url: data.logo_url || '',
+                    favicon_url: data.favicon_url || '',
+                    seo_title: data.seo_title || '',
+                    seo_description: data.seo_description || '',
+                    seo_keywords: data.seo_keywords || ''
                 });
                 fetchEmailTemplates();
             }
@@ -378,7 +392,8 @@ const AdminView: React.FC = () => {
                     { id: 'plans', label: 'Planos', icon: 'subscriptions' },
                     { id: 'payments', label: 'Pagamentos', icon: 'payments' },
                     { id: 'emails', label: 'E-mails & SMTP', icon: 'mail' },
-                    { id: 'system', label: 'Sistema & API', icon: 'settings_suggest' }
+                    { id: 'system', label: 'Sistema & API', icon: 'settings_suggest' },
+                    { id: 'branding', label: 'Identidade & SEO', icon: 'palette' }
                 ].map((tab) => (
                     <button
                         key={tab.id}
@@ -1166,7 +1181,153 @@ const AdminView: React.FC = () => {
                 {activeTab === 'system' && (
                     <SystemSettingsTab settings={settings} setSettings={setSettings} saveSettings={saveSettings} loading={loadingSettings} />
                 )}
+
+                {activeTab === 'branding' && (
+                    <BrandingSettingsTab settings={settings} setSettings={setSettings} saveSettings={saveSettings} />
+                )}
             </div>
+        </div>
+    );
+};
+
+const BrandingSettingsTab: React.FC<{
+    settings: any,
+    setSettings: (s: any) => void,
+    saveSettings: () => Promise<void>
+}> = ({ settings, setSettings, saveSettings }) => {
+    return (
+        <div className="p-8 space-y-10 animate-in fade-in duration-500">
+            <div className="flex items-center gap-4">
+                <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-xl shadow-indigo-600/30">
+                    <span className="material-icons-round text-white text-3xl">palette</span>
+                </div>
+                <div>
+                    <h3 className="text-2xl font-black dark:text-white uppercase tracking-tighter">Identidade Visual</h3>
+                    <p className="text-slate-500 text-sm font-medium">Personalize a marca e as cores do sistema</p>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-6">
+                    <div className="bg-slate-50 dark:bg-white/5 p-6 rounded-huge border border-slate-100 dark:border-white/5 space-y-4">
+                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Configurações de Marca</h4>
+
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome do Sistema</label>
+                            <input
+                                value={settings.system_name}
+                                onChange={e => setSettings({ ...settings, system_name: e.target.value })}
+                                type="text"
+                                className="w-full bg-white dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Cor Primária (Hex)</label>
+                            <div className="flex gap-4">
+                                <input
+                                    value={settings.primary_color}
+                                    onChange={e => setSettings({ ...settings, primary_color: e.target.value })}
+                                    type="text"
+                                    className="flex-1 bg-white dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all font-mono"
+                                />
+                                <input
+                                    type="color"
+                                    value={settings.primary_color}
+                                    onChange={e => setSettings({ ...settings, primary_color: e.target.value })}
+                                    className="w-14 h-auto border-none bg-transparent cursor-pointer rounded-2xl"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-slate-50 dark:bg-white/5 p-6 rounded-huge border border-slate-100 dark:border-white/5 space-y-4">
+                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Logos e Favicon</h4>
+
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">URL do Logo (SVG ou PNG)</label>
+                            <input
+                                value={settings.logo_url}
+                                onChange={e => setSettings({ ...settings, logo_url: e.target.value })}
+                                type="text"
+                                placeholder="https://..."
+                                className="w-full bg-white dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-xs"
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">URL do Favicon (.ico ou .png)</label>
+                            <input
+                                value={settings.favicon_url}
+                                onChange={e => setSettings({ ...settings, favicon_url: e.target.value })}
+                                type="text"
+                                placeholder="https://..."
+                                className="w-full bg-white dark:bg-slate-900 border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-xs"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="space-y-6">
+                    <div className="bg-indigo-600/5 p-8 rounded-huge border-2 border-dashed border-indigo-500/20 space-y-6">
+                        <div className="flex items-center gap-3">
+                            <span className="material-icons-round text-indigo-500">search</span>
+                            <h4 className="text-sm font-black dark:text-white uppercase tracking-widest text-indigo-500">SEO Premium</h4>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Título SEO (Meta Title)</label>
+                                <input
+                                    value={settings.seo_title}
+                                    onChange={e => setSettings({ ...settings, seo_title: e.target.value })}
+                                    type="text"
+                                    className="w-full bg-white dark:bg-card-dark border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Descrição SEO (Meta Description)</label>
+                                <textarea
+                                    value={settings.seo_description}
+                                    onChange={e => setSettings({ ...settings, seo_description: e.target.value })}
+                                    rows={3}
+                                    className="w-full bg-white dark:bg-card-dark border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Palavras-chave (Keywords)</label>
+                                <input
+                                    value={settings.seo_keywords}
+                                    onChange={e => setSettings({ ...settings, seo_keywords: e.target.value })}
+                                    type="text"
+                                    placeholder="whatsapp, automação, multi-agente"
+                                    className="w-full bg-white dark:bg-card-dark border-none rounded-2xl px-5 py-4 text-sm dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="p-6 bg-amber-50 dark:bg-amber-950/20 rounded-huge border border-amber-200 dark:border-amber-500/20">
+                        <div className="flex gap-3">
+                            <span className="material-icons-round text-amber-500">info</span>
+                            <div className="space-y-1">
+                                <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Dica Premium</p>
+                                <p className="text-[10px] text-amber-700 dark:text-amber-400 leading-relaxed font-medium">As alterações de nome e cores refletem em tempo real em todas as telas para todos os usuários.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <button
+                onClick={saveSettings}
+                className="bg-indigo-600 text-white px-10 py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] shadow-2xl shadow-indigo-600/30 hover:bg-indigo-700 transition-all active:scale-95 flex items-center gap-3"
+            >
+                <span className="material-icons-round">save</span>
+                Aplicar Branding & SEO
+            </button>
         </div>
     );
 };

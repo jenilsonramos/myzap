@@ -4,9 +4,10 @@ import { AppView } from '../types';
 
 interface HeaderProps {
   currentView: AppView;
+  systemName?: string;
 }
 
-const Header: React.FC<HeaderProps> = ({ currentView }) => {
+const Header: React.FC<HeaderProps> = ({ currentView, systemName }) => {
   const [userData, setUserData] = React.useState(() => {
     const user = JSON.parse(localStorage.getItem('myzap_user') || '{}');
     const avatarKey = `myzap_avatar_${user.email || 'guest'}`;
@@ -35,7 +36,7 @@ const Header: React.FC<HeaderProps> = ({ currentView }) => {
     [AppView.CHAT]: { title: 'Live Chat', subtitle: 'Atendimento omnicanal em tempo real' },
     [AppView.CONTACTS]: { title: 'Contatos', subtitle: 'Sua lista de clientes e leads' },
     [AppView.CAMPAIGNS]: { title: 'Campanhas', subtitle: 'Gestão de disparos e automações' },
-    [AppView.SETTINGS]: { title: 'Configurações', subtitle: 'Preferências do sistema MyZap' },
+    [AppView.SETTINGS]: { title: 'Configurações', subtitle: `Preferências do sistema ${systemName || 'MyZap'}` },
     [AppView.FLOWS_LIST]: { title: 'Flowbuilder', subtitle: 'Gestão de fluxos de automação' },
     [AppView.FLOWBUILDER]: { title: 'Flow Designer', subtitle: 'Desenhando a jornada do cliente' },
     [AppView.MY_PLAN]: { title: 'Meu Plano', subtitle: 'Gestão de assinatura e limites' },

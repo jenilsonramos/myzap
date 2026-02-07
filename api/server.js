@@ -1341,6 +1341,36 @@ app.get('/api/admin/settings', authenticateAdmin, async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'Erro ao buscar configurações' }); }
 });
 
+// Endpoint público para branding e SEO
+app.get('/api/settings/public', async (req, res) => {
+    try {
+        const publicKeys = [
+            'system_name', 'primary_color', 'logo_url', 'favicon_url',
+            'seo_title', 'seo_description', 'seo_keywords'
+        ];
+        const placeholders = publicKeys.map(() => '?').join(',');
+        const [rows] = await pool.query(
+            `SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN (${placeholders})`,
+            publicKeys
+        );
+
+        const settings = {
+            system_name: 'MyZap',
+            primary_color: '#166534',
+            seo_title: 'MyZap - Gestão Multi-Agente para WhatsApp',
+            seo_description: 'Plataforma completa de atendimento e automação para WhatsApp'
+        };
+
+        rows.forEach(row => {
+            settings[row.setting_key] = row.setting_value;
+        });
+
+        res.json(settings);
+    } catch (err) {
+        res.status(500).json({ error: 'Erro ao buscar configurações públicas' });
+    }
+});
+
 app.post('/api/admin/settings', authenticateAdmin, async (req, res) => {
     try {
         for (const [key, value] of Object.entries(req.body)) {
