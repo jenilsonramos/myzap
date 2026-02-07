@@ -448,6 +448,7 @@ const ChatView: React.FC = () => {
             if (obj.audioMessage) return { type: 'audio', msg: obj.audioMessage };
             if (obj.videoMessage) return { type: 'video', msg: obj.videoMessage };
             if (obj.documentMessage) return { type: 'document', msg: obj.documentMessage };
+            if (obj.stickerMessage) return { type: 'sticker', msg: obj.stickerMessage };
 
             for (const key in obj) {
                 const found = findMedia(obj[key]);
@@ -522,6 +523,11 @@ const ChatView: React.FC = () => {
                     {type === 'video' && mediaUrl && (
                         <video src={mediaUrl} controls className="rounded-xl mb-2 max-h-80 w-full bg-black/5" />
                     )}
+                    {type === 'sticker' && mediaUrl && (
+                        <div className="relative group flex justify-center py-2">
+                            <img src={mediaUrl} className="max-w-[160px] max-h-[160px] object-contain cursor-pointer hover:scale-110 transition-transform" />
+                        </div>
+                    )}
                     {type === 'audio' && mediaUrl && (
                         <div className="min-w-[240px] py-2 px-1">
                             <audio
@@ -530,7 +536,10 @@ const ChatView: React.FC = () => {
                                 preload="metadata"
                                 className={`w-full h-8 ${isMe ? 'filter invert brightness-200 contrast-100' : ''}`}
                                 onError={(e) => console.error('[AUDIO] Erro ao carregar:', mediaUrl)}
-                            />
+                            >
+                                <source src={mediaUrl} type="audio/ogg" />
+                                <source src={mediaUrl} type="audio/mpeg" />
+                            </audio>
                             <div className="flex justify-between mt-1 text-[9px] uppercase font-bold opacity-50">
                                 <span>Mensagem de Voz</span>
                             </div>

@@ -102,7 +102,23 @@ app.get('/api/media/proxy', async (req, res) => {
         if (msgId && instance && evo) {
             console.log(`[PROXY] Buscando via Evolution API: ${msgId} em ${instance}`);
             try {
-                const data = await evo.getMediaBase64(instance, { id: msgId, fromMe: false });
+                // Precisamos do remoteJid para o getBase64 da Evolution v2
+                const [msgRows] = await pool.query(
+                    "SELECT c.remote_jid FROM messages m JOIN contacts c ON m.contact_id = c.id WHERE m.uid = ?",
+                    [msgId]
+                );
+
+                const remoteJid = msgRows.length > 0 ? msgRows[0].remote_jid : null;
+
+                if (!remoteJid) {
+                    console.warn(`[PROXY WARNING] RemoteJID não encontrado para msgId: ${msgId}`);
+                }
+
+                const data = await evo.getMediaBase64(instance, {
+                    id: msgId,
+                    fromMe: false,
+                    remoteJid: remoteJid // Opcional mas recomendado pela Evolution v2
+                });
                 if (data && data.base64) {
                     const buffer = Buffer.from(data.base64, 'base64');
                     // Tentar inferir content-type se possível, ou usar genérico
@@ -2922,36 +2938,46 @@ app.post('/api/webhook/evolution', async (req, res) => {
             let type = 'text';
             let mediaUrl = null;
 
-            if (msg.message?.conversation) {
+            // Helper para extrair mídia de estruturas aninhadas (Evolution v2)
+            const getMediaData = (m) => {
+                if (!m) return null;
+                if (m.imageMessage) return { type: 'image', media: m.imageMessage, content: m.imageMessage.caption || '' };
+                if (m.videoMessage) return { type: 'video', media: m.videoMessage, content: m.videoMessage.caption || '' };
+                if (m.audioMessage) return { type: 'audio', media: m.audioMessage, content: '' };
+                if (m.documentMessage) return { type: 'document', media: m.documentMessage, content: m.documentMessage.title || m.documentMessage.caption || '' };
+                if (m.stickerMessage) return { type: 'sticker', media: m.stickerMessage, content: '' };
+
+                // Recursão para wrappers (View Once, Ephemeral, etc)
+                const wrapper = m.viewOnceMessage || m.viewOnceMessageV2 || m.ephemeralMessage || m.documentWithCaptionMessage;
+                if (wrapper?.message) return getMediaData(wrapper.message);
+
+                return null;
+            };
+
+            const mediaData = getMediaData(msg.message);
+
+            if (mediaData) {
+                type = mediaData.type;
+                content = mediaData.content;
+                mediaUrl = mediaData.media.url || mediaData.media.directPath;
+                logDebug(`🎞️ Mídia detectada (${type}): ${mediaUrl ? mediaUrl.substring(0, 50) : 'Sem URL'}`);
+            } else if (msg.message?.conversation) {
                 content = msg.message.conversation;
                 type = 'text';
             } else if (msg.message?.extendedTextMessage?.text) {
                 content = msg.message.extendedTextMessage.text;
                 type = 'text';
-            } else if (msg.message?.imageMessage) {
-                content = msg.message.imageMessage.caption || '';
-                type = 'image';
-                mediaUrl = msg.message.imageMessage.url || msg.message.imageMessage.directPath;
-            } else if (msg.message?.videoMessage) {
-                content = msg.message.videoMessage.caption || '';
-                type = 'video';
-                mediaUrl = msg.message.videoMessage.url || msg.message.videoMessage.directPath;
-            } else if (msg.message?.audioMessage) {
-                content = '';
-                type = 'audio';
-                mediaUrl = msg.message.audioMessage.url || msg.message.audioMessage.directPath;
-            } else if (msg.message?.documentMessage) {
-                content = msg.message.documentMessage.title || msg.message.documentMessage.caption || '';
-                type = 'document';
-                mediaUrl = msg.message.documentMessage.url || msg.message.documentMessage.directPath;
             } else if (msg.message?.buttonsResponseMessage) {
-                content = msg.message.buttonsResponseMessage.selectedButtonId;
+                content = msg.message.buttonsResponseMessage.selectedButtonId || msg.message.buttonsResponseMessage.stubType;
                 type = 'text';
             } else if (msg.message?.listResponseMessage) {
-                content = msg.message.listResponseMessage.title;
+                content = msg.message.listResponseMessage.title || msg.message.listResponseMessage.singleSelectReply?.selectedRowId;
+                type = 'text';
+            } else if (msg.message?.templateButtonReplyMessage) {
+                content = msg.message.templateButtonReplyMessage.selectedId;
                 type = 'text';
             } else {
-                content = '[Mensagem não suportada]';
+                content = '[Mensagem não suportada ou vazia]';
                 type = 'text';
             }
 
