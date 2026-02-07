@@ -534,93 +534,6 @@ const ChatView: React.FC = () => {
         return { content, type, mediaUrl };
     };
 
-    const renderMessage = (msg: Message) => {
-        const isMe = msg.key_from_me;
-        const { content, type, mediaUrl } = getMessageContent(msg);
-
-        return (
-            <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-8 px-1 animate-in fade-in slide-in-from-bottom-4 duration-700 ease-out`}>
-                <div className={`
-                    max-w-[85%] sm:max-w-[70%] lg:max-w-[60%] p-1.5 rounded-[2.5rem] shadow-sm relative transition-all duration-500
-                    ${isMe ? 'bg-gradient-to-br from-primary to-blue-600 text-white rounded-tr-none shadow-blue-200/50' :
-                        msg.source === 'ai' ? 'bg-white/80 text-indigo-900 rounded-tl-none border border-indigo-100 shadow-indigo-100/30' :
-                            'bg-white text-slate-800 rounded-tl-none border border-slate-200/60 shadow-slate-200/30'}
-                `}>
-                    <div className="p-3.5 sm:p-5">
-                        {type === 'image' && mediaUrl && (
-                            <div className="relative group overflow-hidden rounded-[2rem] mb-4 border border-white/20 shadow-lg">
-                                <img src={mediaUrl} className="max-h-96 w-full object-contain bg-black/5 cursor-pointer hover:scale-[1.03] transition-transform duration-700 ease-out" onClick={() => window.open(mediaUrl, '_blank')} alt="" />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500 pointer-events-none flex items-end p-4">
-                                    <span className="text-white text-[10px] font-black uppercase tracking-widest bg-black/20 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/20">Expandir</span>
-                                </div>
-                            </div>
-                        )}
-                        {type === 'video' && mediaUrl && (
-                            <div className="rounded-[2rem] overflow-hidden mb-4 border border-white/20 shadow-lg bg-black/5">
-                                <video src={mediaUrl} controls className="w-full max-h-96" />
-                            </div>
-                        )}
-                        {type === 'sticker' && mediaUrl && (
-                            <div className="relative group flex justify-center py-4">
-                                <img src={mediaUrl} className="max-w-[180px] max-h-[180px] object-contain cursor-pointer drop-shadow-2xl hover:scale-110 transition-transform duration-500" alt="" />
-                            </div>
-                        )}
-                        {type === 'audio' && mediaUrl && (
-                            <div className="min-w-[260px] py-2 px-1">
-                                <div className="flex items-center gap-3 mb-2">
-                                    <div className={`p-2 rounded-full ${isMe ? 'bg-white/20' : 'bg-primary/10 text-primary'}`}>
-                                        <span className="material-icons-round text-lg">mic</span>
-                                    </div>
-                                    <span className={`text-[10px] font-black uppercase tracking-widest ${isMe ? 'text-white/70' : 'text-slate-400'}`}>Mensagem de áudio</span>
-                                </div>
-                                <audio
-                                    src={mediaUrl}
-                                    controls
-                                    preload="metadata"
-                                    className={`w-full h-8 ${isMe ? 'filter invert brightness-200 opacity-80' : 'opacity-90'}`}
-                                >
-                                    <source src={mediaUrl} type="audio/ogg" />
-                                    <source src={mediaUrl} type="audio/mpeg" />
-                                </audio>
-                            </div>
-                        )}
-                        {type === 'document' && mediaUrl && (
-                            <div className={`flex items-center gap-4 p-4 ${isMe ? 'bg-white/10 border-white/10' : 'bg-slate-50 border-slate-100'} rounded-2xl border mb-3 group transition-all`}>
-                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isMe ? 'bg-white/20 text-white' : 'bg-primary/10 text-primary'} shadow-inner`}>
-                                    <span className="material-icons-round text-2xl">description</span>
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className={`text-sm truncate font-bold ${isMe ? 'text-white' : 'text-slate-800'}`}>{content || 'Documento'}</p>
-                                    <p className={`text-[9px] font-black tracking-widest uppercase mt-0.5 ${isMe ? 'text-white/50' : 'text-slate-400'}`}>Arquivo / {type.toUpperCase()}</p>
-                                </div>
-                                <a href={mediaUrl} target="_blank" rel="noreferrer" className={`w-9 h-9 flex items-center justify-center rounded-xl transition-all ${isMe ? 'hover:bg-white/10' : 'hover:bg-slate-200'}`} onClick={(e) => e.stopPropagation()}><span className="material-icons-round text-lg">download</span></a>
-                            </div>
-                        )}
-                        {type === 'text' && content && <p className="text-[15px] whitespace-pre-wrap leading-relaxed py-1 px-1 font-medium tracking-tight overflow-hidden text-ellipsis">{content}</p>}
-
-                        <div className={`flex items-center justify-end gap-2.5 mt-2.5 ${isMe ? 'text-blue-100' : 'text-slate-400'}`}>
-                            {msg.source === 'ai' && (
-                                <div className="flex items-center gap-1.5 bg-indigo-500/10 px-2.5 py-1 rounded-full border border-indigo-500/10">
-                                    <span className="material-icons-round text-[10px] text-indigo-500" title="Assistente IA">auto_awesome</span>
-                                    <span className="text-[8px] font-black uppercase tracking-widest text-indigo-600">IA</span>
-                                </div>
-                            )}
-                            <span className="text-[10px] font-bold tracking-tight opacity-70">
-                                {new Date(msg.timestamp * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                            {isMe && !msg.isPending && (
-                                <span className={`material-icons-round text-[18px] -ml-0.5 ${msg.status === 'read' ? 'text-blue-200' : 'opacity-50'}`}>
-                                    {msg.status === 'read' ? 'done_all' : 'done'}
-                                </span>
-                            )}
-                            {msg.isPending && <span className="material-icons-round text-[14px] animate-spin opacity-50">sync</span>}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-    };
-
     const getStatusColor = (status?: string) => {
         switch (status) {
             case 'open': return 'bg-emerald-500';
@@ -832,10 +745,11 @@ const ChatView: React.FC = () => {
                                 </div>
                             )}
                             {(isSearchingMessages && messageSearchTerm.trim() !== '' ? messageSearchResults : messages).map((msg, index) => {
-                                const isMe = msg.key_from_me;
+                                const currentList = (isSearchingMessages && messageSearchTerm.trim() !== '' ? messageSearchResults : messages);
+                                const isMe = !!msg.key_from_me;
                                 const { content, type, mediaUrl } = getMessageContent(msg);
-                                const prevMsg = messages[index - 1];
-                                const isSameAsPrev = prevMsg && prevMsg.key_from_me === msg.key_from_me;
+                                const prevMsg = currentList[index - 1];
+                                const isSameAsPrev = !!(prevMsg && !!prevMsg.key_from_me === isMe);
 
                                 return (
                                     <div key={msg.id} className={`flex gap-4 ${isMe ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300 ${isSameAsPrev ? 'mt-1.5' : 'mt-8'}`}>
@@ -884,7 +798,7 @@ const ChatView: React.FC = () => {
                                                     <span className="text-[10px] font-bold text-slate-300 dark:text-slate-600 uppercase industrial-mono">
                                                         {new Date(msg.timestamp * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                                                     </span>
-                                                    {isMe && (
+                                                    {!!isMe && (
                                                         <span className={`material-icons-round text-sm ${msg.status === 'read' ? 'text-blue-500' : 'text-slate-200 dark:text-slate-700'}`}>
                                                             {msg.status === 'read' ? 'done_all' : 'done'}
                                                         </span>
