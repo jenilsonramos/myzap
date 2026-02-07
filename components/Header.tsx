@@ -5,9 +5,10 @@ import { AppView } from '../types';
 interface HeaderProps {
   currentView: AppView;
   systemName?: string;
+  onToggleSidebar?: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ currentView, systemName }) => {
+const Header: React.FC<HeaderProps> = ({ currentView, systemName, onToggleSidebar }) => {
   const [userData, setUserData] = React.useState(() => {
     const user = JSON.parse(localStorage.getItem('myzap_user') || '{}');
     const avatarKey = `myzap_avatar_${user.email || 'guest'}`;
@@ -48,13 +49,21 @@ const Header: React.FC<HeaderProps> = ({ currentView, systemName }) => {
 
   return (
     <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-2">
-      <div className="animate-in fade-in slide-in-from-left duration-700">
-        <h1 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-none">
-          {title}
-        </h1>
-        <p className="text-slate-500 dark:text-slate-400 text-sm md:text-base font-medium mt-1">
-          {subtitle}
-        </p>
+      <div className="flex items-center gap-4 animate-in fade-in slide-in-from-left duration-700">
+        <button
+          onClick={onToggleSidebar}
+          className="md:hidden p-2 -ml-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl"
+        >
+          <span className="material-icons-round text-3xl">menu</span>
+        </button>
+        <div>
+          <h1 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-none">
+            {title}
+          </h1>
+          <p className="text-slate-500 dark:text-slate-400 text-sm md:text-base font-medium mt-1">
+            {subtitle}
+          </p>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3 md:gap-5">

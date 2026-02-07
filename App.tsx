@@ -308,6 +308,9 @@ const AppContent: React.FC = () => {
     );
   }
 
+  // --- MOBILE SIDEBAR STATE ---
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
   return (
     <div className="flex h-screen overflow-hidden bg-background-light dark:bg-background-dark p-2 md:p-4 lg:p-6 gap-4 lg:gap-6">
       <Sidebar
@@ -315,11 +318,14 @@ const AppContent: React.FC = () => {
         onViewChange={(view) => {
           const path = view.toLowerCase().replace('_', '-');
           navigate(`/${path}`);
+          setIsSidebarOpen(false); // Close on navigation
         }}
         onToggleTheme={toggleTheme}
         isDarkMode={isDarkMode}
         onLogout={() => setIsLogoutModalOpen(true)}
         publicSettings={publicSettings}
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
       />
 
       <main className="flex-1 flex flex-col gap-6 overflow-hidden min-w-0">
@@ -339,6 +345,7 @@ const AppContent: React.FC = () => {
         <Header
           currentView={getCurrentView()}
           systemName={publicSettings.system_name}
+          onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
         />
 
         <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 md:pr-2">
