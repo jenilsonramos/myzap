@@ -514,67 +514,73 @@ const ChatView: React.FC = () => {
         const { content, type, mediaUrl } = getMessageContent(msg);
 
         return (
-            <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-4 animate-in fade-in slide-in-from-bottom-3 duration-500 ease-out`}>
+            <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-6 px-1 animate-in fade-in slide-in-from-bottom-3 duration-500 ease-out`}>
                 <div className={`
-                    max-w-[85%] sm:max-w-[70%] lg:max-w-[60%] p-3 rounded-[1.5rem] shadow-sm relative backdrop-blur-sm border
-                    ${isMe ? 'bg-primary/95 text-white rounded-tr-none border-primary/20 shadow-primary/20' :
-                        msg.source === 'ai' ? 'bg-indigo-50/90 dark:bg-indigo-900/40 text-indigo-900 dark:text-indigo-100 rounded-tl-none border-indigo-100 dark:border-indigo-800 shadow-indigo-500/10' :
-                            'bg-white/90 dark:bg-slate-800/90 text-slate-800 dark:text-slate-200 rounded-tl-none border-white/20 dark:border-slate-700 shadow-slate-500/10'}
+                    max-w-[85%] sm:max-w-[70%] lg:max-w-[65%] p-4 rounded-[2rem] shadow-sm relative backdrop-blur-md border border-white/40
+                    ${isMe ? 'bg-primary text-white rounded-tr-none shadow-blue-200/50' :
+                        msg.source === 'ai' ? 'bg-indigo-50 text-indigo-900 rounded-tl-none border-indigo-100 shadow-indigo-100/50' :
+                            'bg-slate-100/50 text-slate-800 rounded-tl-none border-slate-200/50 shadow-slate-200/50'}
                 `}>
                     {type === 'image' && mediaUrl && (
-                        <div className="relative group overflow-hidden rounded-2xl mb-2">
-                            <img src={mediaUrl} className="max-h-80 w-full object-contain bg-black/5 cursor-pointer hover:scale-105 transition-transform duration-500" onClick={() => window.open(mediaUrl, '_blank')} />
+                        <div className="relative group overflow-hidden rounded-[1.5rem] mb-3 border border-white/20">
+                            <img src={mediaUrl} className="max-h-96 w-full object-contain bg-black/5 cursor-pointer hover:scale-[1.02] transition-transform duration-700 ease-out" onClick={() => window.open(mediaUrl, '_blank')} />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
                         </div>
                     )}
                     {type === 'video' && mediaUrl && (
-                        <video src={mediaUrl} controls className="rounded-2xl mb-2 max-h-80 w-full bg-black/5" />
+                        <video src={mediaUrl} controls className="rounded-[1.5rem] mb-3 max-h-96 w-full bg-black/5 border border-white/20 shadow-inner" />
                     )}
                     {type === 'sticker' && mediaUrl && (
                         <div className="relative group flex justify-center py-2">
-                            <img src={mediaUrl} className="max-w-[160px] max-h-[160px] object-contain cursor-pointer hover:scale-110 transition-transform duration-300" />
+                            <img src={mediaUrl} className="max-w-[180px] max-h-[180px] object-contain cursor-pointer drop-shadow-xl hover:scale-110 transition-transform duration-500" />
                         </div>
                     )}
                     {type === 'audio' && mediaUrl && (
-                        <div className="min-w-[240px] py-1">
+                        <div className="min-w-[260px] py-1">
                             <audio
                                 src={mediaUrl}
                                 controls
                                 preload="metadata"
-                                className={`w-full h-8 ${isMe ? 'filter invert brightness-200 contrast-100' : ''}`}
+                                className={`w-full h-10 ${isMe ? 'filter invert brightness-200' : ''}`}
                             >
                                 <source src={mediaUrl} type="audio/ogg" />
                                 <source src={mediaUrl} type="audio/mpeg" />
                             </audio>
-                            <div className="flex justify-between mt-1 px-1 text-[9px] uppercase font-bold opacity-40">
-                                <span>Mensagem de Voz</span>
+                            <div className="flex justify-between mt-2 px-2 text-[8px] font-black uppercase tracking-[0.2em] opacity-40">
+                                <span>Voice Message</span>
                             </div>
                         </div>
                     )}
                     {type === 'document' && mediaUrl && (
-                        <div className="flex items-center gap-3 p-3 bg-white/10 dark:bg-black/20 rounded-2xl border border-white/10 dark:border-black/10 mb-2 group hover:bg-white/20 transition-all cursor-pointer">
-                            <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
-                                <span className="material-icons-round">description</span>
+                        <div className="flex items-center gap-4 p-4 bg-white/10 rounded-2xl border border-white/10 mb-2 group hover:bg-white/20 transition-all cursor-pointer">
+                            <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center text-primary group-hover:scale-110 transition-transform shadow-inner">
+                                <span className="material-icons-round text-2xl">description</span>
                             </div>
                             <div className="flex-1 min-w-0">
-                                <p className="text-xs truncate font-bold">{content || 'Arquivo'}</p>
-                                <p className="text-[9px] opacity-50 font-black tracking-widest uppercase">DOCUMENTO</p>
+                                <p className="text-sm truncate font-bold leading-tight">{content || 'Document'}</p>
+                                <p className="text-[9px] opacity-50 font-black tracking-widest uppercase mt-0.5">FILES / ASSETS</p>
                             </div>
-                            <a href={mediaUrl} target="_blank" className="p-2 hover:bg-black/5 dark:hover:bg-white/5 rounded-xl transition-all" onClick={(e) => e.stopPropagation()}><span className="material-icons-round text-sm">download</span></a>
+                            <a href={mediaUrl} target="_blank" className="w-10 h-10 flex items-center justify-center hover:bg-black/5 rounded-xl transition-all" onClick={(e) => e.stopPropagation()}><span className="material-icons-round text-lg text-primary">download</span></a>
                         </div>
                     )}
-                    {type === 'text' && content && <p className="text-[14px] whitespace-pre-wrap leading-relaxed py-0.5 px-0.5 tracking-tight">{content}</p>}
+                    {type === 'text' && content && <p className="text-[15px] whitespace-pre-wrap leading-snug py-1 px-1 tracking-tight font-medium">{content}</p>}
 
-                    <div className={`flex items-center justify-end gap-1.5 mt-1.5 opacity-50`}>
-                        {msg.source === 'ai' && <span className="material-icons-round text-[10px] mr-0.5" title="Respondido por IA">smart_toy</span>}
-                        <span className="text-[9px] font-black tracking-wider">
-                            {new Date(msg.timestamp * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    <div className={`flex items-center justify-end gap-2 mt-2 opacity-50`}>
+                        {msg.source === 'ai' && (
+                            <div className="flex items-center gap-1 bg-white/20 px-2 py-0.5 rounded-full border border-white/10">
+                                <span className="material-icons-round text-[10px]" title="AI Assistant">auto_awesome</span>
+                                <span className="text-[8px] font-black uppercase tracking-tighter">AI</span>
+                            </div>
+                        )}
+                        <span className="text-[10px] font-bold tracking-tight">
+                            {new Date(msg.timestamp * 1000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
                         </span>
                         {isMe && !msg.isPending && (
-                            <span className="material-icons-round text-[14px] ml-0.5">
-                                {msg.status === 'read' ? 'done_all' : msg.status === 'delivered' ? 'done_all' : 'done'}
+                            <span className="material-icons-round text-[16px] -ml-0.5">
+                                {msg.status === 'read' ? 'done_all' : 'done'}
                             </span>
                         )}
-                        {msg.isPending && <span className="material-icons-round text-[12px] animate-spin ml-0.5">sync</span>}
+                        {msg.isPending && <span className="material-icons-round text-[12px] animate-spin">sync</span>}
                     </div>
                 </div>
             </div>
@@ -591,446 +597,370 @@ const ChatView: React.FC = () => {
     };
 
     return (
-        <div className="flex h-full bg-[#F0F2F5] dark:bg-slate-950 overflow-hidden font-sans">
-            {/* Sidebar Toggle Overlay (Mobile) */}
-            {!isSidebarOpen && (
-                <div
-                    className="fixed inset-0 bg-black/60 z-20 lg:hidden backdrop-blur-sm"
-                    onClick={() => setIsSidebarOpen(true)}
-                ></div>
-            )}
+        <div className="h-screen w-screen bg-gradient-to-br from-rose-50 via-teal-50 to-indigo-50 p-6 flex overflow-hidden font-sans">
+            {/* --- Main Dashboard Container --- */}
+            <div className="flex-1 bg-white/95 backdrop-blur-3xl rounded-[3rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] flex overflow-hidden border border-white relative">
 
-            {/* --- Sidebar (Contact List) --- */}
-            <div className={`
-                fixed inset-y-0 left-0 z-30 lg:static lg:z-0
-                bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-r border-slate-200 dark:border-slate-800
-                flex flex-col transition-all duration-500 ease-in-out shadow-2xl lg:shadow-none
-                ${isSidebarCollapsed ? 'w-[80px]' : 'w-full sm:w-[380px]'}
-                ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-            `}>
-                <div className="p-4 bg-white/50 dark:bg-slate-800/50 flex items-center justify-between border-b border-slate-200/50 dark:border-slate-700/50 backdrop-blur-md">
-                    <div className={`flex items-center gap-3 transition-opacity duration-300 ${isSidebarCollapsed ? 'opacity-0 w-0 overflow-hidden' : 'opacity-100'}`}>
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary-focus flex items-center justify-center text-white font-black text-xl shadow-lg transform -rotate-6 hover:rotate-0 transition-transform cursor-pointer">
-                            MZ
-                        </div>
-                        <h1 className="font-black text-slate-800 dark:text-slate-100 italic tracking-tight text-xl">MyZap</h1>
+                {/* 1. Global Navigation Sidebar (Left) */}
+                <div className="w-[100px] border-r border-slate-100 flex flex-col items-center py-8 gap-10">
+                    <div className="p-3 bg-gradient-to-tr from-[#00A3FF] to-[#0055FF] rounded-2xl shadow-lg shadow-blue-200 rotate-12 hover:rotate-0 transition-all cursor-pointer">
+                        <span className="material-icons-round text-white text-3xl">api</span>
                     </div>
 
-                    <button
-                        onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                        className={`p-2 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-primary/10 hover:text-primary transition-all shadow-sm ${isSidebarCollapsed ? 'mx-auto' : ''}`}
-                        title={isSidebarCollapsed ? "Expandir" : "Recolher"}
-                    >
-                        <span className="material-icons-round text-xl leading-none">
-                            {isSidebarCollapsed ? 'last_page' : 'first_page'}
-                        </span>
-                    </button>
-                </div>
-
-                <div className={`p-4 space-y-4 transition-all duration-300 ${isSidebarCollapsed ? 'opacity-0 scale-95 pointer-events-none h-0 p-0 overflow-hidden' : 'opacity-100 scale-100'}`}>
-                    <div className="relative group">
-                        <span className="material-icons-round absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">search</span>
-                        <input
-                            type="text"
-                            placeholder="Procurar conversas..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-11 pr-4 py-3 bg-slate-100/50 dark:bg-slate-800/50 rounded-2xl border-none focus:ring-2 focus:ring-primary/50 text-sm transition-all outline-none shadow-inner"
-                        />
+                    <div className="flex-1 flex flex-col gap-8 text-slate-400">
+                        <button className="hover:text-primary transition-all p-2 rounded-xl hover:bg-slate-50"><span className="material-icons-round text-2xl">grid_view</span></button>
+                        <button className="text-primary transition-all p-2 rounded-xl bg-blue-50/50 shadow-inner"><span className="material-icons-round text-2xl">chat_bubble</span></button>
+                        <button className="hover:text-primary transition-all p-2 rounded-xl hover:bg-slate-50"><span className="material-icons-round text-2xl">calendar_today</span></button>
+                        <button className="hover:text-primary transition-all p-2 rounded-xl hover:bg-slate-50"><span className="material-icons-round text-2xl">folder</span></button>
+                        <button className="hover:text-primary transition-all p-2 rounded-xl hover:bg-slate-50"><span className="material-icons-round text-2xl">shopping_bag</span></button>
+                        <div className="h-px w-8 bg-slate-100 mx-auto"></div>
+                        <button className="hover:text-primary transition-all p-2 rounded-xl hover:bg-slate-50"><span className="material-icons-round text-2xl">near_me</span></button>
+                        <button className="hover:text-primary transition-all p-2 rounded-xl hover:bg-slate-50"><span className="material-icons-round text-2xl">campaign</span></button>
                     </div>
 
-                    <div className="flex gap-1 p-1 bg-slate-100/50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/30 dark:border-slate-700/30">
-                        {(['all', 'open', 'pending', 'closed'] as const).map(s => (
-                            <button
-                                key={s}
-                                onClick={() => setFilterStatus(s)}
-                                className={`
-                                    flex-1 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-[0.1em] transition-all
-                                    ${filterStatus === s
-                                        ? 'bg-white dark:bg-slate-700 text-primary shadow-md scale-[1.02]'
-                                        : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}
-                                `}
-                            >
-                                {s === 'all' ? 'Tudo' : s === 'open' ? 'Aberto' : s === 'pending' ? 'Pendente' : 'Fim'}
-                            </button>
-                        ))}
+                    <div className="flex flex-col gap-6 text-slate-400 mb-4">
+                        <button className="hover:text-primary transition-all"><span className="material-icons-round text-2xl">settings</span></button>
+                        <button className="hover:text-rose-500 transition-all"><span className="material-icons-round text-2xl">logout</span></button>
                     </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto custom-scrollbar p-2">
-                    {filteredContacts.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center p-12 opacity-30 select-none">
-                            <span className="material-icons-round text-6xl mb-4">history</span>
-                            {!isSidebarCollapsed && (
-                                <p className="text-sm font-bold uppercase tracking-widest text-center">Nenhuma conversa encontrada</p>
-                            )}
+                {/* 2. Chat List Sidebar (Middle-Left) */}
+                <div className="w-[380px] border-r border-slate-100 flex flex-col bg-slate-50/30 overflow-hidden">
+                    <div className="p-8 flex items-center justify-between">
+                        <h2 className="text-3xl font-black text-slate-800 tracking-tighter">Chat</h2>
+                        <button className="w-12 h-12 bg-[#0055FF] text-white rounded-2xl shadow-lg shadow-blue-200 hover:scale-105 transition-all flex items-center justify-center">
+                            <span className="material-icons-round text-2xl">add</span>
+                        </button>
+                    </div>
+
+                    <div className="px-8 mb-4">
+                        <div className="relative group">
+                            <span className="material-icons-round absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-primary transition-all">search</span>
+                            <input
+                                type="text"
+                                placeholder="Search conversations..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full bg-white pl-12 pr-4 py-4 rounded-[1.25rem] border border-slate-50 shadow-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all text-sm font-medium"
+                            />
                         </div>
-                    ) : (
-                        filteredContacts.map(c => (
-                            <div
-                                key={c.id}
-                                onClick={() => {
-                                    setSelectedContact(c);
-                                    fetchMessages(c.id);
-                                    markAsRead(c.id);
-                                    if (window.innerWidth < 1024) setIsSidebarOpen(false);
-                                }}
-                                className={`
-                                    group relative flex items-center gap-4 p-3 rounded-2xl cursor-pointer transition-all duration-300 mb-1
-                                    ${selectedContact?.id === c.id
-                                        ? 'bg-primary/10 dark:bg-primary/20 shadow-sm'
-                                        : 'hover:bg-slate-100 dark:hover:bg-slate-800/50'}
-                                    ${isSidebarCollapsed ? 'justify-center p-2' : ''}
-                                `}
-                            >
-                                <div className="relative shrink-0">
-                                    <div className={`
-                                        w-12 h-12 rounded-2xl flex items-center justify-center text-white font-bold text-lg shadow-inner transition-transform duration-300 group-hover:scale-110
-                                        ${getStatusColor(c.status)}
+                    </div>
+
+                    <div className="px-8 mb-6">
+                        <div className="bg-white rounded-2xl p-1 shadow-sm border border-slate-100 flex gap-1">
+                            {(['open', 'closed'] as const).map(s => (
+                                <button
+                                    key={s}
+                                    onClick={() => setFilterStatus(s === 'open' ? 'open' : 'closed')}
+                                    className={`
+                                        flex-1 py-3 px-4 rounded-xl text-[10px] font-black uppercase tracking-[0.15em] transition-all
+                                        ${(filterStatus === 'all' && s === 'open') || (filterStatus === s)
+                                            ? 'bg-white shadow-sm border border-slate-50 text-[#0055FF]'
+                                            : 'text-slate-400 hover:text-slate-600'}
+                                    `}
+                                >
+                                    {s === 'open' ? 'Open' : 'Archived'}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto px-6 custom-scrollbar space-y-3 pb-8">
+                        {filteredContacts.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center p-12 opacity-20 select-none grayscale">
+                                <span className="material-icons-round text-6xl mb-4">history</span>
+                                <p className="text-xs font-black uppercase tracking-widest text-center">Empty</p>
+                            </div>
+                        ) : (
+                            filteredContacts.map(c => (
+                                <div
+                                    key={c.id}
+                                    onClick={() => {
+                                        setSelectedContact(c);
+                                        fetchMessages(c.id);
+                                        markAsRead(c.id);
+                                    }}
+                                    className={`
+                                        group flex items-center gap-4 p-5 rounded-[2rem] cursor-pointer transition-all duration-500 relative
+                                        ${selectedContact?.id === c.id
+                                            ? 'bg-white shadow-[0_20px_40px_-12px_rgba(0,0,0,0.06)] border border-slate-50 scale-[1.02]'
+                                            : 'hover:bg-white/50'}
                                     `}>
-                                        {c.name.charAt(0).toUpperCase()}
-                                    </div>
-                                    {c.unread_count > 0 && (
-                                        <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full border-2 border-white dark:border-slate-900 flex items-center justify-center animate-bounce">
-                                            <span className="text-[10px] text-white font-black">{c.unread_count}</span>
+                                    <div className="relative shrink-0">
+                                        <div className={`w-14 h-14 rounded-2xl text-white font-bold text-xl flex items-center justify-center shadow-inner ${getStatusColor(c.status)}`}>
+                                            {c.name.charAt(0).toUpperCase()}
                                         </div>
-                                    )}
-                                </div>
-
-                                {!isSidebarCollapsed && (
+                                        <div className={`absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-4 border-white ${getStatusColor(c.status)}`}></div>
+                                    </div>
                                     <div className="flex-1 min-w-0">
                                         <div className="flex justify-between items-baseline mb-1">
-                                            <h3 className="font-bold text-slate-800 dark:text-slate-100 truncate text-sm">
-                                                {c.name}
-                                            </h3>
-                                            {c.lastTime && (
-                                                <span className="text-[10px] text-slate-400 font-medium">
-                                                    {formatFriendlyDate(c.lastTime)}
-                                                </span>
-                                            )}
+                                            <h3 className="font-bold text-slate-800 truncate text-[15px]">{c.name}</h3>
+                                            {c.lastTime && <span className="text-[10px] text-slate-400 font-bold">{formatFriendlyDate(c.lastTime)}</span>}
                                         </div>
                                         <div className="flex items-center justify-between gap-2">
-                                            <p className="text-xs text-slate-500 dark:text-slate-400 truncate leading-snug">
-                                                {c.lastMessage || 'Inicie um atendimento'}
+                                            <p className="text-xs text-slate-500 truncate">{c.lastMessage || 'Inicie um atendimento'}</p>
+                                            {c.unread_count > 0 && <span className="h-5 w-5 bg-rose-500 text-white text-[9px] font-black rounded-full flex items-center justify-center animate-bounce shadow-lg shadow-rose-200">{c.unread_count}</span>}
+                                        </div>
+                                    </div>
+                                    {selectedContact?.id === c.id && (
+                                        <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1.5 h-12 bg-[#0055FF] rounded-l-full shadow-[0_0_12px_rgba(0,85,255,0.4)]"></div>
+                                    )}
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+
+                {/* 3. Main Chat Window (Middle-Right) */}
+                <div className="flex-1 flex flex-col bg-white">
+                    {/* Top utility bar */}
+                    <div className="h-24 px-10 border-b border-slate-50 flex items-center justify-between bg-white/50 backdrop-blur-md">
+                        <div className="relative group w-full max-w-xl">
+                            <span className="material-icons-round absolute left-0 top-1/2 -translate-y-1/2 text-slate-300">search</span>
+                            <input
+                                type="text"
+                                placeholder="Search for people, document, goods..."
+                                className="w-full bg-transparent pl-10 pr-4 py-2 outline-none text-slate-600 placeholder:text-slate-300 font-medium"
+                            />
+                        </div>
+                        <div className="flex items-center gap-6 text-slate-400">
+                            <span className="material-icons-round cursor-pointer hover:text-primary transition-all">notifications</span>
+                            <div className="w-10 h-10 rounded-full border-2 border-white shadow-lg overflow-hidden relative">
+                                <img src="https://ui-avatars.com/api/?name=User&background=0055FF&color=fff" className="w-full h-full object-cover" />
+                                <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-400 border-2 border-white rounded-full"></div>
+                            </div>
+                            <span className="material-icons-round cursor-pointer">expand_more</span>
+                        </div>
+                    </div>
+
+                    {!selectedContact ? (
+                        <div className="flex-1 flex flex-col items-center justify-center p-20 opacity-20 select-none grayscale">
+                            <span className="material-icons-round text-8xl mb-8 text-[#0055FF]">forum</span>
+                            <h2 className="text-4xl font-black tracking-tighter text-slate-800">Selecione uma conversa</h2>
+                        </div>
+                    ) : (
+                        <>
+                            {/* Chat Toolbar */}
+                            <div className="px-10 py-6 flex items-center justify-between border-b border-slate-50">
+                                <div className="flex items-center gap-4">
+                                    <div className={`w-12 h-12 rounded-2xl text-white font-bold text-xl flex items-center justify-center ${getStatusColor(selectedContact.status)} shadow-lg`}>
+                                        {selectedContact.name.charAt(0).toUpperCase()}
+                                    </div>
+                                    <div>
+                                        <h3 className="font-black text-slate-800 tracking-tight text-xl">{selectedContact.name}</h3>
+                                        <div className="flex items-center gap-6 mt-1">
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                                                <span className={`w-2 h-2 rounded-full ${getStatusColor(selectedContact.status)} animate-pulse`}></span>
+                                                {selectedContact.status === 'open' ? 'Ativo' : 'Pendente'}
                                             </p>
-                                            {c.status && (
-                                                <div className={`w-2 h-2 rounded-full shrink-0 shadow-sm ${getStatusColor(c.status)}`}></div>
-                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <button onClick={() => updateStatus(selectedContact.id, 'open')} className="w-10 h-10 rounded-xl text-slate-400 hover:bg-slate-50 hover:text-emerald-500 transition-all flex items-center justify-center"><span className="material-icons-round text-xl">mark_chat_read</span></button>
+                                    <button onClick={() => updateStatus(selectedContact.id, 'closed')} className="w-10 h-10 rounded-xl text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition-all flex items-center justify-center"><span className="material-icons-round text-xl">check_circle</span></button>
+                                    <button onClick={() => { fetchAgents(); setTransferModal(true); }} className="w-10 h-10 rounded-xl text-slate-400 hover:bg-slate-50 hover:text-violet-500 transition-all flex items-center justify-center"><span className="material-icons-round text-xl">shortcut</span></button>
+                                    <button onClick={toggleAI} className={`w-10 h-10 rounded-xl transition-all flex items-center justify-center ${selectedContact.ai_paused ? 'bg-indigo-50 text-indigo-500' : 'text-slate-400 hover:bg-slate-50 hover:text-indigo-500'}`}><span className="material-icons-round text-xl">{selectedContact.ai_paused ? 'play_circle' : 'pause_circle'}</span></button>
+                                </div>
+                            </div>
+
+                            {/* Messages Area */}
+                            <div className="flex-1 overflow-y-auto px-10 py-8 space-y-6 custom-scrollbar bg-slate-50/20">
+                                {messages.map(msg => renderMessage(msg))}
+                                <div ref={messagesEndRef} />
+                            </div>
+
+                            {/* Message Input */}
+                            <div className="p-10">
+                                {isRecording ? (
+                                    <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-6 shadow-2xl border-2 border-primary/10 flex items-center justify-between">
+                                        <div className="flex items-center gap-6">
+                                            <div className="w-3 h-3 bg-red-500 rounded-full animate-ping"></div>
+                                            <span className="font-black text-2xl text-slate-800 tabular-nums">
+                                                {Math.floor(recordingTime / 60).toString().padStart(2, '0')}:
+                                                {(recordingTime % 60).toString().padStart(2, '0')}
+                                            </span>
+                                            <div className="flex gap-1 h-6 items-center">
+                                                {[5, 8, 4, 9, 3, 7, 5, 8].map((h, i) => (
+                                                    <div key={i} className="w-1.5 bg-primary/40 rounded-full animate-pulse" style={{ height: `${h * 2}px` }}></div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-3">
+                                            <button onClick={() => stopRecording(false)} className="w-12 h-12 bg-slate-100 text-slate-500 rounded-2xl flex items-center justify-center"><span className="material-icons-round">delete_outline</span></button>
+                                            <button onClick={() => stopRecording(true)} className="px-8 bg-primary text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl">Enviar Áudio</button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="bg-slate-100/50 rounded-[2.5rem] p-4 flex items-center gap-3 border border-slate-100 shadow-inner group-focus-within:bg-white transition-all">
+                                        <button
+                                            className="w-12 h-12 rounded-2xl text-slate-400 hover:bg-white hover:text-primary transition-all flex items-center justify-center hover:shadow-sm"
+                                            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                                        >
+                                            <span className="material-icons-round text-2xl">sentiment_satisfied</span>
+                                        </button>
+                                        <button
+                                            className="w-12 h-12 rounded-2xl text-slate-400 hover:bg-white hover:text-primary transition-all flex items-center justify-center hover:shadow-sm"
+                                            onClick={() => fileInputRef.current?.click()}
+                                        >
+                                            <span className="material-icons-round text-2xl">add_circle_outline</span>
+                                        </button>
+                                        <textarea
+                                            rows={1}
+                                            value={newMessage}
+                                            onChange={(e) => {
+                                                setNewMessage(e.target.value);
+                                                e.target.style.height = 'auto';
+                                                e.target.style.height = e.target.scrollHeight + 'px';
+                                            }}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && !e.shiftKey) {
+                                                    e.preventDefault();
+                                                    handleSendMessage();
+                                                }
+                                            }}
+                                            placeholder="Type your message"
+                                            className="flex-1 bg-transparent border-none focus:ring-0 text-sm font-medium text-slate-700 placeholder:text-slate-400 resize-none py-3"
+                                        />
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={startRecording}
+                                                className="w-12 h-12 bg-white text-slate-400 rounded-2xl shadow-sm hover:text-primary transition-all flex items-center justify-center"
+                                            >
+                                                <span className="material-icons-round text-2xl">mic</span>
+                                            </button>
+                                            <button
+                                                onClick={handleSendMessage}
+                                                className="w-12 h-12 bg-[#0055FF] text-white rounded-2xl shadow-lg shadow-blue-200 hover:scale-105 transition-all flex items-center justify-center"
+                                            >
+                                                <span className="material-icons-round rotate-[-45deg] mb-1 ml-1 text-2xl">send</span>
+                                            </button>
                                         </div>
                                     </div>
                                 )}
-
-                                {isSidebarCollapsed && (
-                                    <div className="absolute left-full ml-4 px-3 py-2 bg-slate-800 dark:bg-slate-700 text-white text-xs rounded-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all duration-200 translate-x-[-10px] group-hover:translate-x-0 z-50 whitespace-nowrap shadow-xl border border-white/10">
-                                        <div className="font-bold mb-0.5">{c.name}</div>
-                                        <div className="text-[10px] opacity-70">{c.lastMessage || 'Sem mensagens'}</div>
-                                        <div className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 bg-slate-800 dark:bg-slate-700 rotate-45 border-l border-b border-white/10"></div>
-                                    </div>
-                                )}
-
-                                {selectedContact?.id === c.id && !isSidebarCollapsed && (
-                                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-r-full"></div>
-                                )}
                             </div>
-                        ))
+                        </>
                     )}
                 </div>
 
-                <div className={`p-4 border-t border-slate-200 dark:border-slate-800 flex ${isSidebarCollapsed ? 'flex-col items-center' : 'justify-center'} gap-2 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md`}>
-                    <button
-                        onClick={() => setActiveTab('chats')}
-                        className={`
-                            flex items-center justify-center gap-2 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all
-                            ${isSidebarCollapsed ? 'w-10 h-10' : 'flex-1 py-2.5'}
-                            ${activeTab === 'chats' ? 'bg-primary text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200'}
-                        `}
-                        title="Conversas"
-                    >
-                        <span className="material-icons-round text-sm">chat</span>
-                        {!isSidebarCollapsed && "Conversas"}
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('blocked')}
-                        className={`
-                            flex items-center justify-center gap-2 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all
-                            ${isSidebarCollapsed ? 'w-10 h-10' : 'flex-1 py-2.5'}
-                            ${activeTab === 'blocked' ? 'bg-rose-500 text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200'}
-                        `}
-                        title="Bloqueados"
-                    >
-                        <span className="material-icons-round text-sm">block</span>
-                        {!isSidebarCollapsed && "Bloqueados"}
-                    </button>
-                </div>
-            </div>
-
-            {/* --- Main Chat Window --- */}
-            <div className="flex-1 flex flex-col min-w-0 relative bg-[#F0F2F5] dark:bg-slate-950">
-                {!selectedContact ? (
-                    <div className="flex-1 flex flex-col items-center justify-center p-8 bg-patterns opacity-40 select-none">
-                        <div className="w-40 h-40 bg-white dark:bg-slate-900 rounded-huge flex items-center justify-center shadow-3xl mb-8 transform rotate-6 border border-white dark:border-slate-800">
-                            <span className="material-icons-round text-primary text-8xl">forum</span>
-                        </div>
-                        <h2 className="text-3xl font-black text-slate-800 dark:text-slate-100 mb-4 tracking-tighter">Atendimento Inteligente</h2>
-                        <p className="text-slate-500 text-center max-w-sm font-medium leading-relaxed">
-                            Selecione uma conversa para começar a interagir com seus clientes em tempo real.
-                        </p>
-                    </div>
-                ) : (
-                    <>
-                        {/* Chat Header */}
-                        <div className="h-[75px] px-6 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-white dark:border-slate-800 flex items-center justify-between sticky top-0 z-10">
-                            <div className="flex items-center gap-4">
-                                <button className="lg:hidden p-2 -ml-2 text-slate-500 hover:text-primary transition-colors" onClick={() => setIsSidebarOpen(true)}>
-                                    <span className="material-icons-round">menu</span>
-                                </button>
-                                <div className="relative group cursor-pointer" onClick={() => setShowContactInfo(!showContactInfo)}>
-                                    <div className="w-12 h-12 rounded-2xl overflow-hidden shadow-md group-hover:ring-2 ring-primary transition-all">
-                                        {selectedContact.profile_pic ? <img src={selectedContact.profile_pic} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-slate-200 flex items-center justify-center text-xl font-bold">{selectedContact.name?.charAt(0)}</div>}
-                                    </div>
-                                    <div className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-4 border-white dark:border-slate-900 ${getStatusColor(selectedContact.status)}`}></div>
-                                </div>
-                                <div className="min-w-0 cursor-pointer" onClick={() => setShowContactInfo(!showContactInfo)}>
-                                    <h3 className="font-black text-slate-800 dark:text-slate-100 truncate text-lg leading-tight">
-                                        {selectedContact.name || selectedContact.remote_jid}
-                                    </h3>
-                                    <div className="flex items-center gap-2">
-                                        <div className={`w-2 h-2 rounded-full ${getStatusColor(selectedContact.status)} animate-pulse`}></div>
-                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.1em]">
-                                            {selectedContact.status === 'open' ? 'Aberto' : selectedContact.status === 'pending' ? 'Pendente' : 'Finalizado'}
-                                        </p>
-                                    </div>
-                                </div>
+                {/* 4. Contact Information Sidebar (Right) */}
+                <div className="w-[380px] border-l border-slate-100 flex flex-col bg-slate-50/20">
+                    {!selectedContact ? (
+                        <div className="flex-1 flex items-center justify-center p-10 text-slate-300 font-bold italic rotate-[-90deg] uppercase tracking-[1em]">Information</div>
+                    ) : (
+                        <div className="p-10 flex flex-col h-full overflow-y-auto custom-scrollbar">
+                            <div className="flex justify-between items-center mb-10 text-slate-400">
+                                <span className="material-icons-round cursor-pointer hover:text-primary p-2 hover:bg-white rounded-xl transition-all shadow-sm">settings</span>
+                                <span className="material-icons-round cursor-pointer hover:text-primary p-2 hover:bg-white rounded-xl transition-all shadow-sm">bookmark_border</span>
                             </div>
 
-                            <div className="flex items-center gap-1.5">
-                                <button onClick={() => updateStatus(selectedContact.id, 'open')} className={`p-2.5 rounded-2xl transition-all ${selectedContact.status === 'open' ? 'bg-emerald-500 text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-emerald-50'}`} title="Abaerto">
-                                    <span className="material-icons-round text-xl">mark_chat_read</span>
-                                </button>
-                                <button onClick={() => updateStatus(selectedContact.id, 'pending')} className={`p-2.5 rounded-2xl transition-all ${selectedContact.status === 'pending' ? 'bg-amber-500 text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-amber-50'}`} title="Pendente">
-                                    <span className="material-icons-round text-xl">schedule</span>
-                                </button>
-                                <button onClick={() => updateStatus(selectedContact.id, 'closed')} className={`p-2.5 rounded-2xl transition-all ${selectedContact.status === 'closed' ? 'bg-slate-500 text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200'}`} title="Finalizar">
-                                    <span className="material-icons-round text-xl">check_circle</span>
-                                </button>
-                                <div className="w-px h-8 bg-slate-200 dark:bg-slate-700 mx-1"></div>
-                                <button onClick={() => { fetchAgents(); setTransferModal(true); }} className="p-2.5 rounded-2xl bg-violet-100 dark:bg-violet-900/30 text-violet-600 hover:scale-105 transition-all" title="Transferir">
-                                    <span className="material-icons-round text-xl">shortcut</span>
-                                </button>
-                                <div className="w-px h-8 bg-slate-200 dark:bg-slate-700 mx-1"></div>
-                                <button onClick={toggleAI} className={`p-2.5 rounded-2xl transition-all ${selectedContact.ai_paused ? 'bg-indigo-100 dark:bg-indigo-900 text-indigo-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-indigo-600'}`} title={selectedContact.ai_paused ? "Retomar IA" : "Pausar IA"}>
-                                    <span className="material-icons-round text-xl">{selectedContact.ai_paused ? 'play_circle' : 'pause_circle'}</span>
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Messages Area */}
-                        <div className="flex-1 overflow-y-auto p-6 custom-scrollbar bg-patterns bg-opacity-5">
-                            <div className="max-w-4xl mx-auto flex flex-col">
-                                {messages.length === 0 ? (
-                                    <div className="flex flex-col items-center justify-center py-20 text-slate-400 space-y-4">
-                                        <div className="w-20 h-20 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center shadow-md">
-                                            <span className="material-icons-round text-4xl">textsms</span>
-                                        </div>
-                                        <p className="text-sm font-black uppercase tracking-widest opacity-50 italic">Inicie a conversa agora</p>
-                                    </div>
-                                ) : (
-                                    messages.map(renderMessage)
-                                )}
-                                <div ref={messagesEndRef} className="h-4" />
-                            </div>
-                        </div>
-
-                        {/* Input Area */}
-                        <div className="p-4 sm:p-6 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-t border-white dark:border-slate-800">
-                            <div className="max-w-4xl mx-auto relative">
-                                {/* Recording UI */}
-                                {isRecording && (
-                                    <div className="absolute inset-x-0 bottom-full mb-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
-                                        <div className="bg-white dark:bg-slate-800 rounded-[2.5rem] p-5 shadow-3xl border-2 border-primary/10 flex items-center justify-between">
-                                            <div className="flex items-center gap-6">
-                                                <div className="relative">
-                                                    <div className="w-4 h-4 bg-red-500 rounded-full animate-ping"></div>
-                                                    <div className="absolute inset-0 w-4 h-4 bg-red-500 rounded-full shadow-lg shadow-red-500/50"></div>
-                                                </div>
-                                                <span className="font-black text-2xl text-slate-800 dark:text-slate-100 tabular-nums">
-                                                    {Math.floor(recordingTime / 60).toString().padStart(2, '0')}:
-                                                    {(recordingTime % 60).toString().padStart(2, '0')}
-                                                </span>
-                                                <div className="flex gap-1.5 h-6 items-center">
-                                                    {[2, 5, 8, 4, 9, 3, 7, 5, 8, 4, 6, 2, 5].map((h, i) => (
-                                                        <div key={i} className="w-1.5 bg-primary rounded-full animate-waveform" style={{ height: `${h * 3}px`, animationDelay: `${i * 0.05}s` }}></div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                            <div className="flex gap-3">
-                                                <button onClick={() => stopRecording(false)} className="w-12 h-12 bg-slate-100 dark:bg-slate-700 text-slate-500 rounded-2xl flex items-center justify-center hover:bg-slate-200 transition-all">
-                                                    <span className="material-icons-round">delete_outline</span>
-                                                </button>
-                                                <button onClick={() => stopRecording(true)} className="px-8 bg-primary text-white rounded-2xl font-black text-xs shadow-xl shadow-primary/30 hover:scale-105 transition-all uppercase tracking-widest">Enviar Áudio</button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
-                                <div className="flex items-end gap-4 bg-[#F0F2F5] dark:bg-slate-800/80 p-3 rounded-[2.5rem] shadow-inner group-focus-within:ring-2 ring-primary/20 transition-all">
-                                    <div className="flex gap-1 pb-1">
-                                        <button onClick={() => setShowEmojiPicker(!showEmojiPicker)} className={`w-11 h-11 rounded-full flex items-center justify-center transition-all ${showEmojiPicker ? 'bg-white text-primary shadow-md' : 'text-slate-500 hover:text-primary hover:bg-white/50'}`}>
-                                            <span className="material-icons-round text-2xl">sentiment_very_satisfied</span>
-                                        </button>
-                                        <button onClick={() => fileInputRef.current?.click()} className="w-11 h-11 text-slate-500 hover:text-primary hover:bg-white/50 rounded-full flex items-center justify-center transition-all">
-                                            <span className="material-icons-round text-2xl">add_circle_outline</span>
-                                        </button>
-                                    </div>
-
-                                    <textarea
-                                        rows={1}
-                                        placeholder={isImproving ? 'IA Gerando...' : 'Mensagem...'}
-                                        value={newMessage}
-                                        onChange={(e) => {
-                                            setNewMessage(e.target.value);
-                                            e.target.style.height = 'auto';
-                                            e.target.style.height = e.target.scrollHeight + 'px';
-                                        }}
-                                        disabled={isImproving}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter' && !e.shiftKey) {
-                                                e.preventDefault();
-                                                handleSendMessage();
-                                            }
-                                        }}
-                                        className={`flex-1 bg-transparent py-3 px-1 text-[16px] max-h-48 resize-none outline-none border-none focus:ring-0 text-slate-800 dark:text-slate-100 font-medium placeholder:text-slate-400 ${isImproving ? 'opacity-50 animate-pulse' : ''}`}
-                                    />
-
-                                    {newMessage.trim() ? (
-                                        <div className="flex gap-2 pb-1 pr-1">
-                                            <div className="relative group/ai">
-                                                <button
-                                                    disabled={isImproving}
-                                                    className={`w-11 h-11 bg-white/50 dark:bg-slate-700/50 text-primary hover:bg-white rounded-full flex items-center justify-center transition-all shadow-sm ${isImproving ? 'animate-spin opacity-50' : ''}`}
-                                                    title="Melhorar com IA"
-                                                >
-                                                    <span className="material-icons-round">{isImproving ? 'sync' : 'auto_awesome'}</span>
-                                                </button>
-
-                                                {/* Invisible Bridge to prevent hover loss */}
-                                                <div className="absolute bottom-full right-0 w-full h-5 bg-transparent z-40" />
-
-                                                <div className="absolute bottom-full right-0 mb-4 hidden group-hover/ai:flex flex-col gap-1.5 p-3 bg-white dark:bg-slate-800 rounded-3xl shadow-3xl border border-white dark:border-slate-700 min-w-[180px] animate-in slide-in-from-bottom-2 z-50">
-                                                    <p className="px-3 pb-1 text-[10px] font-black uppercase text-slate-400 tracking-tighter">Estilo da IA:</p>
-                                                    {[
-                                                        { label: 'Tom Sério', key: 'serio' },
-                                                        { label: 'Educado', key: 'educado' },
-                                                        { label: 'Bravo', key: 'bravo' },
-                                                        { label: 'Engraçado', key: 'engracado' },
-                                                        { label: 'Profissional', key: 'profissional' },
-                                                        { label: 'Corrigir Ortografia', key: 'ortografia' }
-                                                    ].map(t => (
-                                                        <button key={t.key} onClick={() => improveText(t.key)} className="px-4 py-2.5 text-[11px] font-bold text-slate-700 dark:text-slate-200 text-left hover:bg-primary/5 hover:text-primary rounded-xl transition-all">
-                                                            {t.label}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                            <button onClick={handleSendMessage} className="w-11 h-11 bg-primary text-white rounded-full flex items-center justify-center shadow-xl shadow-primary/40 hover:scale-110 active:scale-95 transition-all">
-                                                <span className="material-icons-round">send</span>
-                                            </button>
-                                        </div>
+                            <div className="flex flex-col items-center mb-10">
+                                <div className="w-32 h-32 rounded-full border-8 border-white shadow-2xl relative mb-6">
+                                    {selectedContact.profile_pic ? (
+                                        <img src={selectedContact.profile_pic} className="w-full h-full object-cover rounded-full" />
                                     ) : (
-                                        <div className="pb-1 pr-1">
-                                            <button onClick={startRecording} className="w-11 h-11 bg-white dark:bg-slate-700 text-slate-500 hover:text-primary rounded-full flex items-center justify-center shadow-md hover:scale-110 active:scale-75 transition-all group/mic">
-                                                <span className="material-icons-round text-2xl group-active/mic:text-primary group-active/mic:animate-pulse">mic</span>
-                                            </button>
-                                        </div>
+                                        <div className="w-full h-full bg-slate-200 rounded-full flex items-center justify-center text-4xl font-bold">{selectedContact.name?.charAt(0)}</div>
                                     )}
-                                </div>
-
-                                {showEmojiPicker && (
-                                    <div className="absolute bottom-full left-0 mb-6 z-50 animate-in fade-in slide-in-from-bottom-4 duration-300 sm:scale-100 scale-90 origin-bottom-left shadow-3xl">
-                                        <EmojiPicker
-                                            onEmojiClick={(e) => setNewMessage(p => p + e.emoji)}
-                                            theme={window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' as any : 'light' as any}
-                                            previewConfig={{ showPreview: false }}
-                                            skinTonesDisabled
-                                            searchDisabled={window.innerWidth < 640}
-                                        />
+                                    <div className="absolute bottom-2 right-2 w-8 h-8 bg-[#0055FF] border-4 border-white rounded-full flex items-center justify-center text-white shadow-lg cursor-pointer hover:scale-110 transition-all">
+                                        <span className="material-icons-round text-sm">edit</span>
                                     </div>
-                                )}
-                            </div>
-                        </div>
-                    </>
-                )}
-
-                {/* --- Drawers & Modals --- */}
-
-                {/* Profile Drawer */}
-                {selectedContact && (
-                    <div className={`
-                        fixed inset-y-0 right-0 z-40 w-full sm:w-[400px] bg-white dark:bg-slate-900 shadow-3xl border-l border-slate-100 dark:border-slate-800
-                        transition-all duration-500 cubic-bezier(0.4, 0, 0.2, 1) flex flex-col
-                        ${showContactInfo ? 'translate-x-0' : 'translate-x-full shadow-none'}
-                    `}>
-                        <div className="p-6 border-b dark:border-slate-800 flex items-center justify-between">
-                            <h2 className="font-black uppercase tracking-tight text-xl">Perfil</h2>
-                            <button onClick={() => setShowContactInfo(false)} className="p-3 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl transition-all"><span className="material-icons-round">close</span></button>
-                        </div>
-                        <div className="flex-1 overflow-y-auto p-8 flex flex-col items-center">
-                            <div className="w-40 h-40 rounded-[3.5rem] overflow-hidden shadow-3xl mb-8 border-4 border-white dark:border-slate-800">
-                                {selectedContact.profile_pic ? <img src={selectedContact.profile_pic} className="w-full h-full object-cover" /> : <div className="w-full h-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-6xl font-black text-slate-300">{selectedContact.name?.charAt(0)}</div>}
-                            </div>
-                            <h3 className="text-2xl font-black text-slate-800 dark:text-slate-100 mb-2 mt-2">{selectedContact.name || 'Cliente'}</h3>
-                            <p className="text-sm font-bold text-slate-400 mb-10 select-all font-mono">WhatsApp: {selectedContact.remote_jid.split('@')[0]}</p>
-
-                            <div className="w-full grid grid-cols-2 gap-4 mb-10 text-center">
-                                <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-800">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Status</p>
-                                    <p className={`text-xs font-bold uppercase ${selectedContact.status === 'open' ? 'text-emerald-500' : 'text-slate-400'}`}>{selectedContact.status}</p>
                                 </div>
-                                <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-3xl border border-slate-100 dark:border-slate-800">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Bloqueado</p>
-                                    <p className={`text-xs font-bold uppercase ${selectedContact.is_blocked ? 'text-rose-500' : 'text-emerald-500'}`}>{selectedContact.is_blocked ? 'Sim' : 'Não'}</p>
+                                <h3 className="text-2xl font-black text-slate-800 tracking-tight mb-2">{selectedContact.name}</h3>
+                                <p className="text-xs font-bold text-slate-400 flex items-center gap-2 uppercase tracking-widest"><span className="material-icons-round text-sm">person_outline</span> Content Manager</p>
+
+                                <div className="mt-8 w-full p-2 bg-white rounded-2xl border border-slate-50 shadow-sm flex items-center justify-between group cursor-pointer hover:border-primary/20 transition-all">
+                                    <div className="flex items-center gap-3 p-2">
+                                        <div className="w-2.5 h-2.5 rounded-full bg-indigo-500"></div>
+                                        <span className="text-[11px] font-black uppercase tracking-widest text-slate-600">General Team</span>
+                                    </div>
+                                    <span className="material-icons-round text-slate-300 group-hover:text-primary transition-all">expand_more</span>
                                 </div>
                             </div>
 
-                            <div className="w-full space-y-4">
-                                <button onClick={toggleBlock} className={`w-full py-5 rounded-[1.75rem] font-black text-xs uppercase tracking-[0.2em] flex items-center justify-center gap-4 transition-all shadow-inner ${selectedContact.is_blocked ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'bg-rose-50 text-rose-500 hover:bg-rose-100'}`}>
-                                    <span className="material-icons-round">{selectedContact.is_blocked ? 'lock_open' : 'block'}</span>
-                                    {selectedContact.is_blocked ? 'Liberar Contato' : 'Bloquear Contato'}
+                            <div className="flex-1">
+                                <div className="flex gap-8 border-b border-slate-100 mb-8 pb-3 text-[11px] font-bold uppercase tracking-widest overflow-x-auto no-scrollbar">
+                                    <button className="text-[#0055FF] border-b-2 border-[#0055FF] pb-3 whitespace-nowrap">History</button>
+                                    <button className="text-slate-400 hover:text-slate-600 whitespace-nowrap">Tasks</button>
+                                    <button className="text-slate-400 hover:text-slate-600 whitespace-nowrap">Notes (4)</button>
+                                </div>
+                                <div className="space-y-6">
+                                    <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Recent Activity</p>
+                                    {[
+                                        { icon: 'group', color: 'orange', title: 'Equipe reunida', sub: 'Meeting scheduled' },
+                                        { icon: 'call_missed', color: 'rose', title: 'Chamada perdida', sub: '11:45 AM' }
+                                    ].map((item, idx) => (
+                                        <div key={idx} className="flex items-center justify-between group cursor-pointer bg-white p-4 rounded-3xl border border-slate-50 hover:shadow-lg transition-all">
+                                            <div className="flex items-center gap-4">
+                                                <div className={`w-12 h-12 rounded-2xl bg-${item.color}-50 text-${item.color}-500 flex items-center justify-center`}><span className="material-icons-round text-2xl">{item.icon}</span></div>
+                                                <div>
+                                                    <p className="text-[13px] font-bold text-slate-800">{item.title}</p>
+                                                    <p className="text-[10px] text-slate-400 font-bold">{item.sub}</p>
+                                                </div>
+                                            </div>
+                                            <span className="material-icons-round text-slate-200 group-hover:text-slate-400">more_vert</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Contact Management Actions */}
+                            <div className="mt-8 space-y-3">
+                                <button
+                                    onClick={toggleBlock}
+                                    className={`w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-3 transition-all ${selectedContact.is_blocked ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'bg-rose-50 text-rose-500 hover:bg-rose-100'}`}
+                                >
+                                    <span className="material-icons-round text-lg">{selectedContact.is_blocked ? 'lock_open' : 'block'}</span>
+                                    {selectedContact.is_blocked ? 'Unblock Contact' : 'Block Contact'}
                                 </button>
-                                <button onClick={deleteConversation} className="w-full py-5 rounded-[1.75rem] font-black text-xs uppercase tracking-[0.2em] bg-slate-900 text-white hover:bg-black flex items-center justify-center gap-4 transition-all shadow-xl shadow-slate-900/10">
-                                    <span className="material-icons-round">delete_sweep</span>
-                                    Limpar Conversa
+                                <button
+                                    onClick={deleteConversation}
+                                    className="w-full py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest bg-slate-900 text-white hover:bg-black flex items-center justify-center gap-3 transition-all shadow-lg shadow-slate-200"
+                                >
+                                    <span className="material-icons-round text-lg">delete_outline</span>
+                                    Clear Conversation
                                 </button>
                             </div>
-                        </div>
-                    </div>
-                )}
 
-                {/* Agent Modal */}
+                            {/* PRO Card */}
+                            <div className="mt-10 p-8 bg-gradient-to-br from-[#FF6B6B] to-[#FF4B4B] rounded-[3rem] relative overflow-hidden group shadow-2xl shadow-rose-200 shrink-0">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10 blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+                                <div className="relative z-10 flex flex-col items-center text-center">
+                                    <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center text-white mb-6 animate-bounce shadow-lg shadow-black/5"><span className="material-icons-round text-2xl">star</span></div>
+                                    <h4 className="text-white font-black text-lg mb-3 leading-tight tracking-tight">Get more with PRO!</h4>
+                                    <p className="text-white/70 text-[11px] mb-8 font-medium">Upgrade to access advanced analytics and task automation.</p>
+                                    <button className="w-full py-4 bg-white text-[#FF4B4B] rounded-2xl font-black text-[11px] uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-xl">Upgrade now</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* --- Modals --- */}
+
+                {/* Agent Transfer Modal */}
                 {transferModal && (
-                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-black/70 backdrop-blur-lg animate-in fade-in duration-500">
-                        <div className="bg-white dark:bg-slate-900 rounded-[3.5rem] w-full max-w-lg p-10 shadow-3xl animate-in zoom-in-95 duration-500 border border-white/20">
-                            <div className="flex items-center justify-between mb-10">
-                                <h3 className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tighter">Transferir</h3>
-                                <button onClick={() => setTransferModal(false)} className="p-3 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-2xl transition-all"><span className="material-icons-round">close</span></button>
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-black/40 backdrop-blur-md animate-in fade-in duration-300">
+                        <div className="bg-white rounded-[3rem] w-full max-w-md p-10 shadow-2xl border border-white/20 animate-in zoom-in-95 duration-500">
+                            <div className="flex items-center justify-between mb-8">
+                                <h3 className="text-2xl font-black text-slate-800 tracking-tighter">Transfer Chat</h3>
+                                <button onClick={() => setTransferModal(false)} className="w-10 h-10 hover:bg-slate-50 rounded-xl transition-all flex items-center justify-center text-slate-400"><span className="material-icons-round">close</span></button>
                             </div>
-                            <div className="space-y-4 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
+                            <div className="space-y-3 max-h-[400px] overflow-y-auto no-scrollbar pr-1">
                                 {agents.length === 0 ? (
-                                    <div className="text-center py-10 opacity-30">
-                                        <span className="material-icons-round text-6xl mb-4">person_off</span>
-                                        <p className="font-bold uppercase tracking-widest text-sm">Nenhum agente online</p>
-                                    </div>
+                                    <div className="text-center py-10 opacity-30 italic font-medium text-slate-500">No agents online</div>
                                 ) : (
                                     agents.map(agent => (
-                                        <button key={agent.id} onClick={() => transferConversation(agent.id)} className="w-full flex items-center gap-5 p-5 rounded-[2rem] hover:bg-primary/5 hover:scale-[1.03] transition-all border border-slate-50 dark:border-slate-800 text-left group">
-                                            <div className="w-16 h-16 rounded-[1.25rem] bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-black text-2xl text-primary group-hover:bg-primary group-hover:text-white transition-all">{agent.name.charAt(0)}</div>
+                                        <button
+                                            key={agent.id}
+                                            onClick={() => transferConversation(agent.id)}
+                                            className="w-full flex items-center gap-4 p-4 rounded-2xl hover:bg-slate-50 border border-transparent hover:border-slate-100 transition-all text-left group"
+                                        >
+                                            <div className="w-12 h-12 rounded-xl bg-blue-50 text-primary flex items-center justify-center font-black text-xl group-hover:bg-primary group-hover:text-white transition-all">{agent.name.charAt(0)}</div>
                                             <div className="flex-1">
-                                                <p className="font-black text-lg text-slate-800 dark:text-slate-100 leading-none mb-1">{agent.name}</p>
-                                                <p className="text-[10px] uppercase font-black text-emerald-500 tracking-widest flex items-center gap-1">
-                                                    <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span> Online
-                                                </p>
+                                                <p className="font-bold text-slate-800 leading-none mb-1">{agent.name}</p>
+                                                <p className="text-[9px] uppercase font-black text-emerald-500 tracking-widest">Available</p>
                                             </div>
-                                            <span className="material-icons-round text-primary opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">arrow_forward</span>
+                                            <span className="material-icons-round text-slate-200 group-hover:text-primary group-hover:translate-x-1 transition-all">arrow_forward</span>
                                         </button>
                                     ))
                                 )}
@@ -1039,26 +969,23 @@ const ChatView: React.FC = () => {
                     </div>
                 )}
 
-                <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" />
-            </div>
+                {/* File Input (Hidden) */}
+                <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} />
 
-            <style>{`
-                .bg-patterns {
-                    background-image: radial-gradient(circle, #cbd5e1 1.5px, transparent 1.5px);
-                    background-size: 30px 30px;
-                }
-                .dark .bg-patterns {
-                    background-image: radial-gradient(circle, #1e293b 1.5px, transparent 1.5px);
-                }
-                .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-                .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
-                .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); }
-                .animate-waveform { animation: waveform 1s ease-in-out infinite; }
-                @keyframes waveform { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(2); } }
-                .rounded-huge { border-radius: 4rem; }
-                .shadow-3xl { box-shadow: 0 35px 60px -15px rgba(0, 0, 0, 0.2); }
-            `}</style>
-        </div >
+                {/* Custom Scrollbar & Utility Styles */}
+                <style>{`
+                    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+                    * { font-family: 'Outfit', sans-serif !important; }
+                    .custom-scrollbar::-webkit-scrollbar { width: 5px; }
+                    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+                    .custom-scrollbar::-webkit-scrollbar-thumb { background: #F1F5F9; border-radius: 20px; }
+                    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #E2E8F0; }
+                    .no-scrollbar::-webkit-scrollbar { display: none; }
+                    textarea { line-height: 1.5 !important; }
+                    .shadow-inner-soft { box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05); }
+                `}</style>
+            </div>
+        </div>
     );
 };
 
