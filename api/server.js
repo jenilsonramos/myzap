@@ -1002,7 +1002,7 @@ app.post('/api/webhook/meta', async (req, res) => {
     }
 });
 
-app.post('/api/auth/register', async (req, res) => {
+app.post('/api/auth/register', authLimiter, async (req, res) => {
     const { name, email, password } = req.body;
     try {
         const [rows] = await pool.execute('SELECT id FROM users WHERE email = ?', [email]);
@@ -1040,7 +1040,7 @@ app.post('/api/auth/register', async (req, res) => {
     }
 });
 
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', authLimiter, async (req, res) => {
     const { email, password } = req.body;
     try {
         const [rows] = await pool.execute('SELECT * FROM users WHERE email = ?', [email]);
@@ -1428,8 +1428,10 @@ async function sendZeptoEmail(to, subject, html) {
         console.log('✅ [ZEPTOMAIL REST] Sucesso:', response.data);
         return response.data;
     } catch (err) {
-        console.error('❌ [ZEPTOMAIL ERROR]:', err.response?.data || err.message);
-        throw new Error(err.response?.data ? JSON.stringify(err.response.data) : err.message);
+        // Sanitizar log para não expor tokens ou dados sensíveis do request
+        const errorMsg = err.response?.data?.message || err.message || 'Erro desconhecido';
+        console.error('❌ [ZEPTOMAIL ERROR]:', errorMsg);
+        throw new Error(errorMsg);
     }
 }
 
