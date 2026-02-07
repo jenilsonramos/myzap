@@ -536,9 +536,11 @@ async function setupTables() {
         // Adicionar coluna is_blocked aos usuários (para bloqueio por assinatura)
         await pool.query("ALTER TABLE users ADD COLUMN is_blocked BOOLEAN DEFAULT FALSE").catch(() => { });
 
-        // Adicionar colunas ao flow_state para persistência de variáveis
+        // Adicionar colunas se não existirem (Safe check)
         await pool.query("ALTER TABLE flow_state ADD COLUMN flow_id VARCHAR(255)").catch(() => { });
         await pool.query("ALTER TABLE flow_state ADD COLUMN current_node_id VARCHAR(255)").catch(() => { });
+        await pool.query("ALTER TABLE flow_state ADD COLUMN variables JSON").catch(() => { });
+        await pool.query("ALTER TABLE contacts ADD COLUMN variables JSON").catch(() => { });
 
         // Garantir coluna flows na tabela plans
         await pool.query("ALTER TABLE plans ADD COLUMN flows INT DEFAULT 5 AFTER messages").catch(() => { });
@@ -2208,17 +2210,26 @@ async function updateFlowCooldown(flowId, remoteJid) {
 // Execute a flow starting from trigger node
 async function executeFlow(flowData, userId, remoteJid, instanceName, messageContent, contactId = null) {
     const { content, triggerNode } = flowData;
+    // Load contact variables for context
+    const [contactRows] = await pool.query("SELECT variables FROM contacts WHERE id = ?", [contactId]);
+    let contactVars = contactRows[0]?.variables || {};
+    if (typeof contactVars === 'string') {
+        try { contactVars = JSON.parse(contactVars); } catch (e) { contactVars = {}; }
+    }
+
     const context = {
         userId,
         remoteJid,
         instanceName,
         contactId,
         variables: {
-            contact: { phone: remoteJid.replace('@s.whatsapp.net', '') },
+            ...contactVars,
+            contact: { ...contactVars, phone: remoteJid.replace('@s.whatsapp.net', '') },
             message: messageContent,
             last_input: messageContent
         },
-        visitedNodes: new Set()
+        visitedNodes: new Set(),
+        flowId: flowData.flow.id
     };
 
     console.log(`🚀 [FLOW] Executing flow for user ${userId}, contact ${remoteJid}`);
@@ -2263,8 +2274,8 @@ async function processNode(node, flowContent, context) {
                 shouldContinue = !!nextNodeId;
                 break;
 
-            case 'input':
-                await processInputNode(node, context);
+            case 'question':
+                await processQuestionNode(node, context);
                 shouldContinue = false; // Wait for user response
                 break;
 
@@ -2398,16 +2409,20 @@ async function processConditionNode(node, flowContent, context) {
     return null;
 }
 
-async function processInputNode(node, context) {
+async function processQuestionNode(node, context) {
     const question = replaceVariables(node.data.question || '', context);
     await sendWhatsAppMessage(context.instanceName, context.remoteJid, question);
 
     // Store pending input state
     await pool.query(`
-        INSERT INTO flow_state (user_id, remote_jid, variable_name, created_at)
-        VALUES (?, ?, ?, NOW())
-        ON DUPLICATE KEY UPDATE variable_name = VALUES(variable_name), created_at = NOW()
-    `, [context.userId, context.remoteJid, node.data.variable || 'user_input']);
+        INSERT INTO flow_state (user_id, remote_jid, variable_name, flow_id, current_node_id, created_at)
+        VALUES (?, ?, ?, ?, ?, NOW())
+        ON DUPLICATE KEY UPDATE 
+            variable_name = VALUES(variable_name), 
+            flow_id = VALUES(flow_id),
+            current_node_id = VALUES(current_node_id),
+            created_at = NOW()
+    `, [context.userId, context.remoteJid, node.data.variable || 'user_input', context.flowId, node.id]);
 }
 
 function processSetVariableNode(node, context) {
@@ -3102,6 +3117,68 @@ app.post('/api/webhook/evolution', async (req, res) => {
                 try {
                     // Only process if it's an incoming message (not from me)
                     if (!fromMe) {
+                        // 1. Check for RESUME (Pending Input/Question)
+                        const [stateRows] = await pool.query(
+                            "SELECT * FROM flow_state WHERE remote_jid = ? AND user_id = ?",
+                            [remoteJid, userId]
+                        );
+
+                        if (stateRows.length > 0) {
+                            const state = stateRows[0];
+                            logDebug(`🔄 [FLOW] Resuming flow ${state.flow_id} for node ${state.current_node_id}`);
+
+                            const varName = state.variable_name || 'user_input';
+
+                            // Save variable to contact
+                            const [contactVarsRows] = await pool.query("SELECT variables FROM contacts WHERE id = ?", [contactId]);
+                            let contactVars = contactVarsRows[0]?.variables || {};
+                            if (typeof contactVars === 'string') {
+                                try { contactVars = JSON.parse(contactVars); } catch (e) { contactVars = {}; }
+                            }
+
+                            contactVars[varName] = content;
+                            await pool.query("UPDATE contacts SET variables = ? WHERE id = ?", [JSON.stringify(contactVars), contactId]);
+
+                            // Get flow content
+                            const [flowRows] = await pool.query("SELECT content FROM flows WHERE id = ?", [state.flow_id]);
+                            if (flowRows.length > 0) {
+                                const flowContent = typeof flowRows[0].content === 'string' ? JSON.parse(flowRows[0].content) : flowRows[0].content;
+
+                                // Delete state BEFORE continuing to prevent loops or double execution
+                                await pool.query("DELETE FROM flow_state WHERE id = ?", [state.id]);
+
+                                // Setup context with variables
+                                const context = {
+                                    userId,
+                                    remoteJid,
+                                    instanceName: instance,
+                                    contactId,
+                                    variables: {
+                                        ...contactVars,
+                                        contact: { ...contactVars, phone: remoteJid.replace('@s.whatsapp.net', '') },
+                                        message: content,
+                                        last_input: content
+                                    },
+                                    visitedNodes: new Set(),
+                                    flowId: state.flow_id
+                                };
+
+                                // Find next node
+                                const edges = flowContent.edges || [];
+                                const nextEdge = edges.find(e => e.source === state.current_node_id);
+                                if (nextEdge) {
+                                    const nextNode = flowContent.nodes.find(n => n.id === nextEdge.target);
+                                    if (nextNode) {
+                                        processNode(nextNode, flowContent, context)
+                                            .then(() => logDebug(`🏁 [FLOW] Resumed flow execution completed`))
+                                            .catch(err => logDebug(`❌ [FLOW] Resumed flow error: ${err.message}`));
+                                    }
+                                }
+
+                                return res.status(200).send('OK'); // Stop here, we resumed a flow
+                            }
+                        }
+
                         const activeFlows = await getActiveFlows(userId);
                         if (activeFlows.length > 0) {
                             logDebug(`🔍 [FLOW] Found ${activeFlows.length} active flows for user ${userId}`);

@@ -31,7 +31,7 @@ import DelayNode from './nodes/DelayNode';
 import EndNode from './nodes/EndNode';
 import GoogleSheetsNode from './nodes/GoogleSheetsNode';
 import HumanHandoffNode from './nodes/HumanHandoffNode';
-import InputNode from './nodes/InputNode';
+import QuestionNode from './nodes/QuestionNode';
 import InteractiveNode from './nodes/InteractiveNode';
 import MediaNode from './nodes/MediaNode';
 import ScheduleNode from './nodes/ScheduleNode';
@@ -53,7 +53,7 @@ const nodeTypes = {
     end: EndNode,
     google_sheets: GoogleSheetsNode,
     handoff: HumanHandoffNode,
-    input: InputNode,
+    question: QuestionNode,
     interactive: InteractiveNode,
     media: MediaNode,
     schedule: ScheduleNode,
@@ -252,7 +252,7 @@ const FlowbuilderView: React.FC<FlowbuilderViewProps> = ({ flowId, onClose, isDa
             case 'handoff': return { department: 'suporte', message: 'Transferindo para um atendente...' };
             case 'schedule': return { time: '09:00', days: ['seg', 'ter', 'qua', 'qui', 'sex'] };
             case 'ab_split': return { variantA: 50, variantB: 50 };
-            case 'input': return { question: 'Digite sua resposta:', variable: 'user_input' };
+            case 'question': return { question: 'Digite sua resposta:', variable: 'user_input' };
             case 'validator': return { validationType: 'email', errorMessage: 'Formato inválido!' };
             case 'action': return { actionType: 'add_tag', tag: '' };
             case 'set_variable': return { variableName: '', value: '' };
@@ -382,7 +382,7 @@ const FlowbuilderView: React.FC<FlowbuilderViewProps> = ({ flowId, onClose, isDa
                         <ToolButton icon="chat" label="Mensagem" color="blue-500" onClick={() => addNode('message')} />
                         <ToolButton icon="timer" label="Delay" color="slate-500" onClick={() => addNode('delay')} />
                         <ToolButton icon="call_merge" label="Condição" color="amber-500" onClick={() => addNode('condition')} />
-                        <ToolButton icon="keyboard" label="Input" color="orange-500" onClick={() => addNode('input')} />
+                        <ToolButton icon="help_outline" label="Pergunta" color="orange-500" onClick={() => addNode('question')} />
 
                         <div className="w-[1px] h-10 bg-gradient-to-b from-transparent via-slate-300 dark:via-white/20 to-transparent mx-1 shrink-0"></div>
 
@@ -870,7 +870,7 @@ const PropertiesPanel = ({ node, onUpdate, onClose, onDelete, onDuplicate }: { n
                         </div>
                     </div>
                 );
-            case 'input':
+            case 'question':
                 return (
                     <div className="space-y-5">
                         <div>
@@ -883,16 +883,20 @@ const PropertiesPanel = ({ node, onUpdate, onClose, onDelete, onDuplicate }: { n
                             />
                         </div>
                         <div>
-                            <label className={labelStyle}>Salvar em Variável</label>
+                            <label className={labelStyle}>Salvar Resposta em:</label>
                             <div className="relative">
-                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">$</span>
+                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-500 font-bold">@</span>
                                 <input
-                                    className={`${glassInput} pl-8 font-mono text-xs font-bold text-orange-600`}
-                                    placeholder="nome_usuario"
+                                    className={`${glassInput} pl-10 font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400`}
+                                    placeholder="ex: nome_cliente"
                                     value={node.data.variable || ''}
                                     onChange={(e) => onUpdate({ variable: e.target.value })}
                                 />
                             </div>
+                            <p className="text-[10px] text-slate-400 mt-1.5 flex items-center gap-1">
+                                <span className="material-icons-round text-[12px]">info</span>
+                                Você pode usar o valor depois com {'{{'}nome_cliente{'}}'}
+                            </p>
                         </div>
                     </div>
                 );
