@@ -658,7 +658,7 @@ const ChatView: React.FC = () => {
                             `}
                         >
                             <div className="relative shrink-0">
-                                <div className="w-11 h-11 rounded-lg bg-slate-200 flex items-center justify-center text-slate-500 font-bold overflow-hidden shadow-sm">
+                                <div className="w-11 h-11 rounded-lg bg-slate-200 flex items-center justify-center text-slate-500 font-bold overflow-hidden shadow-industrial-sm">
                                     {c.profile_pic ? (
                                         <img src={c.profile_pic} className="w-full h-full object-cover" alt="" />
                                     ) : (
@@ -672,7 +672,7 @@ const ChatView: React.FC = () => {
                                 <div className="flex-1 min-w-0 ml-3">
                                     <div className="flex justify-between items-baseline mb-0.5">
                                         <h3 className={`text-sm font-semibold truncate ${selectedContact?.id === c.id ? 'text-slate-900' : 'text-slate-700'}`}>{c.name}</h3>
-                                        {c.lastTime && <span className="text-[10px] text-slate-400 font-medium">{formatFriendlyDate(c.lastTime)}</span>}
+                                        {c.lastTime && <span className="text-[10px] text-slate-400 industrial-mono">{formatFriendlyDate(c.lastTime)}</span>}
                                     </div>
                                     <div className="flex items-center justify-between gap-2">
                                         <p className="text-[11px] text-slate-500 truncate">{c.lastMessage || '...'}</p>
@@ -704,14 +704,14 @@ const ChatView: React.FC = () => {
                         {/* Header do Chat */}
                         <div className="h-16 px-6 border-b border-slate-200/50 flex items-center justify-between shrink-0">
                             <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-sm shadow-sm">
+                                <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-sm shadow-industrial-sm">
                                     {selectedContact.name.charAt(0).toUpperCase()}
                                 </div>
                                 <div className="min-w-0">
                                     <h3 className="text-sm font-bold text-slate-800 truncate">{selectedContact.name}</h3>
                                     <div className="flex items-center gap-1.5">
-                                        <div className={`w-1.5 h-1.5 rounded-full ${getStatusColor(selectedContact.status)} animate-pulse`}></div>
-                                        <span className="text-[10px] font-medium text-slate-400 uppercase tracking-tight">online</span>
+                                        <div className={`w-1.5 h-1.5 rounded-full ${getStatusColor(selectedContact.status)} animate-pulse-soft shadow-[0_0_8px_rgba(34,197,94,0.4)]`}></div>
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest industrial-mono">online</span>
                                     </div>
                                 </div>
                             </div>
@@ -755,8 +755,8 @@ const ChatView: React.FC = () => {
                                 return (
                                     <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
                                         <div className={`
-                                            max-w-[80%] p-1 rounded-2xl shadow-sm border
-                                            ${isMe ? 'bg-white border-slate-200/60' : 'bg-white border-slate-100'}
+                                            max-w-[80%] p-1 rounded-2xl border glass-sheen
+                                            ${isMe ? 'bg-white border-slate-200/60 shadow-industrial-md' : 'bg-white border-slate-100 shadow-industrial-sm'}
                                         `}>
                                             <div className="px-3 py-2">
                                                 {type === 'image' && mediaUrl && (
@@ -789,7 +789,7 @@ const ChatView: React.FC = () => {
 
                                                 <div className="flex items-center justify-end gap-1.5 mt-1.5">
                                                     {msg.source === 'ai' && <span className="text-[9px] font-black uppercase text-blue-600 tracking-tighter bg-blue-50 px-1.5 rounded-md">IA</span>}
-                                                    <span className="text-[10px] font-semibold text-slate-400 uppercase">
+                                                    <span className="text-[10px] font-bold text-slate-400 uppercase industrial-mono">
                                                         {new Date(msg.timestamp * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                                                     </span>
                                                     {isMe && (
@@ -823,7 +823,7 @@ const ChatView: React.FC = () => {
                                     </div>
                                 </div>
                             ) : (
-                                <div className="max-w-5xl mx-auto border border-slate-200/80 rounded-2xl bg-[#fcfcfd] flex items-end p-2 transition-all focus-within:border-slate-400/50 focus-within:shadow-sm">
+                                <div className="max-w-5xl mx-auto border border-slate-200/80 rounded-2xl bg-[#fcfcfd] flex items-end p-2 transition-all focus-within:border-slate-400/50 shadow-industrial-lg">
                                     <div className="flex gap-1 mb-1">
                                         <button
                                             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
@@ -884,14 +884,14 @@ const ChatView: React.FC = () => {
 
             {/* Painel de Informações do Contato (Retrátil) */}
             {showContactInfo && selectedContact && (
-                <div className="w-80 border-l border-slate-200/50 bg-white flex flex-col animate-in slide-in-from-right duration-300">
+                <div className="w-80 border-l border-slate-200/50 bg-white flex flex-col animate-in slide-in-from-right duration-500 ease-out shadow-industrial-lg">
                     <div className="p-6 border-b border-slate-200/50 flex items-center justify-between">
                         <h4 className="font-bold text-slate-800">Detalhes</h4>
                         <button onClick={() => setShowContactInfo(false)} className="text-slate-400 hover:text-slate-600"><span className="material-icons-round">close</span></button>
                     </div>
                     <div className="flex-1 overflow-y-auto p-6 space-y-8">
                         <div className="flex flex-col items-center">
-                            <div className="w-24 h-24 rounded-2xl bg-slate-100 mb-4 border-2 border-slate-50 shadow-sm overflow-hidden">
+                            <div className="w-24 h-24 rounded-2xl bg-slate-100 mb-4 border-2 border-slate-50 shadow-industrial-md overflow-hidden">
                                 {selectedContact.profile_pic ? (
                                     <img src={selectedContact.profile_pic} className="w-full h-full object-cover" alt="" />
                                 ) : (
@@ -899,7 +899,7 @@ const ChatView: React.FC = () => {
                                 )}
                             </div>
                             <h3 className="text-lg font-bold text-slate-900">{selectedContact.name}</h3>
-                            <p className="text-xs text-slate-400 font-medium mt-1">{selectedContact.remote_jid.split('@')[0]}</p>
+                            <p className="text-[11px] text-slate-400 industrial-mono mt-1">{selectedContact.remote_jid.split('@')[0]}</p>
                         </div>
 
                         <div className="space-y-4">
@@ -907,11 +907,11 @@ const ChatView: React.FC = () => {
                             <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-3">
                                 <div className="flex justify-between">
                                     <span className="text-[11px] text-slate-400 font-bold uppercase">Status</span>
-                                    <span className={`text-[10px] font-black uppercase text-white px-2 py-0.5 rounded-md ${getStatusColor(selectedContact.status)}`}>{selectedContact.status}</span>
+                                    <span className={`text-[10px] font-black uppercase text-white px-2 py-0.5 rounded-md industrial-mono ${getStatusColor(selectedContact.status)}`}>{selectedContact.status}</span>
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-[11px] text-slate-400 font-bold uppercase">IA</span>
-                                    <span className={`text-[11px] font-bold ${selectedContact.ai_paused ? 'text-amber-500' : 'text-emerald-500'}`}>{selectedContact.ai_paused ? 'Pausada' : 'Ativa'}</span>
+                                    <span className={`text-[11px] font-bold industrial-mono ${selectedContact.ai_paused ? 'text-amber-500' : 'text-emerald-500'}`}>{selectedContact.ai_paused ? 'Pausada' : 'Ativa'}</span>
                                 </div>
                             </div>
                         </div>
@@ -937,7 +937,7 @@ const ChatView: React.FC = () => {
             {/* Modals */}
             {transferModal && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white rounded-3xl w-full max-w-sm p-8 shadow-2xl animate-in zoom-in-95 duration-300">
+                    <div className="bg-white rounded-3xl w-full max-w-sm p-8 shadow-industrial-lg border border-slate-200/50 animate-in zoom-in-95 duration-500 ease-out">
                         <div className="flex items-center justify-between mb-6">
                             <h3 className="text-lg font-bold text-slate-800 tracking-tight">Transferir Chat</h3>
                             <button onClick={() => setTransferModal(false)} className="text-slate-400 hover:text-slate-600"><span className="material-icons-round">close</span></button>
@@ -964,33 +964,77 @@ const ChatView: React.FC = () => {
 
             {/* Estilos Globais Reduzidos */}
             <style>{`
-                @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+                @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
                 
-                .modern-chat, 
+                .modern-chat {
+                    font-family: 'Outfit', sans-serif !important;
+                }
+
                 .modern-chat input, 
                 .modern-chat textarea, 
                 .modern-chat button {
                     font-family: 'Outfit', sans-serif !important;
                 }
 
+                .industrial-mono {
+                    font-family: 'JetBrains Mono', monospace !important;
+                    letter-spacing: -0.02em;
+                }
+
+                /* Profundidade Industrial (Z-Index Shadows) */
+                .shadow-industrial-sm {
+                    box-shadow: 0 2px 4px rgba(0,0,0,0.02), 0 1px 0 rgba(0,0,0,0.04);
+                }
+                .shadow-industrial-md {
+                    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03), inset 0 1px 0 rgba(255,255,255,0.6);
+                }
+                .shadow-industrial-lg {
+                    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.02), inset 0 1px 0 rgba(255,255,255,0.8);
+                }
+
+                /* Efeito de Reflexo (Sheen) */
+                .glass-sheen {
+                    position: relative;
+                    overflow: hidden;
+                }
+                .glass-sheen::after {
+                    content: "";
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    height: 50%;
+                    background: linear-gradient(180deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 100%);
+                    pointer-events: none;
+                }
+
                 .custom-scrollbar::-webkit-scrollbar {
-                    width: 5px;
+                    width: 4px;
                 }
                 .custom-scrollbar::-webkit-scrollbar-track {
                     background: transparent;
                 }
                 .custom-scrollbar::-webkit-scrollbar-thumb {
-                    background: rgba(0, 0, 0, 0.05);
+                    background: rgba(0, 0, 0, 0.08);
                     border-radius: 10px;
                 }
                 .custom-scrollbar:hover::-webkit-scrollbar-thumb {
-                    background: rgba(0, 0, 0, 0.1);
+                    background: rgba(0, 0, 0, 0.15);
                 }
                 .no-scrollbar::-webkit-scrollbar {
                     display: none;
                 }
                 textarea {
-                    line-height: normal !important;
+                    line-height: 1.6 !important;
+                }
+
+                /* Animação de Pulso Industrial */
+                @keyframes pulse-soft {
+                    0%, 100% { opacity: 1; transform: scale(1); }
+                    50% { opacity: 0.7; transform: scale(0.95); }
+                }
+                .animate-pulse-soft {
+                    animation: pulse-soft 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
                 }
             `}</style>
         </div>
