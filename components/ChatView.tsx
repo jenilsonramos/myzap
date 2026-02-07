@@ -658,7 +658,7 @@ const ChatView: React.FC = () => {
                             `}
                         >
                             <div className="relative shrink-0">
-                                <div className="w-11 h-11 rounded-lg bg-slate-200 flex items-center justify-center text-slate-500 font-bold overflow-hidden shadow-industrial-sm">
+                                <div className={`w-11 h-11 rounded-lg bg-slate-200 flex items-center justify-center text-slate-500 font-bold overflow-hidden shadow-industrial-sm avatar-ring ${getStatusColor(c.status) === 'bg-emerald-500' ? 'avatar-ring-active' : ''}`}>
                                     {c.profile_pic ? (
                                         <img src={c.profile_pic} className="w-full h-full object-cover" alt="" />
                                     ) : (
@@ -704,7 +704,7 @@ const ChatView: React.FC = () => {
                         {/* Header do Chat */}
                         <div className="h-16 px-6 border-b border-slate-200/50 flex items-center justify-between shrink-0">
                             <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-sm shadow-industrial-sm">
+                                <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-sm shadow-industrial-sm avatar-ring-active">
                                     {selectedContact.name.charAt(0).toUpperCase()}
                                 </div>
                                 <div className="min-w-0">
@@ -719,28 +719,28 @@ const ChatView: React.FC = () => {
                             <div className="flex items-center gap-1">
                                 <button
                                     onClick={() => updateStatus(selectedContact.id, 'closed')}
-                                    className="p-2 hover:bg-slate-50 rounded-lg text-slate-400 hover:text-emerald-600 transition-all group"
+                                    className="p-2 hover:bg-slate-50 rounded-lg text-slate-400 hover:text-emerald-600 transition-all group active:scale-90"
                                     title="Finalizar Conversa"
                                 >
                                     <span className="material-icons-round text-xl">check_circle</span>
                                 </button>
                                 <button
                                     onClick={() => { fetchAgents(); setTransferModal(true); }}
-                                    className="p-2 hover:bg-slate-50 rounded-lg text-slate-400 hover:text-blue-600 transition-all"
+                                    className="p-2 hover:bg-slate-50 rounded-lg text-slate-400 hover:text-blue-600 transition-all active:scale-90"
                                     title="Transferir"
                                 >
                                     <span className="material-icons-round text-xl">ios_share</span>
                                 </button>
                                 <button
                                     onClick={toggleAI}
-                                    className={`p-2 rounded-lg transition-all ${selectedContact.ai_paused ? 'text-amber-500 bg-amber-50' : 'text-slate-400 hover:bg-slate-50 hover:text-blue-500'}`}
+                                    className={`p-2 rounded-lg transition-all active:scale-90 ${selectedContact.ai_paused ? 'text-amber-500 bg-amber-50' : 'text-slate-400 hover:bg-slate-50 hover:text-blue-500'}`}
                                     title={selectedContact.ai_paused ? "Ativar IA" : "Pausar IA"}
                                 >
                                     <span className="material-icons-round text-xl">{selectedContact.ai_paused ? 'smart_toy' : 'auto_awesome'}</span>
                                 </button>
                                 <button
                                     onClick={() => setShowContactInfo(!showContactInfo)}
-                                    className={`p-2 rounded-lg transition-all ${showContactInfo ? 'bg-slate-100 text-slate-900' : 'text-slate-400 hover:bg-slate-50'}`}
+                                    className={`p-2 rounded-lg transition-all active:scale-90 ${showContactInfo ? 'bg-slate-100 text-slate-900' : 'text-slate-400 hover:bg-slate-50'}`}
                                 >
                                     <span className="material-icons-round text-xl">info</span>
                                 </button>
@@ -809,31 +809,38 @@ const ChatView: React.FC = () => {
                         {/* Input de Mensagem */}
                         <div className="p-4 border-t border-slate-200/50 bg-white shrink-0">
                             {isRecording ? (
-                                <div className="bg-slate-900 text-white rounded-2xl p-4 flex items-center justify-between animate-in slide-in-from-bottom-2 duration-300">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></div>
-                                        <span className="font-bold tabular-nums text-lg">
+                                <div className="max-w-5xl mx-auto bg-slate-900 text-white rounded-[2rem] p-4 flex items-center justify-between animate-in slide-in-from-bottom-4 duration-500 ease-out shadow-industrial-lg relative overflow-hidden">
+                                    <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-transparent via-blue-500 to-transparent opacity-30"></div>
+                                    <div className="flex items-center gap-5 relative z-10">
+                                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 rounded-full border border-white/10">
+                                            <div className="waveform-bar"></div>
+                                            <div className="waveform-bar"></div>
+                                            <div className="waveform-bar"></div>
+                                            <div className="waveform-bar"></div>
+                                            <div className="waveform-bar"></div>
+                                        </div>
+                                        <span className="font-bold tabular-nums text-xl industrial-mono tracking-tighter">
                                             {Math.floor(recordingTime / 60).toString().padStart(2, '0')}:
                                             {(recordingTime % 60).toString().padStart(2, '0')}
                                         </span>
                                     </div>
-                                    <div className="flex gap-2">
-                                        <button onClick={() => stopRecording(false)} className="px-4 py-2 hover:bg-white/10 rounded-xl transition-colors font-bold text-xs uppercase tracking-tighter">Cancelar</button>
-                                        <button onClick={() => stopRecording(true)} className="px-6 py-2 bg-blue-600 rounded-xl font-bold text-xs uppercase tracking-tight shadow-lg shadow-blue-500/20 active:scale-95 transition-all">Enviar Áudio</button>
+                                    <div className="flex gap-3 relative z-10">
+                                        <button onClick={() => stopRecording(false)} className="px-5 py-2.5 hover:bg-white/10 rounded-xl transition-all font-black text-[10px] uppercase tracking-widest text-white/60 hover:text-white">Descartar</button>
+                                        <button onClick={() => stopRecording(true)} className="px-8 py-2.5 bg-blue-600 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-xl shadow-blue-500/40 active:scale-95 transition-all text-white border border-white/20">Enviar Áudio</button>
                                     </div>
                                 </div>
                             ) : (
-                                <div className="max-w-5xl mx-auto border border-slate-200/80 rounded-2xl bg-[#fcfcfd] flex items-end p-2 transition-all focus-within:border-slate-400/50 shadow-industrial-lg">
+                                <div className="max-w-5xl mx-auto border border-slate-200/80 rounded-[2rem] bg-slate-50 flex items-end p-2 transition-all input-sheen-focus shadow-industrial-lg">
                                     <div className="flex gap-1 mb-1">
                                         <button
                                             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                                            className="p-2.5 hover:bg-slate-100 rounded-xl text-slate-400 transition-colors"
+                                            className="p-3 hover:bg-white hover:shadow-sm rounded-2xl text-slate-400 hover:text-slate-600 transition-all active:scale-90"
                                         >
                                             <span className="material-icons-round text-xl">sentiment_satisfied_alt</span>
                                         </button>
                                         <button
                                             onClick={() => fileInputRef.current?.click()}
-                                            className="p-2.5 hover:bg-slate-100 rounded-xl text-slate-400 transition-colors"
+                                            className="p-3 hover:bg-white hover:shadow-sm rounded-2xl text-slate-400 hover:text-slate-600 transition-all active:scale-90"
                                         >
                                             <span className="material-icons-round text-xl">attach_file</span>
                                         </button>
@@ -853,19 +860,24 @@ const ChatView: React.FC = () => {
                                             }
                                         }}
                                         placeholder="Escrever mensagem..."
-                                        className="flex-1 bg-transparent border-none focus:ring-0 text-sm py-3 px-3 custom-scrollbar font-medium text-slate-700 min-h-[44px]"
+                                        className="flex-1 bg-transparent border-none focus:ring-0 text-sm py-4 px-4 custom-scrollbar font-medium text-slate-700 min-h-[52px] resize-none"
                                     />
                                     <div className="flex gap-2 mb-1 mr-1">
                                         <button
                                             onClick={startRecording}
-                                            className="p-2.5 hover:bg-slate-100 rounded-xl text-slate-400 transition-colors"
+                                            className="p-3 hover:bg-white hover:shadow-sm rounded-2xl text-slate-400 hover:text-blue-500 transition-all active:scale-90"
                                         >
-                                            <span className="material-icons-round text-xl">mic_none</span>
+                                            <span className="material-icons-round text-xl">mic</span>
                                         </button>
                                         <button
                                             onClick={handleSendMessage}
                                             disabled={!newMessage.trim()}
-                                            className={`p-2.5 rounded-xl transition-all ${newMessage.trim() ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-200'}`}
+                                            className={`
+                                                p-3 rounded-2xl transition-all active:scale-95
+                                                ${newMessage.trim()
+                                                    ? 'bg-slate-900 text-white shadow-xl shadow-slate-200 border border-white/10 translate-y-[-1px]'
+                                                    : 'text-slate-200 bg-slate-100/50'}
+                                            `}
                                         >
                                             <span className="material-icons-round text-xl">send</span>
                                         </button>
@@ -891,12 +903,13 @@ const ChatView: React.FC = () => {
                     </div>
                     <div className="flex-1 overflow-y-auto p-6 space-y-8">
                         <div className="flex flex-col items-center">
-                            <div className="w-24 h-24 rounded-2xl bg-slate-100 mb-4 border-2 border-slate-50 shadow-industrial-md overflow-hidden">
+                            <div className="w-24 h-24 rounded-3xl bg-slate-100 mb-4 border-2 border-slate-50 shadow-industrial-md overflow-hidden avatar-ring-active relative">
                                 {selectedContact.profile_pic ? (
                                     <img src={selectedContact.profile_pic} className="w-full h-full object-cover" alt="" />
                                 ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-3xl font-bold text-slate-300">{selectedContact.name?.charAt(0)}</div>
+                                    <div className="w-full h-full flex items-center justify-center text-3xl font-bold text-slate-300 bg-gradient-to-br from-slate-50 to-slate-200">{selectedContact.name?.charAt(0)}</div>
                                 )}
+                                <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent pointer-events-none"></div>
                             </div>
                             <h3 className="text-lg font-bold text-slate-900">{selectedContact.name}</h3>
                             <p className="text-[11px] text-slate-400 industrial-mono mt-1">{selectedContact.remote_jid.split('@')[0]}</p>
@@ -1008,6 +1021,32 @@ const ChatView: React.FC = () => {
                     pointer-events: none;
                 }
 
+                /* Waveform Animation */
+                @keyframes waveform {
+                    0% { height: 4px; }
+                    50% { height: 16px; }
+                    100% { height: 4px; }
+                }
+                .waveform-bar {
+                    width: 2px;
+                    background: #3b82f6;
+                    border-radius: 2px;
+                    animation: waveform 1s ease-in-out infinite;
+                }
+                .waveform-bar:nth-child(2) { animation-delay: 0.1s; }
+                .waveform-bar:nth-child(3) { animation-delay: 0.2s; }
+                .waveform-bar:nth-child(4) { animation-delay: 0.3s; }
+                .waveform-bar:nth-child(5) { animation-delay: 0.4s; }
+
+                /* Avatar Premium Rings */
+                .avatar-ring {
+                    box-shadow: 0 0 0 2px #fff, 0 0 0 4px #e2e8f0;
+                    transition: all 0.3s ease;
+                }
+                .avatar-ring-active {
+                    box-shadow: 0 0 0 2px #fff, 0 0 0 4px #10b981;
+                }
+
                 .custom-scrollbar::-webkit-scrollbar {
                     width: 4px;
                 }
@@ -1035,6 +1074,11 @@ const ChatView: React.FC = () => {
                 }
                 .animate-pulse-soft {
                     animation: pulse-soft 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+                }
+
+                .input-sheen-focus:focus-within {
+                    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1), 0 20px 25px -5px rgba(0, 0, 0, 0.05);
+                    border-color: rgba(59, 130, 246, 0.3);
                 }
             `}</style>
         </div>
