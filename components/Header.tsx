@@ -56,7 +56,7 @@ const Header: React.FC<HeaderProps> = ({ currentView, systemName, onToggleSideba
         >
           <span className="material-icons-round text-3xl">menu</span>
         </button>
-        <div>
+        <div className={currentView === AppView.CHAT ? 'hidden md:block' : ''}>
           <h1 className="text-2xl md:text-3xl font-black text-slate-900 dark:text-white tracking-tight leading-none">
             {title}
           </h1>
@@ -80,7 +80,7 @@ const Header: React.FC<HeaderProps> = ({ currentView, systemName, onToggleSideba
           </div>
         )}
 
-        <div className="flex items-center gap-3">
+        <div className={`flex items-center gap-3 ${currentView === AppView.CHAT ? 'hidden md:flex' : ''}`}>
           <button className="p-3 bg-white dark:bg-card-dark rounded-2xl shadow-sm text-slate-600 dark:text-slate-400 hover:text-primary transition-all active:scale-95 border border-transparent dark:border-slate-800">
             <span className="material-icons-round text-2xl">notifications_active</span>
           </button>

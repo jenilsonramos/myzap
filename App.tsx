@@ -342,13 +342,11 @@ const AppContent: React.FC = () => {
             <button onClick={() => navigate('/my-plan')} className="bg-white text-rose-500 px-4 py-1.5 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-50 transition-all ml-4 shrink-0">Ver Detalhes</button>
           </div>
         )}
-        <div className={getCurrentView() === AppView.CHAT ? 'hidden md:block' : ''}>
-          <Header
-            currentView={getCurrentView()}
-            systemName={publicSettings.system_name}
-            onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-          />
-        </div>
+        <Header
+          currentView={getCurrentView()}
+          systemName={publicSettings.system_name}
+          onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+        />
 
         <div className="flex-1 overflow-y-auto custom-scrollbar pr-1 md:pr-2">
           <Routes>
