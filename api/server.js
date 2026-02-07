@@ -347,6 +347,7 @@ async function setupTables() {
                 price DECIMAL(10,2),
                 instances INT,
                 messages INT,
+                flows INT DEFAULT 5,
                 ai_nodes INT,
                 ai_tokens INT,
                 features JSON,
@@ -539,6 +540,15 @@ async function setupTables() {
         await pool.query("ALTER TABLE flow_state ADD COLUMN flow_id VARCHAR(255)").catch(() => { });
         await pool.query("ALTER TABLE flow_state ADD COLUMN current_node_id VARCHAR(255)").catch(() => { });
 
+        // Garantir coluna flows na tabela plans
+        await pool.query("ALTER TABLE plans ADD COLUMN flows INT DEFAULT 5 AFTER messages").catch(() => { });
+
+        // Atualizar limites específicos dos planos existentes
+        await pool.query("UPDATE plans SET flows = 1 WHERE name = 'Teste Grátis'");
+        await pool.query("UPDATE plans SET flows = 10 WHERE name = 'Professional'");
+        await pool.query("UPDATE plans SET flows = 50 WHERE name = 'Master IA'");
+        await pool.query("UPDATE plans SET flows = 999 WHERE name = 'Enterprise'");
+
         // ========== FIM NOVAS TABELAS ==========
 
         // Inserir planos padrão se a tabela estiver vazia
@@ -546,13 +556,13 @@ async function setupTables() {
         if (planRows[0].count === 0) {
             console.log('💎 [DB] Inserindo planos padrão...');
             const defaultPlans = [
-                ['Teste Grátis', 0, 3, 1000, 5, 10000, JSON.stringify(['Filtros Básicos'])],
-                ['Professional', 99, 10, 100000, 50, 500000, JSON.stringify(['Suporte Especializado', 'Webhooks'])],
-                ['Master IA', 299, 50, 1000000, 200, 5000000, JSON.stringify(['Filtros Avançados', 'AI Agent Pro'])],
-                ['Enterprise', 499, 999, 9999999, 999, 99999999, JSON.stringify(['SLA 99.9%', 'White-label'])]
+                ['Teste Grátis', 0, 3, 1000, 1, 5, 10000, JSON.stringify(['Filtros Básicos'])],
+                ['Professional', 99, 10, 100000, 10, 50, 500000, JSON.stringify(['Suporte Especializado', 'Webhooks'])],
+                ['Master IA', 299, 50, 1000000, 50, 200, 5000000, JSON.stringify(['Filtros Avançados', 'AI Agent Pro'])],
+                ['Enterprise', 499, 999, 9999999, 999, 999, 99999999, JSON.stringify(['SLA 99.9%', 'White-label'])]
             ];
             for (const p of defaultPlans) {
-                await pool.query("INSERT INTO plans (name, price, instances, messages, ai_nodes, ai_tokens, features) VALUES (?, ?, ?, ?, ?, ?, ?)", p);
+                await pool.query("INSERT INTO plans (name, price, instances, messages, flows, ai_nodes, ai_tokens, features) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", p);
             }
         }
 
@@ -744,8 +754,7 @@ async function checkUserLimit(userId, limitType) {
         } else if (limitType === 'flows') {
             const [rows] = await pool.query("SELECT COUNT(*) as total FROM flows WHERE user_id = ?", [userId]);
             currentUsage = rows[0].total;
-            // Usando ai_nodes como proxy de limite de fluxos se não houver um específico
-            const flowLimit = plan.ai_nodes || 5;
+            const flowLimit = plan.flows || 5;
             if (currentUsage >= flowLimit && flowLimit < 999) {
                 return { allowed: false, error: `Limite de fluxos atingido (${flowLimit}). Faça upgrade do seu plano.`, code: 'LIMIT_FLOWS' };
             }
@@ -1815,6 +1824,11 @@ app.post('/api/flows', authenticateToken, async (req, res) => {
     }
 
     try {
+        const limit = await checkUserLimit(req.user.id, 'flows');
+        if (!limit.allowed) {
+            return res.status(403).json(limit);
+        }
+
         const emptyContent = JSON.stringify({ nodes: [], edges: [] });
         // Usando .query em vez de .execute para maior compatibilidade em alguns ambientes
         await pool.query(
