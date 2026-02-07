@@ -2634,13 +2634,14 @@ async function processApiNode(node, context) {
                         context.variables[mapping.variableName] = val;
                         console.log(`📌 [FLOW] Mapped ${mapping.jsonPath} -> ${mapping.variableName} = ${val}`);
 
-                        // Persistir no banco se necessário (contacts table)
+                        // Persistir no banco de dados para o contato
                         try {
-                            const number = context.remoteJid.replace('@s.whatsapp.net', '');
+                            const jid = context.remoteJid;
                             await pool.query(
-                                "UPDATE contacts SET variables = JSON_SET(COALESCE(variables, '{}'), ?, ?) WHERE number = ? AND user_id = ?",
-                                [`$.${mapping.variableName}`, typeof val === 'object' ? JSON.stringify(val) : val, number, context.userId]
+                                "UPDATE contacts SET variables = JSON_SET(COALESCE(variables, '{}'), ?, ?) WHERE remote_jid = ? AND user_id = ?",
+                                [`$.${mapping.variableName}`, typeof val === 'object' ? JSON.stringify(val) : val, jid, context.userId]
                             );
+                            console.log(`💾 [FLOW] Variable ${mapping.variableName} persisted for ${jid}`);
                         } catch (dbErr) {
                             console.error('❌ [FLOW] Error persisting variable:', dbErr.message);
                         }
@@ -2824,7 +2825,28 @@ function replaceVariables(text, context) {
 
         for (const part of parts) {
             if (value === null || value === undefined) break;
-            value = value[part];
+
+            // Tenta match exato primeiro
+            if (value[part] !== undefined) {
+                value = value[part];
+            } else {
+                // Tenta busca case-insensitive para maior flexibilidade
+                const keys = Object.keys(value);
+                const foundKey = keys.find(k => k.toLowerCase() === part.toLowerCase());
+                if (foundKey) {
+                    value = value[foundKey];
+                } else {
+                    value = undefined;
+                    break;
+                }
+            }
+        }
+
+        // Log de depuração para rastrear substituições
+        if (value !== undefined) {
+            console.log(`🔍 [VAR] Replaced {{${path}}} with value of type ${typeof value}`);
+        } else {
+            console.log(`⚠️ [VAR] Variable {{${path}}} NOT FOUND in context`);
         }
 
         if (typeof value === 'object' && value !== null) {
@@ -3325,8 +3347,8 @@ app.post('/api/webhook/evolution', async (req, res) => {
                         if (stateRows.length > 0) {
                             const state = stateRows[0];
                             logDebug(`🔄 [FLOW] Resuming flow ${state.flow_id} for node ${state.current_node_id}`);
-
                             const varName = state.variable_name || 'user_input';
+                            logDebug(`📥 [FLOW] Variable Name to save: ${varName} | Value: ${content}`);
 
                             // Save variable to contact
                             const [contactVarsRows] = await pool.query("SELECT variables FROM contacts WHERE id = ?", [contactId]);
@@ -3335,8 +3357,11 @@ app.post('/api/webhook/evolution', async (req, res) => {
                                 try { contactVars = JSON.parse(contactVars); } catch (e) { contactVars = {}; }
                             }
 
+                            logDebug(`📂 [FLOW] Existing variables for contact: ${JSON.stringify(contactVars)}`);
+
                             contactVars[varName] = content;
                             await pool.query("UPDATE contacts SET variables = ? WHERE id = ?", [JSON.stringify(contactVars), contactId]);
+                            logDebug(`✅ [FLOW] Variables updated and saved.`);
 
                             // Get flow content
                             const [flowRows] = await pool.query("SELECT content FROM flows WHERE id = ?", [state.flow_id]);
