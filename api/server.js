@@ -4,6 +4,8 @@ const mysql = require('mysql2/promise');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 const axios = require('axios');
 const nodemailer = require('nodemailer');
@@ -11,7 +13,37 @@ const EvolutionService = require('./EvolutionService');
 const WhatsAppCloudService = require('./WhatsAppCloudService');
 
 const app = express();
-app.use(cors());
+
+// Configurações de Segurança Nativas
+app.use(helmet({
+    contentSecurityPolicy: false, // Pode causar problemas com React se não configurado finamente
+    crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
+
+// Configuração de CORS (Mais restrito que *)
+const corsOptions = {
+    origin: process.env.APP_URL || 'https://ublochat.com.br',
+    credentials: true,
+    optionsSuccessStatus: 200
+};
+app.use(cors(corsOptions));
+
+// Rate Limiting (Proteção contra Bruta Force e DoS)
+const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutos
+    max: 100, // limite de 100 requests por IP
+    message: { error: 'Muitas requisições deste IP, tente novamente após 15 minutos.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutos
+    max: 10, // limite de 10 tentativas para login/registro
+    message: { error: 'Muitas tentativas de login/registro. Tente novamente após 15 minutos.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
 
 const MASTER_TEMPLATE = (title, content, ctaText = null, ctaUrl = null) => `
 <!DOCTYPE html>
@@ -92,7 +124,7 @@ app.use('/api/uploads', express.static(uploadDir));
 app.use('/uploads', express.static(uploadDir)); // Fallback compatibilidade
 
 // --- PROXY DE MÍDIA (Para evitar CORS e problemas de decriptação) ---
-app.get('/api/media/proxy', async (req, res) => {
+app.get('/api/media/proxy', authenticateToken, async (req, res) => {
     const { url, msgId, instance, remoteJid: qRemoteJid, fromMe: qFromMe } = req.query;
     if (!url && (!msgId || !instance)) return res.status(400).send('URL or msgId/instance is required');
 
@@ -103,30 +135,32 @@ app.get('/api/media/proxy', async (req, res) => {
         } catch (e) { console.error(e); }
     };
 
-    logProxy(`Solicitado: msgId=${msgId}, instance=${instance}, remoteJid=${qRemoteJid}, fromMe=${qFromMe}`);
+    logProxy(`Solicitado por ${req.user.id}: msgId=${msgId}, instance=${instance}, remoteJid=${qRemoteJid}, fromMe=${qFromMe}`);
 
     try {
         const evo = await getEvolutionService();
 
-        // Se temos msgId e instance, usamos o endpoint getBase64 da Evolution (Muito mais robusto)
+        // --- SEGURANÇA: Validar se a mensagem pertence ao usuário logado ---
         if (msgId && instance && evo) {
             logProxy(`Buscando via Evolution API: ${msgId} na instância: ${instance}`);
             try {
                 let remoteJid = qRemoteJid;
                 let fromMe = qFromMe === 'true';
 
-                // Se não veio do frontend, tenta buscar no banco
-                if (!remoteJid) {
-                    const [msgRows] = await pool.query(
-                        "SELECT c.remote_jid, m.key_from_me FROM messages m JOIN contacts c ON m.contact_id = c.id WHERE m.uid = ?",
-                        [msgId]
-                    );
+                // SEMPRE validar pelo user_id do token se possível (Dono validado no banco)
+                const [msgRows] = await pool.query(
+                    "SELECT c.remote_jid, m.key_from_me FROM messages m JOIN contacts c ON m.contact_id = c.id WHERE m.uid = ? AND m.user_id = ?",
+                    [msgId, req.user.id]
+                );
 
-                    if (msgRows.length > 0) {
-                        remoteJid = msgRows[0].remote_jid;
-                        fromMe = msgRows[0].key_from_me === 1;
-                        logProxy(`Contexto recuperado do banco: RemoteJID=${remoteJid}, fromMe=${fromMe}`);
-                    }
+                if (msgRows.length > 0) {
+                    remoteJid = msgRows[0].remote_jid;
+                    fromMe = msgRows[0].key_from_me === 1;
+                    logProxy(`Dono validado: RemoteJID=${remoteJid}, fromMe=${fromMe}`);
+                } else if (!url) {
+                    // Se não encontrou no banco e não tem URL fallback, bloqueia
+                    logProxy(`❌ [PROXY ERROR] Mensagem ${msgId} não pertence ao usuário ${req.user.id} ou não encontrada.`);
+                    return res.status(403).send('Acesso negado à mídia');
                 }
 
                 if (remoteJid) {
@@ -718,9 +752,17 @@ const getStripe = async () => {
 
 
 const authenticateToken = (req, res, next) => {
-    const token = req.headers['authorization']?.split(' ')[1];
+    let token = req.headers['authorization']?.split(' ')[1];
+    if (!token && req.query.token) token = req.query.token;
+
     if (!token) return res.sendStatus(401);
-    jwt.verify(token, process.env.JWT_SECRET || 'myzap_secret_key', async (err, decoded) => {
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+        console.error('❌ [CRITICAL] JWT_SECRET não configurado no .env!');
+        return res.status(500).json({ error: 'Erro de configuração do servidor' });
+    }
+
+    jwt.verify(token, secret, async (err, decoded) => {
         if (err) {
             console.log(`❌ [AUTH] Token inválido ou expirado: ${err.message}`);
             return res.status(403).json({ error: 'Sessão expirada ou token inválido. Por favor, faça login novamente.', code: 'TOKEN_INVALID' });
@@ -838,6 +880,13 @@ const authenticateAdmin = (req, res, next) => {
         next();
     });
 };
+
+// Aplicar rate limiting especial para rotas sensíveis
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/register', authLimiter);
+app.use('/api/auth/recover', authLimiter);
+app.use('/api/auth/activate', authLimiter);
+app.use('/api/admin/', apiLimiter); // Proteção extra para admin
 
 // --- AUTH ---
 
@@ -1004,9 +1053,12 @@ app.post('/api/auth/login', async (req, res) => {
             return res.status(403).json({ error: 'Sua conta ainda não foi ativada. Verifique seu e-mail.', status: 'pending_activation' });
         }
 
+        const secret = process.env.JWT_SECRET;
+        if (!secret) throw new Error('JWT_SECRET missing');
+
         const token = jwt.sign(
             { id: user.id, email: user.email, name: user.name, role: user.role || 'user' },
-            process.env.JWT_SECRET || 'myzap_secret_key',
+            secret,
             { expiresIn: '7d' }
         );
         res.json({
@@ -1101,9 +1153,12 @@ app.post('/api/auth/activate', async (req, res) => {
         // 🔐 Gerar Token para login automático
         const [fullUser] = await pool.execute('SELECT id, name, email, plan, role, trial_ends_at FROM users WHERE id = ?', [user.id]);
         const userData = fullUser[0];
+        const secret = process.env.JWT_SECRET;
+        if (!secret) throw new Error('JWT_SECRET missing');
+
         const token = jwt.sign(
             { id: userData.id, email: userData.email, name: userData.name, role: userData.role || 'user' },
-            process.env.JWT_SECRET || 'myzap_secret_key',
+            secret,
             { expiresIn: '7d' }
         );
 
@@ -1131,9 +1186,12 @@ app.post('/api/auth/recover', async (req, res) => {
 
         const user = users[0];
         // Gerar token de reset (JWT) válido por 1 hora
+        const secret = process.env.JWT_SECRET;
+        if (!secret) throw new Error('JWT_SECRET missing');
+
         const resetToken = jwt.sign(
             { id: user.id, email: user.email, purpose: 'reset-password' },
-            process.env.JWT_SECRET || 'myzap_secret_key',
+            secret,
             { expiresIn: '1h' }
         );
 
@@ -1155,7 +1213,10 @@ app.post('/api/auth/recover', async (req, res) => {
 app.post('/api/auth/reset-password', async (req, res) => {
     const { token, newPassword } = req.body;
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'myzap_secret_key');
+        const secret = process.env.JWT_SECRET;
+        if (!secret) throw new Error('JWT_SECRET missing');
+
+        const decoded = jwt.verify(token, secret);
         if (decoded.purpose !== 'reset-password') {
             return res.status(400).json({ error: 'Token inválido para esta operação' });
         }
@@ -1817,8 +1878,8 @@ app.get('/api/analytics/dashboard', authenticateToken, async (req, res) => {
     }
 });
 
-// Debug endpoint for analytics troubleshooting
-app.get('/api/analytics/debug', authenticateToken, async (req, res) => {
+// Debug endpoint for analytics troubleshooting (Restrito a Admin)
+app.get('/api/analytics/debug', authenticateAdmin, async (req, res) => {
     try {
         const userId = req.user.id;
 

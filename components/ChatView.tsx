@@ -516,7 +516,8 @@ const ChatView: React.FC = () => {
                 if (mediaUrl.startsWith('/mms/')) {
                     fullUrl = `https://mmg.whatsapp.net${mediaUrl}`;
                 }
-                const apiPath = `/api/media/proxy?url=${encodeURIComponent(fullUrl)}&msgId=${msg.uid || ''}&instance=${msg.instance_name || ''}&remoteJid=${encodeURIComponent(selectedContact?.remote_jid || '')}&fromMe=${msg.key_from_me ? 'true' : 'false'}`;
+                const token = localStorage.getItem('myzap_token') || '';
+                const apiPath = `/api/media/proxy?url=${encodeURIComponent(fullUrl)}&msgId=${msg.uid || ''}&instance=${msg.instance_name || ''}&remoteJid=${encodeURIComponent(selectedContact?.remote_jid || '')}&fromMe=${msg.key_from_me ? 'true' : 'false'}&token=${token}`;
                 mediaUrl = `${baseUrl.replace(/\/$/, '')}${apiPath}`;
             } else if (!mediaUrl.startsWith('http')) {
                 // Ensure local uploads use the absolute API path
