@@ -383,6 +383,18 @@ async function setupTables() {
         await pool.query("ALTER TABLE users ADD COLUMN trial_ends_at DATETIME").catch(() => { });
         await pool.query("ALTER TABLE users ADD COLUMN stripe_subscription_id VARCHAR(255)").catch(() => { });
         await pool.query("ALTER TABLE users ADD COLUMN stripe_customer_id VARCHAR(255)").catch(() => { });
+        await pool.query("ALTER TABLE users ADD COLUMN api_token VARCHAR(255) UNIQUE").catch(() => { });
+
+        // Popular tokens vazios para usuários existentes
+        try {
+            const [usersWithoutToken] = await pool.query("SELECT id FROM users WHERE api_token IS NULL OR api_token = ''");
+            for (const u of usersWithoutToken) {
+                const newToken = 'uk_' + Math.random().toString(36).substring(2, 11) + Math.random().toString(36).substring(2, 11);
+                await pool.query("UPDATE users SET api_token = ? WHERE id = ?", [newToken, u.id]);
+            }
+        } catch (tokenErr) {
+            console.error('⚠️ [DB] Erro ao popular api_tokens:', tokenErr.message);
+        }
 
         // 4. Garantir configurações base (Troca de domínio)
         await pool.query("INSERT INTO system_settings (setting_key, setting_value) VALUES ('app_url', 'https://ublochat.com.br') ON DUPLICATE KEY UPDATE setting_value = 'https://ublochat.com.br'");
