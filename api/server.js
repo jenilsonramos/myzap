@@ -7,7 +7,6 @@ const cors = require('cors');
 require('dotenv').config();
 const axios = require('axios');
 const nodemailer = require('nodemailer');
-const nodemailer = require('nodemailer');
 const EvolutionService = require('./EvolutionService');
 const WhatsAppCloudService = require('./WhatsAppCloudService');
 
