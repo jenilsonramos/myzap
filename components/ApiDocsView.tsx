@@ -11,23 +11,50 @@ const ApiDocsView: React.FC = () => {
         showToast('Copiado para a área de transferência!', 'success');
     };
 
-    const CodeBlock = ({ code, language = 'JSON' }: { code: string, language?: string }) => (
-        <div className="relative group mt-4 mb-6 rounded-2xl overflow-hidden bg-slate-800 dark:bg-black/40 border border-slate-700 dark:border-white/10 shadow-lg">
-            <div className="flex items-center justify-between px-4 py-2 bg-slate-900/50 border-b border-white/5">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{language}</span>
-                <button
-                    onClick={() => copyToClipboard(code)}
-                    className="text-slate-400 hover:text-primary transition-colors"
-                    title="Copiar"
-                >
-                    <span className="material-icons-round text-sm">content_copy</span>
-                </button>
+    const CodeBlock = ({ code, language = 'JSON' }: { code: string | { [key: string]: string }, language?: string }) => {
+        const [selectedLang, setSelectedLang] = useState('curl');
+
+        const isMultiLang = typeof code === 'object';
+        const displayCode = isMultiLang ? (code as any)[selectedLang] : code;
+        const displayLang = isMultiLang ? selectedLang.toUpperCase() : language;
+
+        return (
+            <div className="relative group mt-4 mb-6 rounded-2xl overflow-hidden bg-slate-800 dark:bg-black/40 border border-slate-700 dark:border-white/10 shadow-lg">
+                <div className="flex items-center justify-between px-4 py-2 bg-slate-900/50 border-b border-white/5">
+                    <div className="flex items-center gap-2">
+                        {isMultiLang ? (
+                            <div className="flex bg-slate-800 rounded-lg p-1">
+                                {['curl', 'js', 'python', 'php'].map(lang => (
+                                    <button
+                                        key={lang}
+                                        onClick={() => setSelectedLang(lang)}
+                                        className={`px-3 py-1 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${selectedLang === lang
+                                                ? 'bg-primary text-white shadow-sm'
+                                                : 'text-slate-400 hover:text-white hover:bg-white/5'
+                                            }`}
+                                    >
+                                        {lang}
+                                    </button>
+                                ))}
+                            </div>
+                        ) : (
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{displayLang}</span>
+                        )}
+                    </div>
+                    <button
+                        onClick={() => copyToClipboard(displayCode)}
+                        className="text-slate-400 hover:text-primary transition-colors"
+                        title="Copiar"
+                    >
+                        <span className="material-icons-round text-sm">content_copy</span>
+                    </button>
+                </div>
+                <pre className="p-5 overflow-x-auto custom-scrollbar">
+                    <code className="text-sm font-mono text-emerald-400 whitespace-pre">{displayCode}</code>
+                </pre>
             </div>
-            <pre className="p-5 overflow-x-auto custom-scrollbar">
-                <code className="text-sm font-mono text-emerald-400 whitespace-pre">{code}</code>
-            </pre>
-        </div>
-    );
+        );
+    };
 
     const Endpoint = ({ method, path, description }: { method: string, path: string, description: string }) => (
         <div className="flex flex-col gap-2 mb-6 p-5 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-white/5 hover:border-slate-200 dark:hover:border-white/10 transition-all">
@@ -192,12 +219,75 @@ const ApiDocsView: React.FC = () => {
                                     </div>
                                 </div>
                                 <div>
-                                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Exemplo JSON</h4>
-                                    <CodeBlock code={`{
-  "instanceName": "Atendimento",
-  "number": "5511999999999",
-  "text": "Olá! Sua encomenda chegou."
-}`} />
+                                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Exemplo de Código</h4>
+                                    <CodeBlock code={{
+                                        curl: `curl -X POST ${baseUrl}/messages/send-text \\
+  -H "Authorization: Bearer SEU_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "instanceName": "Atendimento",
+    "number": "5511999999999",
+    "text": "Olá! Sua encomenda chegou."
+  }'`,
+                                        js: `const response = await fetch('${baseUrl}/messages/send-text', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer SEU_TOKEN',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    instanceName: 'Atendimento',
+    number: '5511999999999',
+    text: 'Olá! Sua encomenda chegou.'
+  })
+});
+
+const data = await response.json();
+console.log(data);`,
+                                        python: `import requests
+
+url = "${baseUrl}/messages/send-text"
+payload = {
+    "instanceName": "Atendimento",
+    "number": "5511999999999",
+    "text": "Olá! Sua encomenda chegou."
+}
+headers = {
+    "Authorization": "Bearer SEU_TOKEN",
+    "Content-Type": "application/json"
+}
+
+response = requests.post(url, json=payload, headers=headers)
+print(response.json())`,
+                                        php: `<?php
+
+$curl = curl_init();
+
+curl_setopt_array($curl, array(
+  CURLOPT_URL => '${baseUrl}/messages/send-text',
+  CURLOPT_RETURNTRANSFER => true,
+  CURLOPT_ENCODING => '',
+  CURLOPT_MAXREDIRS => 10,
+  CURLOPT_TIMEOUT => 0,
+  CURLOPT_FOLLOWLOCATION => true,
+  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+  CURLOPT_CUSTOMREQUEST => 'POST',
+  CURLOPT_POSTFIELDS =>'{
+    "instanceName": "Atendimento",
+    "number": "5511999999999",
+    "text": "Olá! Sua encomenda chegou."
+}',
+  CURLOPT_HTTPHEADER => array(
+    'Authorization: Bearer SEU_TOKEN',
+    'Content-Type: application/json'
+  ),
+));
+
+$response = curl_exec($curl);
+
+curl_close($curl);
+echo $response;`
+                                    }} />
                                 </div>
                             </div>
                         </div>
@@ -207,13 +297,80 @@ const ApiDocsView: React.FC = () => {
                             <Endpoint method="POST" path="/messages/send-media" description="Envia imagem, vídeo ou documento via URL." />
 
                             <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Exemplo JSON</h4>
-                            <CodeBlock code={`{
-  "instanceName": "Atendimento",
-  "number": "5511999999999",
-  "mediaUrl": "https://exemplo.com/fatura.pdf",
-  "mediaType": "document", // image, video, document, audio
-  "caption": "Segue sua fatura em anexo"
-}`} />
+                            <CodeBlock code={{
+                                curl: `curl -X POST ${baseUrl}/messages/send-media \\
+  -H "Authorization: Bearer SEU_TOKEN" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "instanceName": "Atendimento",
+    "number": "5511999999999",
+    "mediaUrl": "https://exemplo.com/fatura.pdf",
+    "mediaType": "document",
+    "caption": "Segue sua fatura em anexo"
+  }'`,
+                                js: `const response = await fetch('${baseUrl}/messages/send-media', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer SEU_TOKEN',
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    instanceName: 'Atendimento',
+    number: '5511999999999',
+    mediaUrl: 'https://exemplo.com/fatura.pdf',
+    mediaType: 'document',
+    caption: 'Segue sua fatura em anexo'
+  })
+});`,
+                                python: `import requests
+
+url = "${baseUrl}/messages/send-media"
+payload = {
+    "instanceName": "Atendimento",
+    "number": "5511999999999",
+    "mediaUrl": "https://exemplo.com/fatura.pdf",
+    "mediaType": "document",
+    "caption": "Segue sua fatura em anexo"
+}
+headers = {
+    "Authorization": "Bearer SEU_TOKEN",
+    "Content-Type": "application/json"
+}
+
+response = requests.post(url, json=payload, headers=headers)
+print(response.json())`,
+                                php: `<?php
+
+$curl = curl_init();
+
+curl_setopt_array($curl, array(
+  CURLOPT_URL => '${baseUrl}/messages/send-media',
+  CURLOPT_RETURNTRANSFER => true,
+  CURLOPT_ENCODING => '',
+  CURLOPT_MAXREDIRS => 10,
+  CURLOPT_TIMEOUT => 0,
+  CURLOPT_FOLLOWLOCATION => true,
+  CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+  CURLOPT_CUSTOMREQUEST => 'POST',
+  CURLOPT_POSTFIELDS =>'{
+    "instanceName": "Atendimento",
+    "number": "5511999999999",
+    "mediaUrl": "https://exemplo.com/fatura.pdf",
+    "mediaType": "document",
+    "caption": "Segue sua fatura em anexo"
+}',
+  CURLOPT_HTTPHEADER => array(
+    'Authorization: Bearer SEU_TOKEN',
+    'Content-Type: application/json'
+  ),
+));
+
+$response = curl_exec($curl);
+
+curl_close($curl);
+echo $response;`
+                            }} />
+
                         </div>
                     </div>
                 )}
