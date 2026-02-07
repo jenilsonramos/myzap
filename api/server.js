@@ -145,15 +145,22 @@ app.get('/api/media/proxy', async (req, res) => {
 });
 
 // --- HELPER PARA OBTER URL PÚBLICA ---
-async function getAppUrl() {
+async function getAppUrl(req) {
     try {
         const [rows] = await pool.query("SELECT setting_value FROM system_settings WHERE setting_key = 'app_url'");
         if (rows.length > 0 && rows[0].setting_value) {
-            // Limpa caracteres de lixo como '%' que podem vir de migrações ou erros manuais
             return rows[0].setting_value.trim().replace(/%$/, '').replace(/\/$/, '');
         }
     } catch (e) { }
-    return (process.env.API_URL || 'http://localhost:5000').replace(/\/$/, '');
+
+    // Use request host if available (more reliable for public access)
+    if (req && req.get('host')) {
+        const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+        return `${protocol}://${req.get('host')}`;
+    }
+
+    // Fallback to Env or a more likely domain for this project
+    return (process.env.API_URL || 'https://ublochat.com.br').replace(/\/$/, '');
 }
 
 // --- STRIPE WEBHOOK (Deve vir ANTES do express.json() para pegar o body raw) ---
@@ -1703,10 +1710,11 @@ app.post('/api/messages/send-media', authenticateToken, upload.single('file'), a
         else if (mimeType.startsWith('audio/')) mediaType = 'audio';
 
         // URL pública do arquivo (para o banco e para o envio)
-        const publicUrl = await getAppUrl();
-        const fileUrl = `${publicUrl}/uploads/${file.filename}`;
+        const publicUrl = await getAppUrl(req);
+        // Use /api/uploads para garantir que passe pelo roteamento correto (mesmo do Flow Builder)
+        const fileUrl = `${publicUrl}/api/uploads/${file.filename}`;
 
-        console.log(`[MEDIA] Enviando arquivo: ${file.originalname} via URL: ${fileUrl}`);
+        console.log(`📸 [MEDIA] Enviando para Evolution: ${remoteJid} via URL: ${fileUrl}`);
 
         // Enviar via Evolution API usando URL (mais estável que Base64)
         const result = await evo.sendMedia(instanceName, remoteJid, fileUrl, mediaType, '', file.originalname);
@@ -1769,16 +1777,13 @@ app.post('/api/messages/send-audio', authenticateToken, async (req, res) => {
         fs.writeFileSync(audioPath, audioBuffer);
 
         // URL pública do áudio
-        const publicUrl = await getAppUrl();
-        const audioUrl = `${publicUrl}/uploads/${audioFilename}`;
+        const publicUrl = await getAppUrl(req);
+        const audioUrl = `${publicUrl}/api/uploads/${audioFilename}`;
 
-        // Base64 para envio direto (Evita que Evolution precise baixar do nosso servidor)
-        const audioBase64Data = `data:audio/${isOgg ? 'ogg' : 'webm'};base64,${audioBuffer.toString('base64')}`;
+        console.log(`🎤 [AUDIO] Enviando áudio via URL: ${audioUrl}`);
 
-        console.log(`[AUDIO] Enviando áudio via Base64`);
-
-        // Enviar como mensagem de áudio PTT (Push-to-Talk)
-        const result = await evo.sendAudio(instanceName, remoteJid, audioBase64Data);
+        // Enviar como mensagem de áudio PTT (Push-to-Talk) usando URL (mais estável)
+        const result = await evo.sendAudio(instanceName, remoteJid, audioUrl);
         console.log(`[AUDIO] Resposta da Evolution:`, JSON.stringify(result));
 
         // Salvar mensagem no banco
