@@ -683,7 +683,8 @@ async function connectToDB() {
             connectionLimit: 10,
             enableKeepAlive: true,
             keepAliveInitialDelay: 0,
-            timezone: '-03:00' // Horário de Brasília
+            timezone: '-03:00', // Horário de Brasília (mysql2)
+            timeZone: '-03:00'  // Compatibilidade extra
         });
         console.log('✅ MyZap MySQL Pool Criado (Timezone: -03:00).');
 
