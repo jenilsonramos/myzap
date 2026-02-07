@@ -798,10 +798,12 @@ async function checkUserLimit(userId, limitType) {
                 return { allowed: false, error: `Limite de instâncias atingido (${plan.instances}). Faça upgrade do seu plano.`, code: 'LIMIT_INSTANCES' };
             }
         } else if (limitType === 'messages') {
-            const [rows] = await pool.query("SELECT COUNT(*) as total FROM messages WHERE user_id = ?", [userId]);
+            // Check Monthly Limit (1st of current month)
+            const [rows] = await pool.query("SELECT COUNT(*) as total FROM messages WHERE user_id = ? AND created_at >= DATE_FORMAT(NOW(), '%Y-%m-01 00:00:00')", [userId]);
             currentUsage = rows[0].total;
-            if (currentUsage >= plan.messages && plan.messages < 1000000) {
-                return { allowed: false, error: `Limite de mensagens atingido (${plan.messages}). Faça upgrade do seu plano.`, code: 'LIMIT_MESSAGES' };
+            // Removed < 1000000 bug. Assuming 9999999 is "unlimited".
+            if (currentUsage >= plan.messages && plan.messages < 9999999) {
+                return { allowed: false, error: `Limite mensal de mensagens atingido (${plan.messages}). Renove em breve ou faça upgrade.`, code: 'LIMIT_MESSAGES' };
             }
         } else if (limitType === 'flows') {
             const [rows] = await pool.query("SELECT COUNT(*) as total FROM flows WHERE user_id = ?", [userId]);
@@ -1574,45 +1576,75 @@ app.get('/api/messages/:contactId', authenticateToken, async (req, res) => {
 app.get('/api/analytics/dashboard', authenticateToken, async (req, res) => {
     try {
         const userId = req.user.id;
-        console.log(`📊 [ANALYTICS] Request UserID: ${userId}`);
+        const { startDate, endDate } = req.query;
 
-        // 1. Totais Gerais
-        const [totalMsg] = await pool.query("SELECT COUNT(*) as count FROM messages WHERE user_id = ?", [userId]);
-        const [sentMsg] = await pool.query("SELECT COUNT(*) as count FROM messages WHERE user_id = ? AND key_from_me = 1", [userId]);
+        // Default to last 30 days if not provided
+        let start = startDate ? new Date(startDate) : new Date(new Date().setDate(new Date().getDate() - 30));
+        let end = endDate ? new Date(endDate) : new Date();
+
+        // Ensure end date includes the whole day
+        end.setHours(23, 59, 59, 999);
+
+        const startTs = Math.floor(start.getTime() / 1000);
+        const endTs = Math.floor(end.getTime() / 1000);
+
+        console.log(`📊 [ANALYTICS] Stats for ${userId}: ${start.toISOString()} to ${end.toISOString()}`);
+
+        // 1. Totais Gerais (Neste Período)
+        const [totalMsg] = await pool.query("SELECT COUNT(*) as count FROM messages WHERE user_id = ? AND timestamp >= ? AND timestamp <= ?", [userId, startTs, endTs]);
+        const [sentMsg] = await pool.query("SELECT COUNT(*) as count FROM messages WHERE user_id = ? AND key_from_me = 1 AND timestamp >= ? AND timestamp <= ?", [userId, startTs, endTs]);
+
+        // Contatos (Total Geral)
         const [contacts] = await pool.query("SELECT COUNT(*) as count FROM contacts WHERE user_id = ?", [userId]);
 
-        console.log(`📊 [ANALYTICS] Stats for ${userId}: Total=${totalMsg[0].count}, Sent=${sentMsg[0].count}, Contacts=${contacts[0].count}`);
-
-        // 2. Volume Semanal (Últimos 7 dias)
-        // Agrupa por dia da semana (Dom, Seg, Ter...)
-        const [weekly] = await pool.query(`
+        // 2. Volume Diário (Para Gráfico de Barras)
+        const [daily] = await pool.query(`
             SELECT 
-                DATE_FORMAT(FROM_UNIXTIME(MIN(timestamp)), '%a') as name, 
+                DATE_FORMAT(FROM_UNIXTIME(timestamp), '%d/%m') as name, 
                 DATE(FROM_UNIXTIME(timestamp)) as day_date,
                 COUNT(*) as value 
             FROM messages 
-            WHERE user_id = ? AND timestamp >= UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL 7 DAY)) 
+            WHERE user_id = ? AND timestamp >= ? AND timestamp <= ?
             GROUP BY DATE(FROM_UNIXTIME(timestamp)) 
             ORDER BY day_date ASC
-        `, [userId]);
+        `, [userId, startTs, endTs]);
 
-        // 3. Status (Enviadas vs Recebidas)
-        // key_from_me = 1 (Enviada), 0 (Recebida)
+        // 3. Mapa de Calor por Hora (0-23)
+        const [hourly] = await pool.query(`
+            SELECT 
+                HOUR(FROM_UNIXTIME(timestamp)) as hour,
+                COUNT(*) as count
+            FROM messages
+            WHERE user_id = ? AND timestamp >= ? AND timestamp <= ?
+            GROUP BY HOUR(FROM_UNIXTIME(timestamp))
+            ORDER BY hour ASC
+        `, [userId, startTs, endTs]);
+
+        // 4. Distribuição (Enviadas vs Recebidas vs Erro)
         const receivedCount = totalMsg[0].count - sentMsg[0].count;
         const pieData = [
             { name: 'Recebidas', value: receivedCount, color: '#6366f1' }, // Indigo
             { name: 'Enviadas', value: sentMsg[0].count, color: '#22c55e' } // Green
         ];
 
-        // Normalização simplificada para gráfico de barras (garante 7 dias preenchidos se quiser, mas array simples serve por agora)
+        // Comparativo com período anterior (Simples)
+        const diff = endTs - startTs;
+        const prevStartTs = startTs - diff;
+        const [prevTotal] = await pool.query("SELECT COUNT(*) as count FROM messages WHERE user_id = ? AND timestamp >= ? AND timestamp < ?", [userId, prevStartTs, startTs]);
+
+        const growth = prevTotal[0].count > 0
+            ? Math.round(((totalMsg[0].count - prevTotal[0].count) / prevTotal[0].count) * 100)
+            : 100;
 
         res.json({
             totalMessages: totalMsg[0].count,
             sentMessages: sentMsg[0].count,
             totalContacts: contacts[0].count,
-            weeklyVolume: weekly,
+            weeklyVolume: daily, // Mantendo nome 'weeklyVolume' para compatibilidade ou refatorar front depois
+            hourlyVolume: hourly,
             pieChart: pieData,
-            avgResponseTime: "2m" // Mock por enquanto, cálculo complexo
+            growth: growth,
+            avgResponseTime: "N/A"
         });
 
     } catch (err) {
@@ -2443,7 +2475,7 @@ async function processMessageNode(node, context) {
     }
 
     const message = replaceVariables(node.data.message || '', context);
-    const result = await sendWhatsAppMessage(context.instanceName, context.remoteJid, message);
+    const result = await sendWhatsAppMessage(context.instanceName, context.remoteJid, message, context.userId);
 
     // Save message to database with source='flow'
     try {
@@ -2485,7 +2517,7 @@ async function processConditionNode(node, flowContent, context) {
 
 async function processQuestionNode(node, context) {
     const question = replaceVariables(node.data.question || '', context);
-    await sendWhatsAppMessage(context.instanceName, context.remoteJid, question);
+    await sendWhatsAppMessage(context.instanceName, context.remoteJid, question, context.userId);
 
     // Sanatizar nome da variável (remover {{ }} caso o usuário tenha colocado)
     const varName = sanitizeVariableName(node.data.variable || 'user_input');
@@ -2579,13 +2611,13 @@ async function processAiAgentNode(node, context) {
         }
 
         if (aiResponse) {
-            await sendWhatsAppMessage(context.instanceName, context.remoteJid, aiResponse);
+            await sendWhatsAppMessage(context.instanceName, context.remoteJid, aiResponse, context.userId);
             context.variables.ai_response = aiResponse;
             console.log(`🤖 [FLOW] AI Agent: Resposta enviada (${aiResponse.slice(0, 30)}...)`);
         }
     } catch (err) {
         console.error('❌ [FLOW] AI Agent Node Error:', err.message);
-        await sendWhatsAppMessage(context.instanceName, context.remoteJid, "Desculpe, ocorreu um erro ao processar sua solicitação com IA.");
+        await sendWhatsAppMessage(context.instanceName, context.remoteJid, "Desculpe, ocorreu um erro ao processar sua solicitação com IA.", context.userId);
     }
 }
 
@@ -2821,6 +2853,12 @@ async function processInteractiveNode(node, context) {
         const number = context.remoteJid.replace('@s.whatsapp.net', '');
 
         if (node.data.type === 'button' && options.length > 0) {
+            // Check Limits
+            const limit = await checkUserLimit(context.userId, 'messages');
+            if (!limit.allowed) {
+                console.log(`🚫 [FLOW] Message limit reached for user ${context.userId}`);
+                return;
+            }
             await evo._request(`/message/sendButtons/${context.instanceName}`, 'POST', {
                 number,
                 title: 'Escolha uma opção',
@@ -2830,7 +2868,7 @@ async function processInteractiveNode(node, context) {
         } else {
             // Fallback to text with numbered options
             const optionsText = options.map((opt, i) => `${i + 1}. ${opt}`).join('\n');
-            await sendWhatsAppMessage(context.instanceName, context.remoteJid, `${body}\n\n${optionsText}`);
+            await sendWhatsAppMessage(context.instanceName, context.remoteJid, `${body}\n\n${optionsText}`, context.userId);
         }
 
         console.log(`🎛️ [FLOW] Interactive message sent`);
@@ -2925,8 +2963,15 @@ function evaluateCondition(rule, context) {
     }
 }
 
-async function sendWhatsAppMessage(instanceName, remoteJid, text) {
+async function sendWhatsAppMessage(instanceName, remoteJid, text, userId = null) {
     try {
+        if (userId) {
+            const limit = await checkUserLimit(userId, 'messages');
+            if (!limit.allowed) {
+                console.error(`🚫 [FLOW] Message limit reached for user ${userId}`);
+                return;
+            }
+        }
         const evo = await getEvolutionService();
         if (!evo) {
             console.error('❌ [FLOW] Evolution API not available');
