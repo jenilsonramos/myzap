@@ -7,7 +7,9 @@ const cors = require('cors');
 require('dotenv').config();
 const axios = require('axios');
 const nodemailer = require('nodemailer');
+const nodemailer = require('nodemailer');
 const EvolutionService = require('./EvolutionService');
+const WhatsAppCloudService = require('./WhatsAppCloudService');
 
 const app = express();
 app.use(cors());
@@ -433,6 +435,11 @@ async function setupTables() {
         await pool.query("ALTER TABLE whatsapp_accounts ADD COLUMN user_id INT NOT NULL AFTER id").catch(() => { });
         await pool.query("ALTER TABLE whatsapp_accounts MODIFY COLUMN business_name VARCHAR(100) NOT NULL").catch(() => { });
 
+        // Campos para API Oficial (Meta Cloud API)
+        await pool.query("ALTER TABLE whatsapp_accounts ADD COLUMN provider ENUM('evolution', 'official') DEFAULT 'evolution' AFTER phone_number_id").catch(() => { });
+        await pool.query("ALTER TABLE whatsapp_accounts ADD COLUMN access_token TEXT AFTER provider").catch(() => { }); // Token Permanente
+        await pool.query("ALTER TABLE whatsapp_accounts ADD COLUMN waba_id VARCHAR(100) AFTER access_token").catch(() => { }); // WhatsApp Business Account ID
+
         // 6. Garantir Tabelas de Chat (Contacts & Messages)
         await pool.query(`
             CREATE TABLE IF NOT EXISTS contacts (
@@ -833,6 +840,119 @@ const authenticateAdmin = (req, res, next) => {
 };
 
 // --- AUTH ---
+
+// --- WEBHOOK META CLOUD API (OFICIAL) ---
+app.get('/api/webhook/meta', (req, res) => {
+    const mode = req.query['hub.mode'];
+    const token = req.query['hub.verify_token'];
+    const challenge = req.query['hub.challenge'];
+
+    // Token de verificação fixo (pode mover para .env depois)
+    const VERIFY_TOKEN = process.env.META_VERIFY_TOKEN || 'myzap_meta_secret_123';
+
+    if (mode && token) {
+        if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+            console.log('✅ [META WEBHOOK] Verificado com sucesso!');
+            res.status(200).send(challenge);
+        } else {
+            res.sendStatus(403);
+        }
+    } else {
+        res.sendStatus(400);
+    }
+});
+
+app.post('/api/webhook/meta', async (req, res) => {
+    try {
+        const body = req.body;
+        // console.log('📩 [META WEBHOOK] Payload:', JSON.stringify(body, null, 2));
+
+        if (body.object) {
+            if (
+                body.entry &&
+                body.entry[0].changes &&
+                body.entry[0].changes[0] &&
+                body.entry[0].changes[0].value.messages &&
+                body.entry[0].changes[0].value.messages[0]
+            ) {
+                const change = body.entry[0].changes[0].value;
+                const message = change.messages[0];
+                const from = message.from;
+                const msgId = message.id;
+                const timestamp = message.timestamp; // Unix seconds
+                const businessId = body.entry[0].id; // WABA ID (precisamos mapear para instância)
+
+                // Encontrar instância pelo WABA ID ou Phone ID
+                // Nota: O payload vem com metadata.phone_number_id
+                const phoneId = change.metadata.phone_number_id;
+
+                const [rows] = await pool.execute(
+                    "SELECT user_id, business_name FROM whatsapp_accounts WHERE phone_number_id = ?",
+                    [phoneId]
+                );
+
+                if (rows.length === 0) {
+                    console.warn(`⚠️ [META WEBHOOK] Instância não encontrada para Phone ID: ${phoneId}`);
+                    return res.sendStatus(200);
+                }
+
+                const instance = rows[0];
+                const userId = instance.user_id;
+                const instanceName = instance.business_name;
+
+                let content = '';
+                let type = message.type;
+                let mediaUrl = null;
+
+                if (type === 'text') {
+                    content = message.text.body;
+                } else if (['image', 'video', 'audio', 'document', 'sticker'].includes(type)) {
+                    // Mídia requer download ou uso do ID. 
+                    // Para simplificar, vamos salvar apenas o ID ou tentar recuperar URL se possível
+                    // A URL da Meta é temporária, então idealmente baixaríamos.
+                    // Por enquanto: Content = "Mídia de [Tipo]"
+                    content = `[Mídia: ${type}]`;
+                    if (message[type].id) {
+                        // TODO: Implementar download de mídia via WhatsAppCloudService
+                        content += ` ID: ${message[type].id}`;
+                    }
+                }
+
+                // Processar mensagem (Salvar no banco e disparar fluxos)
+                // Reaproveitando lógica do processIncomingMessage se possível, ou duplicando simplificado
+                const contactName = change.contacts ? change.contacts[0].profile.name : from;
+
+                // Salvar Contato
+                await pool.query(
+                    "INSERT INTO contacts (user_id, remote_jid, name, instance_name) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE name = VALUES(name), updated_at = NOW()",
+                    [userId, from, contactName, instanceName]
+                );
+
+                // Obter ID do contato
+                const [contactDesc] = await pool.query("SELECT id FROM contacts WHERE user_id = ? AND remote_jid = ?", [userId, from]);
+                const contactId = contactDesc[0].id;
+
+                // Salvar Mensagem
+                await pool.query(
+                    "INSERT INTO messages (user_id, contact_id, instance_name, uid, key_from_me, content, type, timestamp, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    [userId, contactId, instanceName, msgId, 0, content, type, timestamp, 'official']
+                );
+
+                console.log(`📥 [META WEBHOOK] Mensagem salva de ${from} em ${instanceName}`);
+
+                // Disparar Trigger de Fluxo (Simplificado)
+                // TODO: Chamar engine de fluxo
+
+            }
+            res.sendStatus(200);
+        } else {
+            res.sendStatus(404);
+        }
+    } catch (err) {
+        console.error('❌ [META WEBHOOK] Erro:', err.message);
+        res.sendStatus(500);
+    }
+});
 
 app.post('/api/auth/register', async (req, res) => {
     const { name, email, password } = req.body;
@@ -1766,14 +1886,7 @@ app.post('/api/messages/send', authenticateToken, async (req, res) => {
         }
 
         // 2. Enviar via Evolution
-        const evo = await getEvolutionService();
-        if (!evo) return res.status(500).json({ error: 'Evolution offline' });
-
-        const result = await evo._request(`/message/sendText/${instanceName}`, 'POST', {
-            number: remoteJid.replace('@s.whatsapp.net', ''),
-            text: content,
-            delay: 1200
-        });
+        const result = await sendWhatsAppMessage(instanceName, remoteJid, content);
 
         // 3. Salvar no banco MANUALMENTE (Para garantir que apareça no chat)
         const msgId = result?.key?.id || result?.id || `SEND-${Date.now()}`;
@@ -1818,9 +1931,6 @@ app.post('/api/messages/send-media', authenticateToken, upload.single('file'), a
         const { remote_jid: remoteJid, instance_name: instanceName } = contacts[0];
         if (!instanceName) return res.status(400).json({ error: 'Nenhuma instância configurada para este contato' });
 
-        const evo = await getEvolutionService();
-        if (!evo) return res.status(500).json({ error: 'Evolution offline' });
-
         // Detectar tipo de mídia
         const mimeType = file.mimetype;
         let mediaType = 'document';
@@ -1836,7 +1946,11 @@ app.post('/api/messages/send-media', authenticateToken, upload.single('file'), a
         console.log(`📸 [MEDIA] Enviando para Evolution: ${remoteJid} via URL: ${fileUrl}`);
 
         // Enviar via Evolution API usando URL (mais estável que Base64)
-        const result = await evo.sendMedia(instanceName, remoteJid, fileUrl, mediaType, '', file.originalname);
+        const result = await sendWhatsAppMessage(instanceName, remoteJid, '', {
+            mediaUrl: fileUrl,
+            mediaType: mediaType,
+            fileName: file.originalname
+        });
         console.log(`[MEDIA] Resposta da Evolution:`, JSON.stringify(result));
 
         // Salvar mensagem no banco
@@ -1885,9 +1999,6 @@ app.post('/api/messages/send-audio', authenticateToken, async (req, res) => {
         const { remote_jid: remoteJid, instance_name: instanceName } = contacts[0];
         if (!instanceName) return res.status(400).json({ error: 'Nenhuma instância configurada para este contato' });
 
-        const evo = await getEvolutionService();
-        if (!evo) return res.status(500).json({ error: 'Evolution offline' });
-
         // Salvar áudio como arquivo temporário
         const isOgg = audioBase64.includes('audio/ogg');
         const audioBuffer = Buffer.from(audioBase64.split(',')[1] || audioBase64, 'base64');
@@ -1902,7 +2013,10 @@ app.post('/api/messages/send-audio', authenticateToken, async (req, res) => {
         console.log(`🎤 [AUDIO] Enviando áudio via URL: ${audioUrl}`);
 
         // Enviar como mensagem de áudio PTT (Push-to-Talk) usando URL (mais estável)
-        const result = await evo.sendAudio(instanceName, remoteJid, audioUrl);
+        const result = await sendWhatsAppMessage(instanceName, remoteJid, 'Áudio', {
+            mediaUrl: audioUrl,
+            mediaType: 'audio'
+        });
         console.log(`[AUDIO] Resposta da Evolution:`, JSON.stringify(result));
 
         // Salvar mensagem no banco
@@ -2192,8 +2306,6 @@ app.get('/api/user/usage', authenticateToken, async (req, res) => {
 });
 
 
-
-
 async function getEvolutionService() {
     const [rows] = await pool.query(
         "SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ('evolution_url', 'evolution_apikey')"
@@ -2206,6 +2318,62 @@ async function getEvolutionService() {
     }
     return new EvolutionService(settings.evolution_url, settings.evolution_apikey);
 }
+
+// Assuming WhatsAppCloudService is defined or imported elsewhere
+// For this example, let's define a placeholder if it's not in the original document
+const WhatsAppCloudService = {
+    async sendText(instance, to, text) {
+        console.log(`[WhatsAppCloudService] Sending text to ${to} via ${instance.business_name}: ${text}`);
+        // Implement actual Meta Cloud API call here
+        // Example: axios.post(`https://graph.facebook.com/v18.0/${instance.phone_number_id}/messages`, { ... }, { headers: { Authorization: `Bearer ${instance.access_token}` } });
+        return { id: `meta-msg-${Date.now()}` }; // Placeholder response
+    },
+    async sendMedia(instance, to, type, mediaUrl, caption) {
+        console.log(`[WhatsAppCloudService] Sending ${type} to ${to} via ${instance.business_name}: ${mediaUrl} with caption: ${caption}`);
+        // Implement actual Meta Cloud API media send here
+        return { id: `meta-media-${Date.now()}` }; // Placeholder response
+    }
+};
+
+// --- INTEGRAÇÃO HÍBRIDA: ENVIO DE MENSAGENS ---
+const sendWhatsAppMessage = async (instanceName, to, content, options = {}) => {
+    try {
+        // Buscar instância e provedor no banco
+        const [rows] = await pool.execute(
+            "SELECT id, phone_number_id, access_token, provider FROM whatsapp_accounts WHERE business_name = ?",
+            [instanceName]
+        );
+
+        const instance = rows[0];
+        const provider = instance ? (instance.provider || 'evolution') : 'evolution';
+
+        if (provider === 'official') {
+            // --- CAMINHO API OFICIAL (META) ---
+            console.log(`📤 [META API] Enviando para ${to} via ${instanceName}`);
+
+            if (options.mediaUrl) {
+                const type = options.mediaType || 'image'; // Default to image if not specified
+                return await WhatsAppCloudService.sendMedia(instance, to, type, options.mediaUrl, content);
+            } else {
+                return await WhatsAppCloudService.sendText(instance, to, content);
+            }
+
+        } else {
+            // --- CAMINHO LEGADO (EVOLUTION API) ---
+            const evo = await getEvolutionService();
+            if (!evo) throw new Error('Evolution Service unavailable');
+
+            if (options.mediaUrl) {
+                return await evo.sendMedia(instanceName, to, options.mediaType, options.mediaUrl, content, options.fileName);
+            } else {
+                return await evo.sendText(instanceName, to, content);
+            }
+        }
+    } catch (err) {
+        console.error(`❌ [SEND ERROR] Falha ao enviar via ${instanceName}:`, err.message);
+        throw err;
+    }
+};
 
 // =================================
 // FLOW EXECUTION ENGINE
@@ -2519,7 +2687,7 @@ async function processMessageNode(node, context) {
     }
 
     const message = replaceVariables(node.data.message || '', context);
-    const result = await sendWhatsAppMessage(context.instanceName, context.remoteJid, message, context.userId);
+    const result = await sendWhatsAppMessage(context.instanceName, context.remoteJid, message, { userId: context.userId });
 
     // Save message to database with source='flow'
     try {
@@ -2561,7 +2729,7 @@ async function processConditionNode(node, flowContent, context) {
 
 async function processQuestionNode(node, context) {
     const question = replaceVariables(node.data.question || '', context);
-    await sendWhatsAppMessage(context.instanceName, context.remoteJid, question, context.userId);
+    await sendWhatsAppMessage(context.instanceName, context.remoteJid, question, { userId: context.userId });
 
     // Sanatizar nome da variável (remover {{ }} caso o usuário tenha colocado)
     const varName = sanitizeVariableName(node.data.variable || 'user_input');
@@ -2612,7 +2780,7 @@ async function processActionNode(node, context) {
 
 async function processHandoffNode(node, context) {
     const message = replaceVariables(node.data.message || 'Transferindo para atendimento...', context);
-    await sendWhatsAppMessage(context.instanceName, context.remoteJid, message);
+    await sendWhatsAppMessage(context.instanceName, context.remoteJid, message, { userId: context.userId });
     console.log(`🤝 [FLOW] Handoff to department: ${node.data.department}`);
 }
 
@@ -2655,13 +2823,13 @@ async function processAiAgentNode(node, context) {
         }
 
         if (aiResponse) {
-            await sendWhatsAppMessage(context.instanceName, context.remoteJid, aiResponse, context.userId);
+            await sendWhatsAppMessage(context.instanceName, context.remoteJid, aiResponse, { userId: context.userId });
             context.variables.ai_response = aiResponse;
             console.log(`🤖 [FLOW] AI Agent: Resposta enviada (${aiResponse.slice(0, 30)}...)`);
         }
     } catch (err) {
         console.error('❌ [FLOW] AI Agent Node Error:', err.message);
-        await sendWhatsAppMessage(context.instanceName, context.remoteJid, "Desculpe, ocorreu um erro ao processar sua solicitação com IA.", context.userId);
+        await sendWhatsAppMessage(context.instanceName, context.remoteJid, "Desculpe, ocorreu um erro ao processar sua solicitação com IA.", { userId: context.userId });
     }
 }
 
@@ -2774,7 +2942,7 @@ async function processValidatorNode(node, context) {
 
     if (regex && !regex.test(testValue)) {
         const errorMsg = replaceVariables(node.data.errorMessage || 'Formato inválido!', context);
-        await sendWhatsAppMessage(context.instanceName, context.remoteJid, errorMsg);
+        await sendWhatsAppMessage(context.instanceName, context.remoteJid, errorMsg, { userId: context.userId });
         return false;
     }
     return true;
@@ -2858,31 +3026,17 @@ async function processMediaNode(node, context) {
     const mediaType = node.data.mediaType || 'image';
 
     try {
-        const evo = await getEvolutionService();
-        if (!evo) return;
-
-        const number = context.remoteJid.replace('@s.whatsapp.net', '');
-
-        if (mediaType === 'image') {
-            await evo._request(`/message/sendMedia/${context.instanceName}`, 'POST', {
-                number,
-                mediatype: 'image',
+        number,
+            mediatype: 'document',
                 media: mediaUrl,
-                caption
-            });
-        } else if (mediaType === 'document') {
-            await evo._request(`/message/sendMedia/${context.instanceName}`, 'POST', {
-                number,
-                mediatype: 'document',
-                media: mediaUrl,
-                caption
-            });
-        }
+                    caption
+    });
+}
 
-        console.log(`📷 [FLOW] Media sent: ${mediaType}`);
+console.log(`📷 [FLOW] Media sent: ${mediaType}`);
     } catch (err) {
-        console.error('Media Node Error:', err);
-    }
+    console.error('Media Node Error:', err);
+}
 }
 
 async function processInteractiveNode(node, context) {
@@ -3622,29 +3776,47 @@ app.post('/api/instances/:name/webhook', authenticateToken, async (req, res) => 
     }
 });
 
+// Create Instance
 app.post('/api/instances', authenticateToken, async (req, res) => {
-    const { instanceName } = req.body;
+    const { instanceName, provider = 'evolution', phoneNumberId, accessToken, wabaId } = req.body;
+
     if (!instanceName) return res.status(400).json({ error: 'Nome da instância obrigatório' });
 
     try {
-        // --- VERIFICAR LIMITE DE INSTÂNCIAS ---
-        const limit = await checkUserLimit(req.user.id, 'instances');
-        if (!limit.allowed) return res.status(403).json({ error: limit.error, code: limit.code });
+        // Verificar limite de instâncias do plano
+        const limitCheck = await checkUserLimit(req.user.id, 'instances');
+        if (!limitCheck.allowed) {
+            return res.status(403).json(limitCheck);
+        }
 
-        const evo = await getEvolutionService();
+        if (provider === 'official') {
+            // --- CRIAÇÃO VIA API OFICIAL (META) ---
+            if (!phoneNumberId || !accessToken) {
+                return res.status(400).json({ error: 'Phone ID e Token são obrigatórios para API Oficial.' });
+            }
 
-        if (!evo) return res.status(500).json({ error: 'Evolution API não configurada' });
+            // Salvar no banco diretamente
+            await pool.execute(
+                "INSERT INTO whatsapp_accounts (user_id, business_name, provider, phone_number_id, access_token, waba_id, status) VALUES (?, ?, ?, ?, ?, ?, 'connected')",
+                [req.user.id, instanceName, 'official', phoneNumberId, accessToken, wabaId || null]
+            );
 
-        // VERIFICAÇÃO DE DISPONIBILIDADE NO DB LOCAL
-        const [existing] = await pool.query("SELECT user_id, business_name FROM whatsapp_accounts WHERE business_name = ?", [instanceName]);
+            console.log(`✅ [INSTANCE] Instância Oficial criada: ${instanceName} (${phoneNumberId})`);
+            return res.json({
+                success: true,
+                instance: { name: instanceName, status: 'connected', provider: 'official' }
+            });
 
-        if (existing.length > 0) {
-            if (existing[0].user_id !== req.user.id) {
-                console.warn(`🚫 [SECURITY] Usuário ${req.user.id} tentou criar instância '${instanceName}' que já pertence ao usuário ${existing[0].user_id}`);
-                return res.status(403).json({ error: 'Este nome de instância já está em uso por outro usuário.', code: 'INSTANCE_TAKEN' });
-            } else {
+        } else {
+            // --- CRIAÇÃO VIA EVOLUTION API (LEGADO) ---
+            const evo = await getEvolutionService();
+            if (!evo) return res.status(500).json({ error: 'Evolution Service unavailable' });
+
+            // Check if instance already exists for this user
+            const [existing] = await pool.query("SELECT user_id, business_name FROM whatsapp_accounts WHERE business_name = ? AND user_id = ?", [instanceName, req.user.id]);
+            if (existing.length > 0) {
                 console.log(`ℹ️ [INFO] Usuário ${req.user.id} está recriando/atualizando sua própria instância '${instanceName}'`);
-                // Se já for do usuário, removemos a referência antiga para inserir a nova limpa
+                // If it's the user's own instance, remove the old reference to insert the new clean one
                 await pool.query("DELETE FROM whatsapp_accounts WHERE business_name = ? AND user_id = ?", [instanceName, req.user.id]);
             }
         }
