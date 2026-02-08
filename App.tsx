@@ -30,35 +30,12 @@ const AppContent: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Handle payment status from URL
-  React.useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    if (params.get('payment') === 'success') {
-      showToast('Assinatura processada com sucesso! Bem-vindo.', 'success');
-      // Limpa os parâmetros da URL sem recarregar a página
-      navigate(location.pathname, { replace: true });
-    } else if (params.get('payment') === 'cancel') {
-      showToast('O pagamento foi cancelado.', 'warning');
-      navigate(location.pathname, { replace: true });
-    }
-  }, [location, showToast, navigate]);
-
+  // --- 1. STATE & HOOKS (MUST BE AT TOP) ---
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     return localStorage.getItem('myzap_auth') === 'true';
   });
 
-  // --- LÓGICA DE NOTIFICAÇÃO GLOBAL ---
-  const previousUnreadRef = React.useRef<number>(-1);
-  const audioRef = React.useRef<HTMLAudioElement | null>(null);
-
-  const playNotificationSound = React.useCallback(() => {
-    if (!audioRef.current) {
-      audioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3');
-      audioRef.current.volume = 0.5;
-    }
-    audioRef.current.play().catch(() => { });
-  }, []);
-
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [status, setStatus] = useState<string>('active');
   const [publicSettings, setPublicSettings] = useState({
     system_name: 'MyZap',
@@ -69,64 +46,7 @@ const AppContent: React.FC = () => {
     seo_description: '',
     seo_keywords: ''
   });
-
-  // --- BUSCA DE CONFIGURAÇÕES PÚBLICAS (BRANDING & SEO) ---
-  React.useEffect(() => {
-    const fetchPublicSettings = async () => {
-      try {
-        const res = await fetch('/api/settings/public');
-        if (res.ok) {
-          const data = await res.json();
-          setPublicSettings(data);
-
-          // Aplicar Título e SEO
-          if (data.seo_title) document.title = data.seo_title;
-          else if (data.system_name) document.title = data.system_name;
-
-          // Atualizar Meta Description
-          if (data.seo_description) {
-            let metaDesc = document.querySelector('meta[name="description"]');
-            if (!metaDesc) {
-              metaDesc = document.createElement('meta');
-              metaDesc.setAttribute('name', 'description');
-              document.head.appendChild(metaDesc);
-            }
-            metaDesc.setAttribute('content', data.seo_description);
-          }
-
-          // Aplicar Favicon
-          if (data.favicon_url) {
-            let link: HTMLLinkElement | null = document.querySelector("link[rel~='icon']");
-            if (!link) {
-              link = document.createElement('link');
-              link.rel = 'icon';
-              document.head.appendChild(link);
-            }
-            link.href = data.favicon_url;
-          }
-
-          // Injetar Cor Primária no CSS
-          if (data.primary_color) {
-            document.documentElement.style.setProperty('--primary-color', data.primary_color);
-            // Se o Tailwind estiver usando a variável, ele atualizará automaticamente
-          }
-        }
-      } catch (err) {
-        console.error('Erro ao buscar configurações públicas:', err);
-      }
-    };
-    fetchPublicSettings();
-  }, []);
-
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
-
-  const confirmLogout = useCallback(() => {
-    setIsLogoutModalOpen(false);
-    localStorage.clear(); // Limpa TUDO para garantir privacidade total
-    setIsAuthenticated(false);
-    navigate('/login');
-  }, [navigate]);
-
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       const savedTheme = localStorage.getItem('myzap_theme');
@@ -135,95 +55,34 @@ const AppContent: React.FC = () => {
     }
     return false;
   });
+  const [selectedFlowId, setSelectedFlowId] = useState<string | null>(null);
 
-  React.useEffect(() => {
-    const root = document.documentElement;
-    if (isDarkMode) {
-      root.classList.add('dark');
-      root.classList.remove('light');
-      localStorage.setItem('myzap_theme', 'dark');
-    } else {
-      root.classList.remove('dark');
-      root.classList.add('light');
-      localStorage.setItem('myzap_theme', 'light');
+  // Admin Impersonation Token
+  const [adminToken, setAdminToken] = useState<string | null>(localStorage.getItem('myzap_admin_token'));
+
+  // Notification Refs
+  const previousUnreadRef = React.useRef<number>(-1);
+  const audioRef = React.useRef<HTMLAudioElement | null>(null);
+
+  // --- 2. CALLBACKS & HELPERS ---
+  const playNotificationSound = React.useCallback(() => {
+    if (!audioRef.current) {
+      audioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3');
+      audioRef.current.volume = 0.5;
     }
-  }, [isDarkMode]);
+    audioRef.current.play().catch(() => { });
+  }, []);
+
+  const confirmLogout = useCallback(() => {
+    setIsLogoutModalOpen(false);
+    localStorage.clear();
+    setIsAuthenticated(false);
+    navigate('/login');
+  }, [navigate]);
 
   const toggleTheme = useCallback(() => {
     setIsDarkMode((prev) => !prev);
   }, []);
-
-  React.useEffect(() => {
-    if (!isAuthenticated || location.pathname === '/') return;
-
-    const checkUserStatus = async () => {
-      try {
-        const token = localStorage.getItem('myzap_token');
-        const res = await fetch('/api/auth/me', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setStatus(data.status);
-          localStorage.setItem('myzap_user', JSON.stringify(data));
-
-          // Se estiver inativo/suspenso/expirado e não estiver na página de plano, redireciona
-          const isUserAdmin = data.role === 'admin';
-          const onPlanPage = location.pathname === '/my-plan';
-          const isBlocked = ['inactive', 'suspended', 'expired'].includes(data.status);
-
-          if (isBlocked && !isUserAdmin && !onPlanPage) {
-            navigate('/my-plan');
-            const blockerMsg = data.status === 'suspended'
-              ? 'Sua conta foi suspensa pela administração.'
-              : 'Sua assinatura expirou. Acesse "Meu Plano" para renovar.';
-            showToast(blockerMsg, 'warning');
-          }
-        } else if (res.status === 401 || res.status === 403) {
-          // Token expirado ou inválido
-          confirmLogout();
-        }
-      } catch (err) {
-        console.error('Erro ao validar status do usuário:', err);
-      }
-    };
-
-    checkUserStatus();
-    const statusInterval = setInterval(checkUserStatus, 60000); // Checa a cada minuto
-    return () => clearInterval(statusInterval);
-  }, [isAuthenticated, location.pathname, navigate, showToast, confirmLogout]);
-
-  React.useEffect(() => {
-    const isBlocked = ['inactive', 'suspended', 'expired'].includes(status || '');
-    if (!isAuthenticated || isBlocked || location.pathname === '/') return;
-
-    const checkUnread = async () => {
-      try {
-        const token = localStorage.getItem('myzap_token');
-        const res = await fetch('/api/contacts', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          const totalUnread = data.reduce((sum: number, c: any) => sum + (c.unread_count || 0), 0);
-
-          if (previousUnreadRef.current !== -1 && totalUnread > previousUnreadRef.current) {
-            playNotificationSound();
-          }
-          previousUnreadRef.current = totalUnread;
-        }
-      } catch (err) {
-        console.error('Erro ao verificar notificações:', err);
-      }
-    };
-
-    const interval = setInterval(checkUnread, 10000);
-    checkUnread(); // Primeira execução
-    return () => clearInterval(interval);
-  }, [isAuthenticated, playNotificationSound, status]);
-
-
-  const [selectedFlowId, setSelectedFlowId] = useState<string | null>(null);
 
   const handleLogin = (data: any) => {
     console.log('Login Success:', data);
@@ -233,8 +92,18 @@ const AppContent: React.FC = () => {
 
   const handleSignup = (data: any) => {
     console.log('Signup Action (Success via AuthView):', data);
-    // O signup chama o alert e redireciona para login no AuthView,
-    // então aqui apenas mantemos por compatibilidade de prop.
+  };
+
+  const handleReturnToAdmin = () => {
+    const token = localStorage.getItem('myzap_admin_token');
+    if (token) {
+      localStorage.setItem('myzap_token', token);
+      localStorage.removeItem('myzap_admin_token');
+      localStorage.removeItem('myzap_user'); // Clear impersonated user data
+      // Update state to trigger re-render if needed, though we reload
+      setAdminToken(null);
+      window.location.href = '/admin';
+    }
   };
 
   const getCurrentView = () => {
@@ -254,6 +123,137 @@ const AppContent: React.FC = () => {
     if (path === 'SERVER-HEALTH') return AppView.SERVER_HEALTH;
     return AppView.ANALYTICS;
   };
+
+  // --- 3. EFFECTS ---
+
+  // Payment Status
+  React.useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('payment') === 'success') {
+      showToast('Assinatura processada com sucesso! Bem-vindo.', 'success');
+      navigate(location.pathname, { replace: true });
+    } else if (params.get('payment') === 'cancel') {
+      showToast('O pagamento foi cancelado.', 'warning');
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location, showToast, navigate]);
+
+  // Public Settings (Branding/SEO)
+  React.useEffect(() => {
+    const fetchPublicSettings = async () => {
+      try {
+        const res = await fetch('/api/settings/public');
+        if (res.ok) {
+          const data = await res.json();
+          setPublicSettings(data);
+          if (data.seo_title) document.title = data.seo_title;
+          else if (data.system_name) document.title = data.system_name;
+          if (data.seo_description) {
+            let metaDesc = document.querySelector('meta[name="description"]');
+            if (!metaDesc) {
+              metaDesc = document.createElement('meta');
+              metaDesc.setAttribute('name', 'description');
+              document.head.appendChild(metaDesc);
+            }
+            metaDesc.setAttribute('content', data.seo_description);
+          }
+          if (data.favicon_url) {
+            let link: HTMLLinkElement | null = document.querySelector("link[rel~='icon']");
+            if (!link) {
+              link = document.createElement('link');
+              link.rel = 'icon';
+              document.head.appendChild(link);
+            }
+            link.href = data.favicon_url;
+          }
+          if (data.primary_color) {
+            document.documentElement.style.setProperty('--primary-color', data.primary_color);
+          }
+        }
+      } catch (err) {
+        console.error('Erro ao buscar configurações públicas:', err);
+      }
+    };
+    fetchPublicSettings();
+  }, []);
+
+  // Dark Mode
+  React.useEffect(() => {
+    const root = document.documentElement;
+    if (isDarkMode) {
+      root.classList.add('dark');
+      root.classList.remove('light');
+      localStorage.setItem('myzap_theme', 'dark');
+    } else {
+      root.classList.remove('dark');
+      root.classList.add('light');
+      localStorage.setItem('myzap_theme', 'light');
+    }
+  }, [isDarkMode]);
+
+  // User Status Check
+  React.useEffect(() => {
+    if (!isAuthenticated || location.pathname === '/') return;
+    const checkUserStatus = async () => {
+      try {
+        const token = localStorage.getItem('myzap_token');
+        const res = await fetch('/api/auth/me', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setStatus(data.status);
+          localStorage.setItem('myzap_user', JSON.stringify(data));
+          const isUserAdmin = data.role === 'admin';
+          const onPlanPage = location.pathname === '/my-plan';
+          const isBlocked = ['inactive', 'suspended', 'expired'].includes(data.status);
+          if (isBlocked && !isUserAdmin && !onPlanPage) {
+            navigate('/my-plan');
+            const blockerMsg = data.status === 'suspended'
+              ? 'Sua conta foi suspensa pela administração.'
+              : 'Sua assinatura expirou. Acesse "Meu Plano" para renovar.';
+            showToast(blockerMsg, 'warning');
+          }
+        } else if (res.status === 401 || res.status === 403) {
+          confirmLogout();
+        }
+      } catch (err) {
+        console.error('Erro ao validar status do usuário:', err);
+      }
+    };
+    checkUserStatus();
+    const statusInterval = setInterval(checkUserStatus, 60000);
+    return () => clearInterval(statusInterval);
+  }, [isAuthenticated, location.pathname, navigate, showToast, confirmLogout]);
+
+  // Notifications
+  React.useEffect(() => {
+    const isBlocked = ['inactive', 'suspended', 'expired'].includes(status || '');
+    if (!isAuthenticated || isBlocked || location.pathname === '/') return;
+    const checkUnread = async () => {
+      try {
+        const token = localStorage.getItem('myzap_token');
+        const res = await fetch('/api/contacts', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const totalUnread = data.reduce((sum: number, c: any) => sum + (c.unread_count || 0), 0);
+          if (previousUnreadRef.current !== -1 && totalUnread > previousUnreadRef.current) {
+            playNotificationSound();
+          }
+          previousUnreadRef.current = totalUnread;
+        }
+      } catch (err) {
+        console.error('Erro ao verificar notificações:', err);
+      }
+    };
+    const interval = setInterval(checkUnread, 10000);
+    checkUnread();
+    return () => clearInterval(interval);
+  }, [isAuthenticated, playNotificationSound, status]);
+
+  // --- 4. RENDER ---
 
   if (location.pathname === '/') {
     return <LandingView isAuthenticated={isAuthenticated} />;
@@ -307,9 +307,6 @@ const AppContent: React.FC = () => {
       </Routes>
     );
   }
-
-  // --- MOBILE SIDEBAR STATE ---
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
     <div className="flex h-screen overflow-hidden bg-background-light dark:bg-background-dark p-2 md:p-4 lg:p-6 gap-4 lg:gap-6">
@@ -408,6 +405,18 @@ const AppContent: React.FC = () => {
         type="danger"
       />
 
+      {/* Admin Return Button Floating */}
+      {adminToken && (
+        <div className="fixed bottom-4 right-4 z-[9999] animate-bounce-slow">
+          <button
+            onClick={handleReturnToAdmin}
+            className="bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-6 py-3 rounded-full shadow-2xl font-bold flex items-center gap-2 hover:scale-105 transition-transform"
+          >
+            <span className="material-icons-round">admin_panel_settings</span>
+            Voltar para Admin
+          </button>
+        </div>
+      )}
 
     </div>
   );

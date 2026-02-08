@@ -237,6 +237,9 @@ const AdminView: React.FC = () => {
 
             if (response.ok) {
                 const data = await response.json();
+                // Store original admin token for return
+                localStorage.setItem('myzap_admin_token', localStorage.getItem('myzap_token') || '');
+
                 localStorage.setItem('myzap_token', data.token);
                 localStorage.setItem('myzap_user', JSON.stringify(data.user));
                 // Force reload/redirect to dashboard
